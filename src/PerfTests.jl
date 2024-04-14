@@ -1,6 +1,7 @@
 module PerfTests
 
 # Possibly redundant
+using MacroTools: blockunify
 include("structs.jl")
 include("auxiliar.jl")
 include("prints.jl")
@@ -34,29 +35,39 @@ function ruleSet(context :: Context)
 end
 
 
-function _tree_run(input_expr :: Expr, context :: Context, args...)
+function _treeRun(input_expr :: Expr, context :: Context, args...)
 
     return MacroTools.prewalk(ruleSet(context), input_expr)
 end
 
 
-function tree_run(path :: AbstractString)
 
+function treeRun(path :: AbstractString)
+
+    # Load original
     input_expr = load_file_as_expr(path)
 
     global ctx = Context([], 1, path, [])
 
-    middle = _tree_run(input_expr, ctx)
+    # Run through AST and build new expressions
+    middle = _treeRun(input_expr, ctx)
 
+    # Assemble
     full = quote
-        $middle
-        $(perftextsuffix(ctx))
+            a
+            b
     end
 
-    # For the using keyword to work
-    full.head = :toplevel
+    full = flattenedInterpolation(full, middle, :a)
+    full = flattenedInterpolation(full, perftextsuffix(ctx), :b)
 
-    return MacroTools.prettify(full)
+    # Mount inside a module environment
+
+    module_full = Expr(:toplevel,
+                       Expr(:module, true, :__PERFTEST__,
+                            Expr(:block, full.args...)))
+
+    return  module_full # MacroTools.prettify(module_full)
 end
 
 

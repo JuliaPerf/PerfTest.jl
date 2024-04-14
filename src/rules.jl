@@ -83,7 +83,6 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
 
 
     # Update context: add depth level
-    @show name
     push!(context.depth,
           ASTWalkDepthRecord(name));
 
@@ -147,15 +146,62 @@ testset_macro_rule = ASTRule(
     (x, ctx) -> testsetToBenchGroup!(x, ctx)
 )
 
+# TESTS
+
 test_macro_rule = ASTRule(
     x -> @capture(x, @test __),
     (x, ex_state) -> :(nothing)
 )
 
+test_throws_macro_rule = ASTRule(
+    x -> @capture(x, @test_throws __),
+    (x, ex_state) -> :(nothing)
+)
+
+test_logs_macro_rule = ASTRule(
+    x -> @capture(x, @test_logs __),
+    (x, ex_state) -> :(nothing)
+)
+
+inferred_macro_rule = ASTRule(
+    x -> @capture(x, @inferred __),
+    (x, ex_state) -> :(nothing)
+)
+
+test_deprecated_macro_rule = ASTRule(
+    x -> @capture(x, @test_deprecated __),
+    (x, ex_state) -> :(nothing)
+)
+
+test_warn_macro_rule = ASTRule(
+    x -> @capture(x, @test_warn __),
+    (x, ex_state) -> :(nothing)
+)
+
+test_nowarn_macro_rule = ASTRule(
+    x -> @capture(x, @test_nowarn __),
+    (x, ex_state) -> :(nothing)
+)
+
+test_broken_macro_rule = ASTRule(
+    x -> @capture(x, @test_broken __),
+    (x, ex_state) -> :(nothing)
+)
+
+test_skip_macro_rule = ASTRule(
+    x -> @capture(x, @test_skip __),
+    (x, ex_state) -> :(nothing)
+)
+
+
+# PERFTEST TARGET OBSERVERS
+
 perftest_macro_rule = ASTRule(
     x -> @capture(x, @perftest __),
     (x, ctx) -> perftestToBenchmark!(x, ctx)
 )
+
+# TOKEN OBSERVERS
 
 back_macro_rule_d = ASTRule(
     x -> x == :__BACK_CONTEXT__,

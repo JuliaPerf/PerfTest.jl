@@ -90,9 +90,7 @@ end
 
 function meta_get_string(expr_array::AbstractVector)
 
-    @show "AA"
     for expr in expr_array
-        @show dump(expr)
         print(typeof(expr))
         if typeof(expr) == String
             return expr

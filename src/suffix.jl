@@ -12,7 +12,6 @@ function perftextsuffix(context :: Context)
             judgement = judge(median(suite),median(reference[1]))
 
             depth = PerfTests.DepthRecord[]
-            @show typeof(depth)
 
             # Tolerance
             tolerance = PerfTests.FloatRange(0.7, 1.1, 1.0)
@@ -25,7 +24,7 @@ function perftextsuffix(context :: Context)
                 @warn "One or more performance tests have failed"
             end
 
-            print("[!] $($(context.original_file_path)) Performance tests have been finished")
+            println("[!] $($(context.original_file_path)) Performance tests have been finished")
         end
     end
 end
