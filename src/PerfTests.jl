@@ -1,7 +1,7 @@
 module PerfTests
 
 # Possibly redundant
-using MacroTools: blockunify
+using MacroTools
 include("structs.jl")
 include("auxiliar.jl")
 include("prints.jl")
@@ -14,14 +14,31 @@ include("rules.jl")
 # Active rules
 rules = ASTRule[testset_macro_rule,
                 test_macro_rule,
+                #test_throws_macro_rule,
+                #test_logs_macro_rule,
+                inferred_macro_rule,
+                #test_deprecated_macro_rule,
+                #test_warn_macro_rule,
+                #test_nowarn_macro_rule,
+                #test_broken_macro_rule,
+                #test_skip_macro_rule,
+
                 perftest_macro_rule,
+                perftest_scope_assignment_macro_rule,
+                perftest_dot_interpolation_rule,
+                perftest_scope_arg_macro_rule,
+                perftest_scope_vecf_arg_macro_rule,
+                perftest_begin_macro_rule,
+                perftest_end_macro_rule,
+
                 back_macro_rule,
-                prefix_macro_rule]
+                prefix_macro_rule
+                ]
 
 
 # Main transform routine
 
-function ruleSet(context :: Context)
+function ruleSet(context::Context)
     function _ruleSet(x)
         for rule in rules
             if rule.condition(x)
@@ -47,7 +64,8 @@ function treeRun(path :: AbstractString)
     # Load original
     input_expr = load_file_as_expr(path)
 
-    global ctx = Context([], 1, path, [])
+    global ctx = Context()
+    ctx.original_file_path = path
 
     # Run through AST and build new expressions
     middle = _treeRun(input_expr, ctx)
@@ -67,7 +85,7 @@ function treeRun(path :: AbstractString)
                        Expr(:module, true, :__PERFTEST__,
                             Expr(:block, full.args...)))
 
-    return  module_full # MacroTools.prettify(module_full)
+    return MacroTools.prettify(module_full)
 end
 
 

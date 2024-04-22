@@ -10,8 +10,9 @@ end
 mutable struct ASTWalkDepthRecord
     depth_name::Union{String,Expr}
     depth_test_count::Int
+    on_for::Union{Nothing, Pair{Any, Any}}
 
-    ASTWalkDepthRecord(name) = new(name, 0)
+    ASTWalkDepthRecord(name) = new(name, 0, nothing)
 end
 
 struct FloatRange
@@ -29,8 +30,11 @@ mutable struct Context
     depth::AbstractArray
     test_number::Integer
     original_file_path::AbstractString
+    inside_target::Bool
 
     test_tree_expr_builder::AbstractArray
+
+    Context() = new([],0,"",false,[])
 end
 
 

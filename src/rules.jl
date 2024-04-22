@@ -1,6 +1,7 @@
 using BenchmarkTools
 using MacroTools
 using Test
+using Base: input_color
 using BenchmarkTools: TrialJudgement
 
 include("structs.jl")
@@ -47,6 +48,47 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
     end
 end
 
+
+function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{String,Expr}, context :: Context)
+
+    # Get depth level
+    depth = length(tree_builder)
+
+    # Concatenate expressions of the current level into a new node on the upper level
+    concat = :(Nothing)
+
+    for expr in tree_builder[depth]
+        concat = :($concat; $expr)
+    end
+
+    i,n = last(context.depth).on_for
+
+    if depth > 1
+        push!(tree_builder[depth-1],
+              quote
+                @testset $name (showtiming = false) for $i in $n
+                    push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
+                    $concat
+                    pop!(depth)
+                end
+              end
+              )
+        # Delete last level
+        pop!(tree_builder)
+    else
+        pop!(tree_builder)
+        push!(tree_builder, Expr[
+            quote
+                tt[$name] = (@testset $name (showtiming = false) for $i in $n
+                    push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
+                    $concat
+                    pop!(depth)
+                end)
+            end
+        ])
+    end
+end
+
 function updateTestTreeDownwards!(tree_builder :: AbstractArray)
     # Add new level
     push!(tree_builder, Expr[])
@@ -71,7 +113,6 @@ function updateTestTreeSideways!(tree_builder::AbstractArray, name::String)
 
             pop!(depth)
           end)
-
 end
 
 function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
@@ -81,41 +122,79 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
     # Get the name from the list of elements of the testset macrocall
     name = meta_get_string(properties);
 
+    # Check if there is a for loop over the testset
+    theres_for = @capture(test_block, for a_ in b_
+        inner_block_
+    end)
 
     # Update context: add depth level
-    push!(context.depth,
-          ASTWalkDepthRecord(name));
+    rec = ASTWalkDepthRecord(name)
+    rec.on_for = theres_for ? Pair(a,b) : nothing
+    push!(context.depth, rec)
 
     # Update context: add new level to the tree
     updateTestTreeDownwards!(context.test_tree_expr_builder)
 
-    # Return the substitution
-    return length(context.depth) > 1 ?
-    :(
-        l[$name] = BenchmarkGroup();
-        let l = l[$name]
-            $test_block
-        end;
+    if theres_for
+        @capture(test_block, for a_ in b_
+            inner_block_
+        end)
 
-        :__BACK_CONTEXT__
-    ) :
-    :(
-        :__PERFTEST_FW__;
+        return length(context.depth) > 1 ?
+            :(
+            for $a in $b
+                l[$name * "_" * string($a)] = BenchmarkGroup();
+                let l = l[$name * "_" * string($a)]
+                    $inner_block
+                end;
+                :__BACK_CONTEXT__;
+            end;
+        ) :
+            :(
+            :__PERFTEST_FW__;
+            for $a in $b
+                l[$name * "_" * string($a)] = BenchmarkGroup();
+                let l = l[$name * "_" * string($a)]
+                    $inner_block
+                end;
+                :__BACK_CONTEXT__;
+            end;
+        )
+    else
+        # Return the substitution
+        return length(context.depth) > 1 ?
+               :(
+            l[$name] = BenchmarkGroup();
+            let l = l[$name]
+                $test_block
+            end;
 
-        l = BenchmarkGroup();
-        let l = l[$name]
-            $test_block
-        end;
+            :__BACK_CONTEXT__
+        ) :
+               :(
+            :__PERFTEST_FW__;
 
-        :__BACK_CONTEXT__
-    )
+            l = BenchmarkGroup();
+            let l = l[$name]
+                $test_block
+            end;
+
+            :__BACK_CONTEXT__
+        )
+    end
 end
 
 function backTokenToContextUpdate!(input_expr ::QuoteNode, context::Context)
-    # Update context: consolidate tree level
-    updateTestTreeUpwards!(context.test_tree_expr_builder,
-                           last(context.depth).depth_name)
 
+    # Check if inside a for loop
+    if last(context.depth).on_for != nothing
+        # Update context: consolidate tree level
+        updateTestTreeUpwardsFor!(context.test_tree_expr_builder,
+                           last(context.depth).depth_name, context)
+    else
+        updateTestTreeUpwards!(context.test_tree_expr_builder,
+                           last(context.depth).depth_name)
+    end
     # Update context: delete depth level
     pop!(context.depth)
 
@@ -132,10 +211,94 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Update context: create expression on tree builder
     updateTestTreeSideways!(context.test_tree_expr_builder, name)
 
-    # Return the substitution
-    return :(
-        l[$name] = @benchmark ($expr)
-    )
+    # Return the substitution and setup the in target flag deactivator
+    return quote
+        l[$name] = @benchmark ($expr);
+        :__CONTEXT_TARGET_END__
+    end
+end
+
+
+function scopeAssignment(input_expr::Expr, context::Context)::Expr
+    # If inside a benchmark target, assignments are removed since they become useless
+
+    if context.inside_target
+
+        @show input_expr
+        @capture(input_expr, a_ = b_)
+
+        return quote
+            $b
+        end
+    else
+        return input_expr
+    end
+end
+
+function scopeArg(input_expr::Expr, context::Context)::Expr
+
+    if context.inside_target
+        @capture(input_expr, f_(args__))
+
+        processed_args = [isa(arg, Symbol) ?
+            :($(Expr(:$,arg))) :
+            arg for arg in args]
+
+        return Expr(:call, f, processed_args...)
+    else
+        return input_expr
+    end
+end
+
+function argProcess(args :: Vector)::Vector
+    newargs = []
+    for arg in args
+        @show arg
+        if isa(arg, Symbol)
+            push!(newargs, :($(Expr(:$,arg))))
+        elseif arg.head == :tuple
+            push!(newargs, Expr(:tuple, argProcess(arg.args)...))
+        else
+            push!(newargs, arg)
+        end
+    end
+    return newargs
+end
+
+function scopeVecFArg(input_expr::Expr, context::Context)::Expr
+
+    if context.inside_target
+        @capture(input_expr, f_.(args__))
+
+        @show f
+        @show args
+
+        # Process symbols
+        processed_args = argProcess(args)
+
+        @show processed_args
+
+        return Expr(:., f, Expr(:tuple, processed_args...))
+    else
+        return input_expr
+    end
+end
+
+function scopeDotInterpolation(input_expr::Expr, context::Context)::Expr
+    # If inside a benchmark target, the left side of the dot is interpolated to prevent failure reaching values stored in local scopes
+
+    if context.inside_target
+        @capture(input_expr, a_.b_)
+        if (isa(a, Symbol))
+            return :(
+                $(Expr(:$,a)).$b
+            )
+        else
+            return input_expr
+        end
+    else
+        return input_expr
+    end
 end
 
 ## CONDITION RULES:
@@ -193,7 +356,6 @@ test_skip_macro_rule = ASTRule(
     (x, ex_state) -> :(nothing)
 )
 
-
 # PERFTEST TARGET OBSERVERS
 
 perftest_macro_rule = ASTRule(
@@ -201,12 +363,37 @@ perftest_macro_rule = ASTRule(
     (x, ctx) -> perftestToBenchmark!(x, ctx)
 )
 
-# TOKEN OBSERVERS
-
-back_macro_rule_d = ASTRule(
-    x -> x == :__BACK_CONTEXT__,
-    (x, ctx) -> backTokenToContextUpdate!(x, ctx)
+perftest_begin_macro_rule = ASTRule(
+    x -> @capture(x, @benchmark __),
+    (x, ctx) -> (ctx.inside_target = true; x)
 )
+
+perftest_scope_assignment_macro_rule = ASTRule(
+    x -> @capture(x, _ = _),
+    (x, ctx) -> scopeAssignment(x, ctx)
+)
+
+perftest_scope_arg_macro_rule = ASTRule(
+    x -> @capture(x, _(__)),
+    (x, ctx) -> scopeArg(x, ctx)
+)
+
+perftest_scope_vecf_arg_macro_rule = ASTRule(
+    x -> @capture(x, _.(__)),
+    (x, ctx) -> scopeVecFArg(x, ctx)
+)
+
+perftest_dot_interpolation_rule = ASTRule(
+    x -> @capture(x, _._),
+    (x, ctx) -> scopeDotInterpolation(x, ctx)
+)
+
+perftest_end_macro_rule = ASTRule(
+    x -> x == :(:__CONTEXT_TARGET_END__),
+    (x, ctx) -> (ctx.inside_target = false; nothing)
+)
+
+# TOKEN OBSERVERS
 
 back_macro_rule = ASTRule(
     x -> (x == :(:__BACK_CONTEXT__)),

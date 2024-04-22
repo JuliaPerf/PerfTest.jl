@@ -16,6 +16,20 @@ function load_file_as_expr(path ::AbstractString)
     return Meta.parse("begin $str end")
 end
 
+### EXPRESSION PRINTER
+function save_expr_as_file(expr::Expr, path = "out.jl" :: AbstractString)
+
+    #Get the module
+    if expr.head == :toplevel
+        open(path, "w") do file
+            write(file, string(expr.args[1]))
+        end
+    else
+        @error "Malformed perftest expression on save_expr_as_file."
+    end
+
+end
+
 ## Pops expr block or quote and returns array of nested expressions
 function removeBlock(expr::Expr)::Vector
     result = []
