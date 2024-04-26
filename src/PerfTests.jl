@@ -7,21 +7,31 @@ include("auxiliar.jl")
 include("prints.jl")
 include("macros.jl")
 
+include("config.jl")
+
+include("perftest/structs.jl")
+include("perftest/data_handling.jl")
+
+include("metrics.jl")
+
+include("methodologies/regression.jl")
+
 include("prefix.jl")
 include("suffix.jl")
 include("rules.jl")
 
+
 # Active rules
 rules = ASTRule[testset_macro_rule,
                 test_macro_rule,
-                #test_throws_macro_rule,
-                #test_logs_macro_rule,
+                test_throws_macro_rule,
+                test_logs_macro_rule,
                 inferred_macro_rule,
-                #test_deprecated_macro_rule,
-                #test_warn_macro_rule,
-                #test_nowarn_macro_rule,
-                #test_broken_macro_rule,
-                #test_skip_macro_rule,
+                test_deprecated_macro_rule,
+                test_warn_macro_rule,
+                test_nowarn_macro_rule,
+                test_broken_macro_rule,
+                test_skip_macro_rule,
 
                 perftest_macro_rule,
                 perftest_scope_assignment_macro_rule,
@@ -32,7 +42,9 @@ rules = ASTRule[testset_macro_rule,
                 perftest_end_macro_rule,
 
                 back_macro_rule,
-                prefix_macro_rule
+                prefix_macro_rule,
+
+                config_macro_rule,
                 ]
 
 

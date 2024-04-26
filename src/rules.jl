@@ -6,6 +6,7 @@ using BenchmarkTools: TrialJudgement
 
 include("structs.jl")
 include("prefix.jl")
+include("config.jl")
 
 
 # Builds a tree from the ground up
@@ -15,7 +16,7 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
     depth = length(tree_builder)
 
     # Concatenate expressions of the current level into a new node on the upper level
-    concat = :(Nothing)
+    concat = :(nothing)
 
     for expr in tree_builder[depth]
         concat = :($concat; $expr)
@@ -103,14 +104,8 @@ function updateTestTreeSideways!(tree_builder::AbstractArray, name::String)
     push!(tree_builder[depth],
           quote
             push!(depth, PerfTests.DepthRecord($name))
-            @test PerfTests.inRange(tolerance, PerfTests.by_index(judgement, depth).ratio.time)
-
-            if PerfTests.inRange(tolerance, PerfTests.by_index(judgement, depth).ratio.time)
-                    else
-                        PerfTests.printdepth!(depth)
-                        PerfTests.printfail(PerfTests.by_index(judgement, depth), PerfTests.by_index(suite, depth), PerfTests.by_index(reference[1], depth), tolerance, length(depth))
-                    end
-
+            PerfTests.printDepth!(depth)
+            $(regressionEvaluation())
             pop!(depth)
           end)
 end
@@ -222,7 +217,7 @@ end
 function scopeAssignment(input_expr::Expr, context::Context)::Expr
     # If inside a benchmark target, assignments are removed since they become useless
 
-    if context.inside_target
+    if context.env_flags.inside_target
 
         @show input_expr
         @capture(input_expr, a_ = b_)
@@ -237,7 +232,7 @@ end
 
 function scopeArg(input_expr::Expr, context::Context)::Expr
 
-    if context.inside_target
+    if context.env_flags.inside_target
         @capture(input_expr, f_(args__))
 
         processed_args = [isa(arg, Symbol) ?
@@ -267,7 +262,7 @@ end
 
 function scopeVecFArg(input_expr::Expr, context::Context)::Expr
 
-    if context.inside_target
+    if context.env_flags.inside_target
         @capture(input_expr, f_.(args__))
 
         @show f
@@ -287,7 +282,7 @@ end
 function scopeDotInterpolation(input_expr::Expr, context::Context)::Expr
     # If inside a benchmark target, the left side of the dot is interpolated to prevent failure reaching values stored in local scopes
 
-    if context.inside_target
+    if context.env_flags.inside_target
         @capture(input_expr, a_.b_)
         if (isa(a, Symbol))
             return :(
@@ -317,12 +312,12 @@ test_macro_rule = ASTRule(
 )
 
 test_throws_macro_rule = ASTRule(
-    x -> @capture(x, @test_throws __),
+    x -> esc_capture(x, Symbol("@test_throws")),
     (x, ex_state) -> :(nothing)
 )
 
 test_logs_macro_rule = ASTRule(
-    x -> @capture(x, @test_logs __),
+    x -> esc_capture(x, Symbol("@test_throws")),
     (x, ex_state) -> :(nothing)
 )
 
@@ -332,27 +327,27 @@ inferred_macro_rule = ASTRule(
 )
 
 test_deprecated_macro_rule = ASTRule(
-    x -> @capture(x, @test_deprecated __),
+    x -> esc_capture(x, Symbol("@test_throws")),
     (x, ex_state) -> :(nothing)
 )
 
 test_warn_macro_rule = ASTRule(
-    x -> @capture(x, @test_warn __),
+    x -> esc_capture(x, Symbol("@test_throws")),
     (x, ex_state) -> :(nothing)
 )
 
 test_nowarn_macro_rule = ASTRule(
-    x -> @capture(x, @test_nowarn __),
+    x -> esc_capture(x, Symbol("@test_throws")),
     (x, ex_state) -> :(nothing)
 )
 
 test_broken_macro_rule = ASTRule(
-    x -> @capture(x, @test_broken __),
+    x -> esc_capture(x, Symbol("@test_throws")),
     (x, ex_state) -> :(nothing)
 )
 
 test_skip_macro_rule = ASTRule(
-    x -> @capture(x, @test_skip __),
+    x -> esc_capture(x, Symbol("@test_throws")),
     (x, ex_state) -> :(nothing)
 )
 
@@ -365,7 +360,7 @@ perftest_macro_rule = ASTRule(
 
 perftest_begin_macro_rule = ASTRule(
     x -> @capture(x, @benchmark __),
-    (x, ctx) -> (ctx.inside_target = true; x)
+    (x, ctx) -> (ctx.env_flags.inside_target = true; x)
 )
 
 perftest_scope_assignment_macro_rule = ASTRule(
@@ -390,7 +385,7 @@ perftest_dot_interpolation_rule = ASTRule(
 
 perftest_end_macro_rule = ASTRule(
     x -> x == :(:__CONTEXT_TARGET_END__),
-    (x, ctx) -> (ctx.inside_target = false; nothing)
+    (x, ctx) -> (ctx.env_flags.inside_target = false; nothing)
 )
 
 # TOKEN OBSERVERS
@@ -403,4 +398,11 @@ back_macro_rule = ASTRule(
 prefix_macro_rule = ASTRule(
     x -> (x == :(:__PERFTEST_FW__)),
     (x, ctx) -> perftestprefix(ctx)
+)
+
+# CONFIG
+
+config_macro_rule = ASTRule(
+    x -> esc_capture_getblock(x, Symbol("@perftest_config")) != nothing,
+    (x, ctx) -> (perftestConfigEnter(x, ctx))
 )

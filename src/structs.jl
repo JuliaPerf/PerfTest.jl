@@ -26,17 +26,24 @@ end
 """
   Saves data needed during one specific execution of the test generation process.
 """
+mutable struct EnvironmentFlags
+    inside_target::Bool
+    inside_config::Bool
+
+    EnvironmentFlags() = new(false, false)
+end
+
 mutable struct Context
     depth::AbstractArray
     test_number::Integer
     original_file_path::AbstractString
-    inside_target::Bool
+
+    env_flags::EnvironmentFlags
 
     test_tree_expr_builder::AbstractArray
 
-    Context() = new([],0,"",false,[])
+    Context() = new([],0,"", EnvironmentFlags(),[])
 end
-
 
 
 """
@@ -49,60 +56,3 @@ struct ASTRule
 end
 
 
-
-
-### AUXILIARY PROCEDURES
-## FloatRange
-
-function symmetricFloatRange(center, offset)
-    return FloatRange(center - offset, center + offset, center)
-end
-
-function inRange(range::FloatRange, x::Float64)
-    return x >= range.left && x <= range.right ? true : false
-end
-
-## DepthRecord
-# Auxiliar by index Dict access function
-function by_index(dict::Union{Dict,BenchmarkGroup}, idx::Vector{DepthRecord})
-    e = dict
-    for idx_elem in idx
-        e = Expr(:ref, e, idx_elem.depth_name)
-    end
-
-    return eval(e)
-end
-
-## Auxiliar methods
-"""
-  Runs over an array of expressions trying to match the desired one.
-  If not found returns "Nothing".
-
-  "sym" should follow the MacroTools nomenclature for the @capture macro
-"""
-function meta_get(expr_array :: AbstractVector, sym :: Symbol)
-
-    for expr in expr_array
-        if eval(:(@capture($(:($expr)), $sym)))
-            return expr
-        end
-    end
-
-    return Nothing
-end
-
-
-function meta_get_string(expr_array::AbstractVector)
-
-    for expr in expr_array
-        print(typeof(expr))
-        if typeof(expr) == String
-            return expr
-        end
-        if (typeof(expr) == Expr && expr.head == :string)
-            return expr
-        end
-    end
-
-    return "EMPTY"
-end

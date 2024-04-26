@@ -1,3 +1,6 @@
+include("structs.jl")
+include("perftest/structs.jl")
+include("config.jl")
 
 # Function that generates a test name if needed
 function gen_test_name!(state::Context)
@@ -111,19 +114,87 @@ function flattenedInterpolation(outside_expr::Expr,
     end
 end
 
-# WARNING Unused Recursive
-function trimNothings(expr::Any)::Expr
-    # If block then run over args and delete nothings
-    if typeof(expr) == Expr && (expr.head == :block || expr.head == :quote)
-        newargs = []
-        for arg in expr.args
-            if typeof(arg) != Nothing
-                push!(newargs, trimNothings(arg))
+
+# WHEN MACROTOOLS CAPTURE GIVES PROBLEMS
+# Returns whatever comes after the macrocall
+function capture_macro(expr,
+                       macro_symbol,
+                       return_ast::Base.RefValue{Vector{Any}}) :: Bool
+
+    return_ast[] = []
+    if isa(expr, Expr) && expr.head == :macrocall
+        if expr.args[1] == macro_symbol
+            for arg in [expr.args[i] for i in 2:length(expr.args)]
+                push!(return_ast[], arg)
             end
+            return true
+        else
+            return false
         end
-        return Expr(expr.head, newargs...)
     else
-        # Recursion tail
-        return expr
+        return false
     end
 end
+
+# Gets the first block expression from an array of expressions
+function get_block(expr_vec::Vector)::Union{Nothing, Expr}
+
+    for expr in expr_vec
+        if isa(expr, Expr) && expr.head == :block
+            return expr
+        end
+    end
+    return nothing
+end
+
+function esc_capture_getblock(input, macro_symbol)
+    return_ast = Ref([])
+    capture_macro(input, macro_symbol, return_ast)
+    val = get_block(return_ast[])
+    return val
+end
+
+function esc_capture(input, macro_symbol)
+    return_ast = Ref([])
+    bool = capture_macro(input, macro_symbol, return_ast)
+    return bool
+end
+
+
+"""
+  Runs over an array of expressions trying to match the desired one.
+  If not found returns "Nothing".
+
+  "sym" should follow the MacroTools nomenclature for the @capture macro
+"""
+function meta_get(expr_array :: AbstractVector, sym :: Symbol)
+
+    for expr in expr_array
+        if eval(:(@capture($(:($expr)), $sym)))
+            return expr
+        end
+    end
+
+    return Nothing
+end
+
+
+function meta_get_string(expr_array::AbstractVector)
+
+    for expr in expr_array
+        print(typeof(expr))
+        if typeof(expr) == String
+            return expr
+        end
+        if (typeof(expr) == Expr && expr.head == :string)
+            return expr
+        end
+    end
+
+    return "EMPTY"
+end
+
+macro inRange(min, max, value)
+    return :($min < $value < $max)
+end
+
