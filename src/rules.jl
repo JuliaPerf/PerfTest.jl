@@ -16,7 +16,7 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
     depth = length(tree_builder)
 
     # Concatenate expressions of the current level into a new node on the upper level
-    concat = :(nothing)
+    concat = :(begin end)
 
     for expr in tree_builder[depth]
         concat = :($concat; $expr)
@@ -56,7 +56,7 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
     depth = length(tree_builder)
 
     # Concatenate expressions of the current level into a new node on the upper level
-    concat = :(Nothing)
+    concat = :(begin end)
 
     for expr in tree_builder[depth]
         concat = :($concat; $expr)
@@ -115,7 +115,7 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
     @capture(input_expr, @testset properties__ test_block_) ? Nothing : error("Incompatible testset syntax \n");
 
     # Get the name from the list of elements of the testset macrocall
-    name = meta_get_string(properties);
+    name = metaGetString(properties);
 
     # Check if there is a for loop over the testset
     theres_for = @capture(test_block, for a_ in b_
@@ -308,47 +308,47 @@ testset_macro_rule = ASTRule(
 
 test_macro_rule = ASTRule(
     x -> @capture(x, @test __),
-    (x, ex_state) -> :(nothing)
+    (x, ex_state) -> :(begin end)
 )
 
 test_throws_macro_rule = ASTRule(
-    x -> esc_capture(x, Symbol("@test_throws")),
-    (x, ex_state) -> :(nothing)
+    x -> escCapture(x, Symbol("@test_throws")),
+    (x, ex_state) -> :(begin end)
 )
 
 test_logs_macro_rule = ASTRule(
-    x -> esc_capture(x, Symbol("@test_throws")),
-    (x, ex_state) -> :(nothing)
+    x -> escCapture(x, Symbol("@test_throws")),
+    (x, ex_state) -> :(begin end)
 )
 
 inferred_macro_rule = ASTRule(
     x -> @capture(x, @inferred __),
-    (x, ex_state) -> :(nothing)
+    (x, ex_state) -> :(begin end)
 )
 
 test_deprecated_macro_rule = ASTRule(
-    x -> esc_capture(x, Symbol("@test_throws")),
-    (x, ex_state) -> :(nothing)
+    x -> escCapture(x, Symbol("@test_throws")),
+    (x, ex_state) -> :(begin end)
 )
 
 test_warn_macro_rule = ASTRule(
-    x -> esc_capture(x, Symbol("@test_throws")),
-    (x, ex_state) -> :(nothing)
+    x -> escCapture(x, Symbol("@test_throws")),
+    (x, ex_state) -> :(begin end)
 )
 
 test_nowarn_macro_rule = ASTRule(
-    x -> esc_capture(x, Symbol("@test_throws")),
-    (x, ex_state) -> :(nothing)
+    x -> escCapture(x, Symbol("@test_throws")),
+    (x, ex_state) -> :(begin end)
 )
 
 test_broken_macro_rule = ASTRule(
-    x -> esc_capture(x, Symbol("@test_throws")),
-    (x, ex_state) -> :(nothing)
+    x -> escCapture(x, Symbol("@test_throws")),
+    (x, ex_state) -> :(begin end)
 )
 
 test_skip_macro_rule = ASTRule(
-    x -> esc_capture(x, Symbol("@test_throws")),
-    (x, ex_state) -> :(nothing)
+    x -> escCapture(x, Symbol("@test_throws")),
+    (x, ex_state) -> :(begin end)
 )
 
 # PERFTEST TARGET OBSERVERS
@@ -403,6 +403,18 @@ prefix_macro_rule = ASTRule(
 # CONFIG
 
 config_macro_rule = ASTRule(
-    x -> esc_capture_getblock(x, Symbol("@perftest_config")) != nothing,
+    x -> escCaptureGetblock(x, Symbol("@perftest_config")) != nothing,
     (x, ctx) -> (perftestConfigEnter(x, ctx))
+)
+
+# CONDITIONAL EXECUTION
+
+on_perftest_exec_rule = ASTRule(
+    x -> escCaptureGetblock(x, Symbol("@on_perftest_exec")) != nothing,
+    (x, ctx) -> Expr(:block, x.args[2:end]...)
+)
+
+on_perftest_ignore_rule = ASTRule(
+    x -> escCaptureGetblock(x, Symbol("@on_perftest_ignore")) != nothing,
+    (x, ctx) -> :(begin end)
 )

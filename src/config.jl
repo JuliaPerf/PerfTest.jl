@@ -111,7 +111,7 @@ end
 # AST MODIFIERS
 # Perftest_config AST Manipulation
 function perftestConfigEnter(expr :: Expr, context :: Context)::Expr
-    block = esc_capture_getblock(expr, Symbol("@perftest_config"))
+    block = escCaptureGetblock(expr, Symbol("@perftest_config"))
 
     # TODO Enable environment flag
     # context.inside_config = true

@@ -3,24 +3,24 @@ include("perftest/structs.jl")
 include("config.jl")
 
 # Function that generates a test name if needed
-function gen_test_name!(state::Context)
+function genTestName!(state::Context)
     v = (last(state.depth).depth_test_count += 1)
     return "Test $v"
 end
 
-function testset_update!(state::Context, name::String)
+function testsetUpdate!(state::Context, name::String)
     push!(state.depth, ASTWalkDepthRecord(name))
 end
 
 ### EXPRESSION LOADER
-function load_file_as_expr(path ::AbstractString)
+function loadFileAsExpr(path ::AbstractString)
     file = open(path, "r")
     str = read(file, String)
     return Meta.parse("begin $str end")
 end
 
 ### EXPRESSION PRINTER
-function save_expr_as_file(expr::Expr, path = "out.jl" :: AbstractString)
+function saveExprAsFile(expr::Expr, path = "out.jl" :: AbstractString)
 
     #Get the module
     if expr.head == :toplevel
@@ -117,7 +117,7 @@ end
 
 # WHEN MACROTOOLS CAPTURE GIVES PROBLEMS
 # Returns whatever comes after the macrocall
-function capture_macro(expr,
+function captureMacro(expr,
                        macro_symbol,
                        return_ast::Base.RefValue{Vector{Any}}) :: Bool
 
@@ -137,7 +137,7 @@ function capture_macro(expr,
 end
 
 # Gets the first block expression from an array of expressions
-function get_block(expr_vec::Vector)::Union{Nothing, Expr}
+function getBlock(expr_vec::Vector)::Union{Nothing, Expr}
 
     for expr in expr_vec
         if isa(expr, Expr) && expr.head == :block
@@ -147,16 +147,16 @@ function get_block(expr_vec::Vector)::Union{Nothing, Expr}
     return nothing
 end
 
-function esc_capture_getblock(input, macro_symbol)
+function escCaptureGetblock(input, macro_symbol)
     return_ast = Ref([])
-    capture_macro(input, macro_symbol, return_ast)
-    val = get_block(return_ast[])
+    captureMacro(input, macro_symbol, return_ast)
+    val = getBlock(return_ast[])
     return val
 end
 
-function esc_capture(input, macro_symbol)
+function escCapture(input, macro_symbol)
     return_ast = Ref([])
-    bool = capture_macro(input, macro_symbol, return_ast)
+    bool = captureMacro(input, macro_symbol, return_ast)
     return bool
 end
 
@@ -167,7 +167,7 @@ end
 
   "sym" should follow the MacroTools nomenclature for the @capture macro
 """
-function meta_get(expr_array :: AbstractVector, sym :: Symbol)
+function metaGet(expr_array :: AbstractVector, sym :: Symbol)
 
     for expr in expr_array
         if eval(:(@capture($(:($expr)), $sym)))
@@ -179,7 +179,7 @@ function meta_get(expr_array :: AbstractVector, sym :: Symbol)
 end
 
 
-function meta_get_string(expr_array::AbstractVector)
+function metaGetString(expr_array::AbstractVector)
 
     for expr in expr_array
         print(typeof(expr))

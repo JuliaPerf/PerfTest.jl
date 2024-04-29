@@ -1,8 +1,34 @@
 
 macro perftest(anything)
-	  return anything
+    return esc(anything)
 end
 
-macro perftest_config(tolerance_below = 0.5, tolerance_above = 0.1)
-    return
+macro perftest_config(anything)
+    return :(
+        begin end
+    )
+end
+
+macro on_perftest_exec(anything)
+    return :(
+        begin end
+    )
+end
+
+macro on_perftest_ignore(anything)
+    return esc(anything)
+end
+
+# TODO
+macro define_metric(expr)
+    return :(
+        begin end
+    )
+end
+
+# TODO
+macro define_reference(expr)
+    return :(
+        begin end
+    )
 end

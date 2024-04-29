@@ -1,4 +1,5 @@
 module PerfTests
+export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config
 
 # Possibly redundant
 using MacroTools
@@ -21,7 +22,7 @@ include("suffix.jl")
 include("rules.jl")
 
 
-# Active rules
+# Base active rules
 rules = ASTRule[testset_macro_rule,
                 test_macro_rule,
                 test_throws_macro_rule,
@@ -45,6 +46,9 @@ rules = ASTRule[testset_macro_rule,
                 prefix_macro_rule,
 
                 config_macro_rule,
+
+                on_perftest_exec_rule,
+                on_perftest_ignore_rule,
                 ]
 
 
@@ -74,7 +78,7 @@ end
 function treeRun(path :: AbstractString)
 
     # Load original
-    input_expr = load_file_as_expr(path)
+    input_expr = loadFileAsExpr(path)
 
     global ctx = Context()
     ctx.original_file_path = path
