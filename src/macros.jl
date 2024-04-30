@@ -26,6 +26,12 @@ macro define_metric(expr)
     )
 end
 
+macro define_eff_memory_throughput()
+    return :(
+        begin end
+    )
+end
+
 # TODO
 macro define_reference(expr)
     return :(

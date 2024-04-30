@@ -10,13 +10,12 @@ function perftestprefix(ctx :: Context)::Expr
         using BenchmarkTools;
 
         # __PERFTEST__.Test.eval(quote
-        #     function record(ts::DefaultTestSet, t::Union{Fail,Error})
-        #         push!(ts.results, t)
-        #     end
+        #      function record(ts::DefaultTestSet, t::Union{Fail,Error})
+        #          push!(ts.results, t)
+        #      end
         # end)
 
         suite_name = $("$(basename(ctx.original_file_path))_PERFORMANCE")
-
 
         # Used to save data about this test suite if needed
         path = "./$(PerfTests.save_folder)/$(suite_name).JLD2"
@@ -34,6 +33,8 @@ function perftestprefix(ctx :: Context)::Expr
 
         l = BenchmarkGroup()
 
+        # Methodology prefixes
         $(regressionPrefix(ctx))
+        $(effMemThroughputPrefix(ctx))
     end
 end

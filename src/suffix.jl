@@ -1,5 +1,6 @@
 include("structs.jl")
 include("methodologies/regression.jl")
+include("methodologies/effective_memory_throughput.jl")
 
 ### SUFFIX FILLER
 function perftextsuffix(context :: Context)
@@ -17,8 +18,13 @@ function perftextsuffix(context :: Context)
             end
         end
 
-        $(regressionSuffix(context))
+        # Trial Estimates
+        median_suite = median(suite)
+        min_suite = minimum(suite)
 
+        # Methodology suffixes
+        $(regressionSuffix(context))
+        $(effMemThroughputSuffix(context))
 
         # Compose the serializable data structure for this execution
         current_result = PerfTests.Perftest_Result(timestamp=time(),

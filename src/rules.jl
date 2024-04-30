@@ -1,12 +1,13 @@
 using BenchmarkTools
 using MacroTools
 using Test
-using Base: input_color
+using Base: input_color, ExprNode
 using BenchmarkTools: TrialJudgement
 
 include("structs.jl")
 include("prefix.jl")
 include("config.jl")
+include("perftest/structs.jl")
 
 
 # Builds a tree from the ground up
@@ -27,6 +28,7 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
             quote
                 @testset $name (showtiming = false) begin
                     push!(depth, PerfTests.DepthRecord($name))
+                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
                     $concat
                     pop!(depth)
                 end
@@ -41,6 +43,7 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
             quote
                 tt[$name] = (@testset $name (showtiming = false) begin
                     push!(depth, PerfTests.DepthRecord($name))
+                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
                     $concat
                     pop!(depth)
                 end)
@@ -95,19 +98,29 @@ function updateTestTreeDownwards!(tree_builder :: AbstractArray)
     push!(tree_builder, Expr[])
 end
 
-function updateTestTreeSideways!(tree_builder::AbstractArray, name::String)
+function updateTestTreeSideways!(context::Context, name::String)
 
     # Get depth level
-    depth = length(tree_builder)
+    depth = length(context.test_tree_expr_builder)
 
     # Add the expression to de tree builder
-    push!(tree_builder[depth],
+    push!(context.test_tree_expr_builder[depth],
           quote
             push!(depth, PerfTests.DepthRecord($name))
             PerfTests.printDepth!(depth)
+            # Metric calc
+            $(buildMetrics()) # See metrics.jl
+            $(context.local_injection)
+            # Methodology evaluation
             $(regressionEvaluation())
+            $(effMemThroughputEvaluation())
+            # Reset local customs (not relevant anymore)
+            local_customs = Pair{Set{Symbol},PerfTests.Metric_Result}[]
             pop!(depth)
           end)
+
+    # Empty local injection once used
+    context.local_injection = :(begin end)
 end
 
 function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
@@ -204,7 +217,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
     name = "Test $num"
 
     # Update context: create expression on tree builder
-    updateTestTreeSideways!(context.test_tree_expr_builder, name)
+    updateTestTreeSideways!(context, name)
 
     # Return the substitution and setup the in target flag deactivator
     return quote
@@ -416,5 +429,18 @@ on_perftest_exec_rule = ASTRule(
 
 on_perftest_ignore_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@on_perftest_ignore")) != nothing,
+    (x, ctx) -> :(begin end)
+)
+
+# CUSTOM METRICS
+define_memory_throughput_rule = ASTRule(
+    x -> escCaptureGetblock(x, Symbol("@define_eff_memory_throughput")) != nothing,
+    # Defined on metrics.jl
+    (x, ctx) -> onMemoryThroughputDefinition(x, ctx)
+)
+
+# TODO
+define_metric_rule = ASTRule(
+    x -> escCaptureGetblock(x, Symbol("@define_metric")) != nothing,
     (x, ctx) -> :(begin end)
 )

@@ -42,9 +42,7 @@ function regressionSuffix(ctx::Context)::Expr
             if res_num > 0
 
                 # Estimates
-                median_suite = median(suite)
                 median_reference = median(reference)
-                min_suite = minimum(suite)
                 min_reference = minimum(reference)
                 # Ratios
                 median_ratio = ratio(median_suite, median_reference)

@@ -86,7 +86,7 @@ function printIntervalLanding(bot, top, landing, down_is_bad::Bool = true)
     end
 end
 
-function printMetric(metric :: Metric_Result, tab::Int, has_custom :: Bool = false, full_print :: Bool = true, failed :: Bool = false)
+function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, tab::Int, has_custom :: Bool = false, full_print :: Bool = true, failed :: Bool = false)
 
     println(@lpad(tab) * "-" ^ 72)
     if failed
@@ -99,11 +99,11 @@ function printMetric(metric :: Metric_Result, tab::Int, has_custom :: Bool = fal
     println(" ["* metric.units *"]:")
     println(@lpad(tab) * "."^72)
     print(@lpad(tab))
-    printIntervalLanding(metric.threshold_min, metric.threshold_max, metric.value, metric.low_is_bad)
+    printIntervalLanding(constraint.threshold_min, constraint.threshold_max, metric.value, constraint.low_is_bad)
     println("")
     if full_print
         println(@lpad(tab) * "."^72)
-        println(@lpad(tab) * "| Expected: " * @sprintf("%.3f", metric.reference) * " [" * metric.units * "]" * " "^20 * "Threshold: " * @sprintf("%.3f", metric.value < metric.reference ? metric.threshold_min : metric.threshold_max) * " [" * metric.units * "]")
+        println(@lpad(tab) * "| Expected: " * @sprintf("%.3f", constraint.reference) * " [" * metric.units * "]" * " "^20 * "Threshold: " * @sprintf("%.3f", metric.value < constraint.reference ? constraint.threshold_min : constraint.threshold_max) * " [" * metric.units * "]")
         print(@lpad(tab) * "| Got: ")
         if failed
             p_red(@sprintf("%.3f", metric.value))

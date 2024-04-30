@@ -1,5 +1,6 @@
 module PerfTests
-export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config
+export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
+    @define_eff_memory_throughput, @define_metric
 
 # Possibly redundant
 using MacroTools
@@ -16,6 +17,7 @@ include("perftest/data_handling.jl")
 include("metrics.jl")
 
 include("methodologies/regression.jl")
+include("methodologies/effective_memory_throughput.jl")
 
 include("prefix.jl")
 include("suffix.jl")
@@ -49,6 +51,8 @@ rules = ASTRule[testset_macro_rule,
 
                 on_perftest_exec_rule,
                 on_perftest_ignore_rule,
+
+                define_memory_throughput_rule,
                 ]
 
 

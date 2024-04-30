@@ -33,6 +33,14 @@ mutable struct EnvironmentFlags
     EnvironmentFlags() = new(false, false)
 end
 
+struct CustomMetric
+    name::AbstractString
+    calculation::Expr
+
+    # Some methodologies will seek specific requirements to accept a metric
+    flags::Set{Symbol}
+end
+
 mutable struct Context
     depth::AbstractArray
     test_number::Integer
@@ -42,7 +50,10 @@ mutable struct Context
 
     test_tree_expr_builder::AbstractArray
 
-    Context() = new([],0,"", EnvironmentFlags(),[])
+    custom_metrics::Vector{CustomMetric}
+    local_injection::Expr
+
+    Context() = new([], 0, "", EnvironmentFlags(), [], CustomMetric[], :(begin end))
 end
 
 

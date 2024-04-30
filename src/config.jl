@@ -28,6 +28,10 @@ end
     regression_calculation::Symbol
 end
 
+@kwdef mutable struct Struct_Eff_Mem_Throughput
+    enabled::Bool
+end
+
 @kwdef mutable struct Struct_Metric_Config
     enabled::Bool
 
@@ -65,6 +69,10 @@ regression = Struct_Regression(
     ),
 
     regression_calculation = :latest,
+)
+
+effective_memory_throughput = Struct_Eff_Mem_Throughput(
+    enabled = true,
 )
 
 """ Metrics configuration """
