@@ -72,6 +72,7 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
               quote
                 @testset $name (showtiming = false) for $i in $n
                     push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
+                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
                     $concat
                     pop!(depth)
                 end
@@ -85,6 +86,7 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
             quote
                 tt[$name] = (@testset $name (showtiming = false) for $i in $n
                     push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
+                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
                     $concat
                     pop!(depth)
                 end)
@@ -439,8 +441,11 @@ define_memory_throughput_rule = ASTRule(
     (x, ctx) -> onMemoryThroughputDefinition(x, ctx)
 )
 
-# TODO
 define_metric_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@define_metric")) != nothing,
-    (x, ctx) -> :(begin end)
-)
+    (x, ctx) -> onCustomMetricDefinition(x, ctx, Set{Symbol}())
+
+# MPI
+#mpi_init_rule = ASTRule(
+#    x -> @capture(x, MPI.Init)
+#)

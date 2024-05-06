@@ -41,19 +41,30 @@ struct CustomMetric
     flags::Set{Symbol}
 end
 
+"""
+  Saves important state information when going through the AST of an expression.
+"""
 mutable struct Context
+    # To register the current testset tree depth
     depth::AbstractArray
+    # For name generation
     test_number::Integer
+    # Useful data:
     original_file_path::AbstractString
 
+    # Used to detect if the AST walk is in a specific region where rules behave
+    # differently
     env_flags::EnvironmentFlags
 
+    # To build the expression that holds new testsets and the metrics
     test_tree_expr_builder::AbstractArray
 
-    custom_metrics::Vector{CustomMetric}
+    # Expression to add the globally defined custom metrics
+    custom_metrics::Expr
+    # Used to add code before a test once, used by locally defined metrics
     local_injection::Expr
 
-    Context() = new([], 0, "", EnvironmentFlags(), [], CustomMetric[], :(begin end))
+    Context() = new([], 0, "", EnvironmentFlags(), [], :(begin end), :(begin end))
 end
 
 

@@ -60,15 +60,29 @@ end
 function regressionEvaluation()::Expr
     return regression.enabled ? quote
         if res_num > 0
-            # Metric test and print
-            $(testMedianTime())
+            # Setup result collecting struct
+            methodology_result = PerfTests.Methodology_Result(
+                name = "REGRESSION TESTING",
+                metrics = Pair{PerfTests.Metric_Result, PerfTests.Metric_Constraint}[]
+            )
+
+            # Metric data generation
+            $(medianTime(
+                configFallBack(metrics.median_time.regression_threshold,
+                               :regression)))
             #$(testMinTime())
             #$(testMeanMemory())
             #$(testMinMemory())
-           # $(testMeanAllocs())
+            #$(testMeanAllocs())
             #$(testMinAllocs())
 
+            # Metric print
+            PerfTests.printMethodology(methodology_result, length(depth))
 
+            # Metric actual test
+            for pair in methodology_result.metrics
+                @test pair.second.succeeded
+            end
         end
     end : quote
         nothing

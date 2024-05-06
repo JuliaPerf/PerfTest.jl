@@ -26,10 +26,14 @@ macro define_metric(expr)
     )
 end
 
-macro define_eff_memory_throughput()
+macro define_eff_memory_throughput(expr)
     return :(
         begin end
     )
+end
+
+macro metric_def_visible(expr)
+    return expr
 end
 
 # TODO

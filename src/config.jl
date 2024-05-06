@@ -7,9 +7,9 @@ include("structs.jl")
 OPTIONAL_Float = Union{Nothing, Float64}
 
 
-@kwdef mutable struct Struct_Regression_Tolerance
-    overperform_percentage::OPTIONAL_Float = nothing
-    underperform_percentage::OPTIONAL_Float = nothing
+@kwdef mutable struct Struct_Tolerance
+    max_percentage::OPTIONAL_Float = nothing
+    min_percentage::OPTIONAL_Float = nothing
 end
 
 @kwdef mutable struct Struct_Regression
@@ -17,7 +17,7 @@ end
 
     save_failed::Bool
 
-    general_regression_threshold::Struct_Regression_Tolerance
+    general_regression_threshold::Struct_Tolerance
 
 
     """
@@ -30,12 +30,13 @@ end
 
 @kwdef mutable struct Struct_Eff_Mem_Throughput
     enabled::Bool
+    tolerance::Struct_Tolerance
 end
 
 @kwdef mutable struct Struct_Metric_Config
     enabled::Bool
 
-    regression_threshold::Struct_Regression_Tolerance
+    regression_threshold::Struct_Tolerance
 end
 
 @kwdef mutable struct Struct_Metrics
@@ -57,15 +58,25 @@ verbose = false
 
 max_saved_results = 10
 
+""" MPI, CUDA, ROC options """
+# Options:
+#   :single
+#      just one of the processes will actually test the others just
+#      execute the code as many times as neccessary for the test to work
+#   :all
+#      all processes will execute the test
+mpi_test_mode = :single
+
+
 """ Regression testing configuration """
 regression = Struct_Regression(
     enabled = true,
 
     save_failed = false,
 
-    general_regression_threshold = Struct_Regression_Tolerance(
-        overperform_percentage = 1.5,
-        underperform_percentage = 0.8
+    general_regression_threshold = Struct_Tolerance(
+        max_percentage = 1.5,
+        min_percentage = 0.8
     ),
 
     regression_calculation = :latest,
@@ -73,37 +84,42 @@ regression = Struct_Regression(
 
 effective_memory_throughput = Struct_Eff_Mem_Throughput(
     enabled = true,
+
+    tolerance = Struct_Tolerance(
+        min_percentage = 0.0,
+        max_percentage = 1.0
+    )
 )
 
 """ Metrics configuration """
 metrics = Struct_Metrics(
     median_time = Struct_Metric_Config(
         enabled = true,
-        regression_threshold = Struct_Regression_Tolerance(),
+        regression_threshold = Struct_Tolerance(),
     ),
     min_time=Struct_Metric_Config(
         enabled = false,
-        regression_threshold = Struct_Regression_Tolerance(),
+        regression_threshold = Struct_Tolerance(),
     ),
     median_memory = Struct_Metric_Config(
         enabled = false,
-        regression_threshold = Struct_Regression_Tolerance(),
+        regression_threshold = Struct_Tolerance(),
     ),
     min_memory=Struct_Metric_Config(
         enabled = false,
-        regression_threshold = Struct_Regression_Tolerance(),
+        regression_threshold = Struct_Tolerance(),
     ),
     median_memory_allocs = Struct_Metric_Config(
         enabled = false,
-        regression_threshold = Struct_Regression_Tolerance(),
+        regression_threshold = Struct_Tolerance(),
     ),
     min_memory_allocs=Struct_Metric_Config(
         enabled = false,
-        regression_threshold = Struct_Regression_Tolerance(),
+        regression_threshold = Struct_Tolerance(),
     ),
     memory_throughput = Struct_Metric_Config(
         enabled = false,
-        regression_threshold = Struct_Regression_Tolerance(),
+        regression_threshold = Struct_Tolerance(),
     )
 )
 
@@ -143,4 +159,34 @@ end
 
 function perftestConfigParseField(expr :: Expr, context::Context)::Expr
     #TODO
+end
+
+# CONFIG UTILS
+
+"""
+  A little automatism to jump to defaults if the configuration provided is absent
+  Kind can be:
+       :regression
+"""
+function configFallBack(config_element, kind::Symbol)
+    if config_element isa Struct_Tolerance
+        if kind == :regression
+            tol = Struct_Tolerance(
+                min_percentage = regression.general_regression_threshold.min_percentage,
+                max_percentage = regression.general_regression_threshold.max_percentage
+            )
+            if !(isnothing(config_element.min_percentage))
+                tol.min_percentage = config_element.min_percentage
+            end
+            if !(isnothing(config_element.max_percentage))
+                tol.max_percentage = config_element.max_percentage
+            end
+
+            return tol
+        else
+            error("ConfigFallBack: Unsupported element")
+        end
+    else
+        error("ConfigFallBack: Unsupported element")
+    end
 end

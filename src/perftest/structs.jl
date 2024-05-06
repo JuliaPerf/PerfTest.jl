@@ -14,11 +14,15 @@ end
     threshold_max::N
     threshold_max_percent::Float64
     low_is_bad::Bool
+    succeeded::Bool
+    # Additional metric X methodology data
+    custom_plotting :: Vector{Symbol}
+    full_print::Bool
 end
 
 @kwdef struct Methodology_Result
     name::AbstractString
-    metrics :: Vector{Metric_Constraint}
+    metrics :: Vector{Pair{Metric_Result, Metric_Constraint}}
 end
 
 

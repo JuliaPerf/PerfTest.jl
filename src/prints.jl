@@ -86,10 +86,10 @@ function printIntervalLanding(bot, top, landing, down_is_bad::Bool = true)
     end
 end
 
-function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, tab::Int, has_custom :: Bool = false, full_print :: Bool = true, failed :: Bool = false)
+function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, tab::Int)
 
     println(@lpad(tab) * "-" ^ 72)
-    if failed
+    if !(constraint.succeeded)
         p_red("[!]")
     else
         p_green("[✓]")
@@ -101,20 +101,33 @@ function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, ta
     print(@lpad(tab))
     printIntervalLanding(constraint.threshold_min, constraint.threshold_max, metric.value, constraint.low_is_bad)
     println("")
-    if full_print
+    if constraint.full_print
         println(@lpad(tab) * "."^72)
         println(@lpad(tab) * "| Expected: " * @sprintf("%.3f", constraint.reference) * " [" * metric.units * "]" * " "^20 * "Threshold: " * @sprintf("%.3f", metric.value < constraint.reference ? constraint.threshold_min : constraint.threshold_max) * " [" * metric.units * "]")
         print(@lpad(tab) * "| Got: ")
-        if failed
+        if !(constraint.succeeded)
             p_red(@sprintf("%.3f", metric.value))
         else
             p_yellow(@sprintf("%.3f", metric.value))
         end
         println(" [" * metric.units * "]" * " "^20)
     end
-    if has_custom
+    if length(constraint.custom_plotting) > 0
         println(@lpad(tab) * "."^72)
     else
         println(@lpad(tab) * "_"^72)
     end
+end
+
+
+function printMethodology(methodology :: Methodology_Result, tab :: Int)
+
+    println(@lpad(tab) * "═"^72)
+    print(@lpad(tab) * "METHODOLOGY: ")
+    p_blue("$(methodology.name)")
+    println("")
+    for (metric, constraint) in methodology.metrics
+        printMetric(metric, constraint, tab)
+    end
+    println(@lpad(tab) * "═"^72)
 end
