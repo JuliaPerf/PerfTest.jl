@@ -444,6 +444,7 @@ define_memory_throughput_rule = ASTRule(
 define_metric_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@define_metric")) != nothing,
     (x, ctx) -> onCustomMetricDefinition(x, ctx, Set{Symbol}())
+)
 
 # MPI
 #mpi_init_rule = ASTRule(

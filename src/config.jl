@@ -59,6 +59,9 @@ verbose = false
 max_saved_results = 10
 
 """ MPI, CUDA, ROC options """
+# Will be set to true if the MPI is detected, but it can be triggered manually if needed
+mpi_enabled = false
+
 # Options:
 #   :single
 #      just one of the processes will actually test the others just
