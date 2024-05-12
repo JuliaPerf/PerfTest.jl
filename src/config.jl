@@ -4,13 +4,6 @@ include("structs.jl")
 
 # CONFIG STRUCTURE DEFINITION
 # FOR DEFAULTS SEE BELOW COMMENT "DEFAULTCONFIG":
-OPTIONAL_Float = Union{Nothing, Float64}
-
-
-@kwdef mutable struct Struct_Tolerance
-    max_percentage::OPTIONAL_Float = nothing
-    min_percentage::OPTIONAL_Float = nothing
-end
 
 @kwdef mutable struct Struct_Regression
     enabled::Bool
@@ -31,6 +24,14 @@ end
 @kwdef mutable struct Struct_Eff_Mem_Throughput
     enabled::Bool
     tolerance::Struct_Tolerance
+end
+
+@kwdef mutable struct Struct_Roofline_Config
+    enabled::Bool
+
+    plotting::Bool
+
+    tolerance_around_memcpu_intersection::Struct_Tolerance
 end
 
 @kwdef mutable struct Struct_Metric_Config
@@ -94,6 +95,17 @@ effective_memory_throughput = Struct_Eff_Mem_Throughput(
     )
 )
 
+roofline = Struct_Roofline_Config(
+    enabled = true,
+
+    plotting = true,
+
+    tolerance_around_memcpu_intersection = Struct_Tolerance(
+        max_percentage = 2.0,
+        min_percentage = 0.7
+    )
+)
+
 """ Metrics configuration """
 metrics = Struct_Metrics(
     median_time = Struct_Metric_Config(
@@ -101,7 +113,7 @@ metrics = Struct_Metrics(
         regression_threshold = Struct_Tolerance(),
     ),
     min_time=Struct_Metric_Config(
-        enabled = false,
+        enabled = true,
         regression_threshold = Struct_Tolerance(),
     ),
     median_memory = Struct_Metric_Config(

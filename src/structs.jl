@@ -1,5 +1,13 @@
 using BenchmarkTools
 
+OPTIONAL_Float = Union{Nothing, Float64}
+
+
+@kwdef mutable struct Struct_Tolerance
+    max_percentage::OPTIONAL_Float = nothing
+    min_percentage::OPTIONAL_Float = nothing
+end
+
 mutable struct DepthRecord
     depth_name::String
     depth_flag::Bool
@@ -30,12 +38,21 @@ mutable struct EnvironmentFlags
     inside_target::Bool
     inside_config::Bool
 
-    EnvironmentFlags() = new(false, false)
+    roofline_prefix::Bool
+    roofline_uses_return::Bool
+
+    EnvironmentFlags() = new(false, false, false, false)
 end
 
-struct CustomMetric
+
+@kwdef struct CustomMetric
     name::AbstractString
-    calculation::Expr
+    units::AbstractString
+    formula::Union{Nothing,Expr,Symbol,QuoteNode}
+
+    # TODO BEHAVIOUR NOT YET IMPLEMENTED
+    comparative_formula::Union{Nothing,Expr,Symbol,QuoteNode} = nothing
+    threshold::Struct_Tolerance = Struct_Tolerance()
 
     # Some methodologies will seek specific requirements to accept a metric
     flags::Set{Symbol}
@@ -64,7 +81,10 @@ mutable struct Context
     # Used to add code before a test once, used by locally defined metrics
     local_injection::Expr
 
-    Context() = new([], 0, "", EnvironmentFlags(), [], :(begin end), :(begin end))
+    global_c_metrics::Vector{CustomMetric}
+    local_c_metrics::Vector{CustomMetric}
+
+    Context() = new([], 0, "", EnvironmentFlags(), [], :(begin end), :(begin end), CustomMetric[], CustomMetric[])
 end
 
 

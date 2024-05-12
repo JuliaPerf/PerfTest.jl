@@ -1,4 +1,5 @@
 include("structs.jl")
+include("benchmarking.jl")
 include("methodologies/regression.jl")
 include("methodologies/effective_memory_throughput.jl")
 
@@ -18,13 +19,22 @@ function perftextsuffix(context :: Context)
             end
         end
 
+        # CALCULATE REFERENCE BENCHMARKS IF NEEDED
+        $(if effective_memory_throughput.enabled || roofline.enabled
+              setupMemoryBandwidthBenchmark()
+        end)
+        $(if roofline.enabled
+              setupCPUPeakFlopBenchmark()
+          end)
+
+        # TODO Inyect globally defined metrics
+
         # Trial Estimates
         median_suite = median(suite)
         min_suite = minimum(suite)
 
         # Methodology suffixes
         $(regressionSuffix(context))
-        $(effMemThroughputSuffix(context))
 
         # Compose the serializable data structure for this execution
         current_result = PerfTests.Perftest_Result(timestamp=time(),

@@ -8,6 +8,7 @@ include("structs.jl")
 include("prefix.jl")
 include("config.jl")
 include("perftest/structs.jl")
+include("methodologies/roofline.jl")
 
 
 # Builds a tree from the ground up
@@ -111,11 +112,12 @@ function updateTestTreeSideways!(context::Context, name::String)
             push!(depth, PerfTests.DepthRecord($name))
             PerfTests.printDepth!(depth)
             # Metric calc
-            $(buildMetrics()) # See metrics.jl
-            $(context.local_injection)
+            $(buildPrimitiveMetrics()) # See metrics.jl
+            # TODO $(context.local_injection)
             # Methodology evaluation
-            $(regressionEvaluation())
-            $(effMemThroughputEvaluation())
+            $(regressionEvaluation(context))
+            $(effMemThroughputEvaluation(context))
+            $(rooflineEvaluation(context))
             # Reset local customs (not relevant anymore)
             local_customs = Pair{Set{Symbol},PerfTests.Metric_Result}[]
             pop!(depth)
@@ -123,6 +125,7 @@ function updateTestTreeSideways!(context::Context, name::String)
 
     # Empty local injection once used
     context.local_injection = :(begin end)
+    context.local_c_metrics = CustomMetric[]
 end
 
 function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
@@ -154,7 +157,8 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
             :(
             for $a in $b
                 l[$name * "_" * string($a)] = BenchmarkGroup();
-                let l = l[$name * "_" * string($a)]
+                export_tree[$name * "_" * string($a)] = Dict();
+                let l = l[$name * "_" * string($a)], export_tree = export_tree[$name * "_" * string($a)]
                     $inner_block
                 end;
                 :__BACK_CONTEXT__;
@@ -164,7 +168,8 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
             :__PERFTEST_FW__;
             for $a in $b
                 l[$name * "_" * string($a)] = BenchmarkGroup();
-                let l = l[$name * "_" * string($a)]
+                export_tree[$name * "_" * string($a)] = Dict();
+                let l = l[$name * "_" * string($a)], export_tree = export_tree[$name * "_" * string($a)]
                     $inner_block
                 end;
                 :__BACK_CONTEXT__;
@@ -175,7 +180,8 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
         return length(context.depth) > 1 ?
                :(
             l[$name] = BenchmarkGroup();
-            let l = l[$name]
+            export_tree[$name] = Dict();
+            let l = l[$name], export_tree = export_tree[$name]
                 $test_block
             end;
 
@@ -184,8 +190,9 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
                :(
             :__PERFTEST_FW__;
 
-            l = BenchmarkGroup();
-            let l = l[$name]
+            l[$name] = BenchmarkGroup();
+            export_tree[$name] = Dict();
+            let l = l[$name], export_tree = export_tree[$name]
                 $test_block
             end;
 
@@ -214,7 +221,7 @@ end
 function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Get the elements of interest from the macrocall
     @capture(input_expr, @perftest prop__ expr_)
-
+    #TODO prop
     num = (last(context.depth).depth_test_count += 1)
     name = "Test $num"
 
@@ -225,6 +232,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
     return quote
         l[$name] = @benchmark ($expr);
         :__CONTEXT_TARGET_END__
+        export_tree[:ret_value] = $expr;
     end
 end
 
@@ -450,3 +458,10 @@ define_metric_rule = ASTRule(
 #mpi_init_rule = ASTRule(
 #    x -> @capture(x, MPI.Init)
 #)
+
+# ROOFLINE
+roofline_macro_rule = ASTRule(
+    x -> @capture(x, @roofline __),
+    # See roofline.jl at methodologies
+    (x, ctx) -> rooflineMacroParse(x, ctx)
+)

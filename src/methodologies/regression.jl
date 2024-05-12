@@ -6,6 +6,12 @@ include("../metrics.jl")
 
 # THIS FILE SAVES THE MAIN COMPONENTS OF THE REGRESSION METHODOLOGY BEHAVIOUR
 
+# TODO IMPORTANT TRANSCRIBE LATER:
+# Generated space variables relevant in any methodology
+# Have to be defined in each generic methodology:
+# x_reference
+# x_ratio
+
 function regressionPrefix(ctx::Context)::Expr
     return regression.enabled ?
            quote
@@ -23,7 +29,7 @@ function regressionPrefix(ctx::Context)::Expr
                     reference_components::Vector{BenchmarkGroup} = []
                     for result in data.results
                         push!(reference_components, result.benchmarks)
-                        # TODO
+                        # TODO Extra information needed??
                     end
                     global reference = reference_components[1]
                 end
@@ -57,7 +63,11 @@ function regressionSuffix(ctx::Context)::Expr
     end
 end
 
-function regressionEvaluation()::Expr
+# Predefined elements to have:
+# depth
+# dictionaries defined in the function above
+# metric_reference has to be cleared out in the function
+function regressionEvaluation(context :: Context)::Expr
     return regression.enabled ? quote
         if res_num > 0
             # Setup result collecting struct
@@ -66,15 +76,28 @@ function regressionEvaluation()::Expr
                 metrics = Pair{PerfTests.Metric_Result, PerfTests.Metric_Constraint}[]
             )
 
+            metric_references = Dict{Symbol, Any}()
+
             # Metric data generation
-            $(medianTime(
+            # MEDIAN TIME
+            reference_value = PerfTests.by_index(median_reference, depth).time
+            metric_references[:median_time] = reference_value
+            $(checkMedianTime(
+                configFallBack(metrics.median_time.regression_threshold,
+                    :regression)))
+            # MIN TIME
+            reference_value = PerfTests.by_index(min_reference, depth).time
+            metric_references[:minimum_time] = reference_value
+            $(checkMinTime(
                 configFallBack(metrics.median_time.regression_threshold,
                                :regression)))
-            #$(testMinTime())
+            
             #$(testMeanMemory())
             #$(testMinMemory())
             #$(testMeanAllocs())
             #$(testMinAllocs())
+
+            $(checkCustomMetrics(context))
 
             # Metric print
             PerfTests.printMethodology(methodology_result, length(depth))
@@ -85,6 +108,6 @@ function regressionEvaluation()::Expr
             end
         end
     end : quote
-        nothing
+        begin end
     end
 end

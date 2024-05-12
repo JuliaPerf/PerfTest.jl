@@ -120,6 +120,13 @@ function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, ta
 end
 
 
+function auxiliarMetricPrint(metric :: Metric_Result, tab::Int)
+    println(" " ^ tab * "Metric: " * metric.name * " [" * metric.units * "]")
+    println(" " ^ tab * "  = ", metric.value)
+    println("")
+end
+
+
 function printMethodology(methodology :: Methodology_Result, tab :: Int)
 
     println(@lpad(tab) * "═"^72)
@@ -128,6 +135,19 @@ function printMethodology(methodology :: Methodology_Result, tab :: Int)
     println("")
     for (metric, constraint) in methodology.metrics
         printMetric(metric, constraint, tab)
+    end
+    if length(methodology.custom_elements) > 0
+        println(@lpad(tab) * "-"^72)
+        println(@lpad(tab) * "Additional data:")
+        for (_, elem) in methodology.custom_elements
+            if methodology.custom_auto_print && elem isa Metric_Result
+                auxiliarMetricPrint(elem, tab)
+            end
+            # Custom behaviour when printing, i.e used to plot
+            if elem isa Function
+                elem(methodology)
+            end
+        end
     end
     println(@lpad(tab) * "═"^72)
 end

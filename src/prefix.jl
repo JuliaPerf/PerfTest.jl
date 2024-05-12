@@ -36,5 +36,8 @@ function perftestprefix(ctx :: Context)::Expr
         # Methodology prefixes
         $(regressionPrefix(ctx))
         $(effMemThroughputPrefix(ctx))
+
+        # Export tree, used to save values from the function evaluation that need to be reused in the testing phase
+        export_tree = Dict()
     end
 end

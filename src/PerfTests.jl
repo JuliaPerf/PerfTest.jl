@@ -53,6 +53,9 @@ rules = ASTRule[testset_macro_rule,
                 on_perftest_ignore_rule,
 
                 define_memory_throughput_rule,
+                define_metric_rule,
+
+                roofline_macro_rule,
                 ]
 
 

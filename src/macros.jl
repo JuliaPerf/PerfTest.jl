@@ -19,7 +19,6 @@ macro on_perftest_ignore(anything)
     return esc(anything)
 end
 
-# TODO
 macro define_metric(expr)
     return :(
         begin end
@@ -38,6 +37,12 @@ end
 
 # TODO
 macro define_reference(expr)
+    return :(
+        begin end
+    )
+end
+
+macro roofline(opint_formula, cpu_peak=nothing, membw_peak=nothing)
     return :(
         begin end
     )
