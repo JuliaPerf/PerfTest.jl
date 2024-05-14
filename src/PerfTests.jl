@@ -1,6 +1,6 @@
 module PerfTests
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
-    @define_eff_memory_throughput, @define_metric
+    @define_eff_memory_throughput, @define_metric, @roofline
 
 # Possibly redundant
 using MacroTools
