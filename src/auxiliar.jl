@@ -1,4 +1,5 @@
 include("structs.jl")
+using MacroTools: ismatch
 include("perftest/structs.jl")
 include("config.jl")
 
@@ -198,3 +199,26 @@ macro inRange(min, max, value)
     return :($min < $value < $max)
 end
 
+
+function grepOutput(output :: String, regex_or_string :: Union{Regex, String}):: Vector{SubString{String}}
+    lines = split(output, '\n')
+
+    # Remove any empty lines
+    cleaned_lines = filter(line -> !isempty(line) && occursin(regex_or_string, line), lines)
+
+    return cleaned_lines
+end
+
+"""WARNING, SUPPORTS ONLY 1 NUMBER PER LINE"""
+function getNumber(field :: String)::Float64
+    clean = replace(field, r"[^0-9.]" => "")
+
+
+    return parse(Float64, clean)
+end
+
+## Abbreviation gets from the first match
+function grepOutputXGetNumber(output :: String, string ::String)::Float64
+
+    return getNumber(String(grepOutput(output, string)[1]))
+end

@@ -20,24 +20,31 @@ include("../benchmarking.jl")
 """
   Checks for the return symbol
 """
-function rooflineExpressionParser(expr::Expr)::Expr
+function retvalExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:return) ? :(PerfTests.by_index(export_tree, depth)[:ret_value]) : x), expr)
 end
 
+
+function printedOutputExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTests.by_index(export_tree, depth)[:printed_output]) : x), expr)
+end
 
 using UnicodePlots
 
 rooflineFunc = (maxflops, maxbandwidth) -> (opint -> min(maxflops, maxbandwidth * opint))
 
 # Additional printing behaviour
-function printRoofline(roofline :: Methodology_Result)
+function printRoofline(_roofline :: Methodology_Result)
 
-    p = lineplot(0, roofline.custom_elements[:roof_corner].value * 2.,
-                 rooflineFunc(roofline.custom_elements[:cpu_peak].value, roofline.custom_elements[:mem_peak].value), name="Automatic Roofline")
+    if roofline.plotting
+        p = lineplot(0, _roofline.custom_elements[:roof_corner].value * 2.,
+                     rooflineFunc(_roofline.custom_elements[:cpu_peak].value,
+                                  _roofline.custom_elements[:mem_peak].value), name="Automatic Roofline")
 
-    vline!(p, roofline.metrics[1].first.value, color=:cyan, name="Tested function")
+        vline!(p, _roofline.metrics[1].first.value, color=:cyan, name="Tested function")
 
-    show(p)
+        show(p)
+    end
 end
 
 
@@ -46,7 +53,7 @@ end
   roofline computation.
 """
 function rooflineMacroParse(x::Expr, ctx::Context)::Expr
-    if roofline.enabled
+    if _roofline.enabled
         peakflops = nothing
         peakbandwidth = nothing
 
@@ -69,7 +76,9 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
             # Fill primitives
             t = customMetricExpressionParser(x.args[end])
             # Fill return
-            t = rooflineExpressionParser(t)
+            t = retvalExpressionParser(t)
+            # Fill output
+            t = printedOutputExpressionParser(t)
         else
             error("Malformed @roofline, opint must be in block format")
         end
@@ -86,11 +95,11 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
 end
 
 function rooflineEvaluation(context::Context)::Expr
-    return roofline.enabled && context.env_flags.roofline_prefix ? (
+    return _roofline.enabled && context.env_flags.roofline_prefix ? (
         context.env_flags.roofline_prefix = false; quote
         # Threshold
-        min = $(roofline.tolerance_around_memcpu_intersection.min_percentage)
-        max = $(roofline.tolerance_around_memcpu_intersection.max_percentage)
+        min = $(_roofline.tolerance_around_memcpu_intersection.min_percentage)
+        max = $(_roofline.tolerance_around_memcpu_intersection.max_percentage)
 
         result = PerfTests.Metric_Result(
             name="OPERATIONAL INTENSITY",
@@ -142,7 +151,7 @@ function rooflineEvaluation(context::Context)::Expr
         limit_mem_b = PerfTests.Metric_Result(
             name="Is memory limited?",
             units="Yes/No",
-            value= ratio > local_peakflops / local_peakbandwidth ? "NO" : "YES"
+            value= ratio > (local_peakflops / local_peakbandwidth) ? "NO" : "YES"
         )
         methodology_result.custom_elements[:mem_lim] = limit_mem_b
         roof_corner = PerfTests.Metric_Result(

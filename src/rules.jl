@@ -230,9 +230,21 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
 
     # Return the substitution and setup the in target flag deactivator
     return quote
-        l[$name] = @benchmark ($expr);
+        $(if suppress_output
+              quote
+              @suppress begin
+                  l[$name] = @benchmark ($expr);
+              end
+              end
+          else
+              quote
+              l[$name] = @benchmark ($expr);
+              end
+          end)
         :__CONTEXT_TARGET_END__
-        export_tree[:ret_value] = $expr;
+
+        export_tree[:printed_output] =
+            @capture_out export_tree[:ret_value] = $expr;
     end
 end
 

@@ -72,6 +72,9 @@ mpi_enabled = false
 mpi_test_mode = :single
 
 
+""" Tested expressions output handling """
+suppress_output = true
+
 """ Regression testing configuration """
 regression = Struct_Regression(
     enabled = true,
