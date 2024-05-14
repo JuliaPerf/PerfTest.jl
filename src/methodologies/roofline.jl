@@ -43,7 +43,7 @@ function printRoofline(_roofline :: Methodology_Result)
 
         vline!(p, _roofline.metrics[1].first.value, color=:cyan, name="Tested function")
 
-        show(p)
+        show(print(p; color=true))
     end
 end
 
@@ -53,7 +53,7 @@ end
   roofline computation.
 """
 function rooflineMacroParse(x::Expr, ctx::Context)::Expr
-    if _roofline.enabled
+    if roofline.enabled
         peakflops = nothing
         peakbandwidth = nothing
 
@@ -95,11 +95,11 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
 end
 
 function rooflineEvaluation(context::Context)::Expr
-    return _roofline.enabled && context.env_flags.roofline_prefix ? (
+    return roofline.enabled && context.env_flags.roofline_prefix ? (
         context.env_flags.roofline_prefix = false; quote
         # Threshold
-        min = $(_roofline.tolerance_around_memcpu_intersection.min_percentage)
-        max = $(_roofline.tolerance_around_memcpu_intersection.max_percentage)
+        min = $(roofline.tolerance_around_memcpu_intersection.min_percentage)
+        max = $(roofline.tolerance_around_memcpu_intersection.max_percentage)
 
         result = PerfTests.Metric_Result(
             name="OPERATIONAL INTENSITY",
