@@ -29,6 +29,10 @@ function printedOutputExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTests.by_index(export_tree, depth)[:printed_output]) : x), expr)
 end
 
+function printedOutputAbbreviationExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:out) ? :(PerfTests.grepOutputXGetNumber(PerfTests.by_index(export_tree, depth)[:printed_output])) : x), expr)
+end
+
 using UnicodePlots
 
 rooflineFunc = (maxflops, maxbandwidth) -> (opint -> min(maxflops, maxbandwidth * opint))
@@ -43,7 +47,7 @@ function printRoofline(_roofline :: Methodology_Result)
 
         vline!(p, _roofline.metrics[1].first.value, color=:cyan, name="Tested function")
 
-        show(print(p; color=true))
+        show(print(p))
     end
 end
 
@@ -79,6 +83,8 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
             t = retvalExpressionParser(t)
             # Fill output
             t = printedOutputExpressionParser(t)
+            # Abbreviated version
+            t = printedOutputAbbreviationExpressionParser(t)
         else
             error("Malformed @roofline, opint must be in block format")
         end
