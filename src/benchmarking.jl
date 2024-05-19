@@ -62,6 +62,8 @@ function setupCPUPeakFlopBenchmark()::Expr
     end :
            quote
         using LinearAlgebra
-                global peakflops = LinearAlgebra.peakflops() / 1e9
-            end
+        using Threads
+        LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
+        global peakflops = LinearAlgebra.peakflops(; parallel=true) / 1e9
+        end
 end
