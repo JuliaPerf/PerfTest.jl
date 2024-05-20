@@ -8,6 +8,7 @@ function perftestprefix(ctx :: Context)::Expr
     return quote
         using Test;
         using BenchmarkTools;
+        using GFlops;
 
         # __PERFTEST__.Test.eval(quote
         #      function record(ts::DefaultTestSet, t::Union{Fail,Error})

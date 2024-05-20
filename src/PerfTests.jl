@@ -37,12 +37,12 @@ rules = ASTRule[testset_macro_rule,
                 test_skip_macro_rule,
 
                 perftest_macro_rule,
-                perftest_scope_assignment_macro_rule,
-                perftest_dot_interpolation_rule,
-                perftest_scope_arg_macro_rule,
-                perftest_scope_vecf_arg_macro_rule,
-                perftest_begin_macro_rule,
-                perftest_end_macro_rule,
+                #perftest_scope_assignment_macro_rule,
+                #perftest_dot_interpolation_rule,
+                #perftest_scope_arg_macro_rule,
+                #perftest_scope_vecf_arg_macro_rule,
+                #perftest_begin_macro_rule,
+                #perftest_end_macro_rule,
 
                 back_macro_rule,
                 prefix_macro_rule,
@@ -61,7 +61,7 @@ rules = ASTRule[testset_macro_rule,
 
 # Main transform routine
 
-function ruleSet(context::Context)
+function ruleSet(context::Context, rules :: Vector{ASTRule})
     function _ruleSet(x)
         for rule in rules
             if rule.condition(x)
@@ -77,7 +77,7 @@ end
 
 function _treeRun(input_expr :: Expr, context :: Context, args...)
 
-    return MacroTools.prewalk(ruleSet(context), input_expr)
+    return MacroTools.prewalk(ruleSet(context, rules), input_expr)
 end
 
 

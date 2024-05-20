@@ -228,23 +228,30 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Update context: create expression on tree builder
     updateTestTreeSideways!(context, name)
 
+    parsed_target = parseTarget(expr, context)
+    @show parsed_target
+
     # Return the substitution and setup the in target flag deactivator
     return quote
         $(if suppress_output
               quote
               @suppress begin
-                  l[$name] = @benchmark ($expr);
+                  l[$name] = @benchmark ($parsed_target);
+                  export_tree[:autoflops] =
+                      GFlops.flop(@count_ops ($parsed_target))
               end
               end
           else
               quote
-              l[$name] = @benchmark ($expr);
+                  l[$name] = @benchmark ($parsed_target);
+                  export_tree[:autoflops] =
+                      GFlops.flop(@count_ops ($parsed_target))
               end
           end)
-        :__CONTEXT_TARGET_END__
 
         export_tree[:printed_output] =
             @capture_out export_tree[:ret_value] = $expr;
+        @show export_tree[:autoflops]
     end
 end
 
@@ -252,22 +259,15 @@ end
 function scopeAssignment(input_expr::Expr, context::Context)::Expr
     # If inside a benchmark target, assignments are removed since they become useless
 
-    if context.env_flags.inside_target
-
-        @show input_expr
         @capture(input_expr, a_ = b_)
 
         return quote
             $b
         end
-    else
-        return input_expr
-    end
 end
 
 function scopeArg(input_expr::Expr, context::Context)::Expr
 
-    if context.env_flags.inside_target
         @capture(input_expr, f_(args__))
 
         processed_args = [isa(arg, Symbol) ?
@@ -275,9 +275,6 @@ function scopeArg(input_expr::Expr, context::Context)::Expr
             arg for arg in args]
 
         return Expr(:call, f, processed_args...)
-    else
-        return input_expr
-    end
 end
 
 function argProcess(args :: Vector)::Vector
@@ -297,27 +294,19 @@ end
 
 function scopeVecFArg(input_expr::Expr, context::Context)::Expr
 
-    if context.env_flags.inside_target
         @capture(input_expr, f_.(args__))
 
-        @show f
-        @show args
 
         # Process symbols
         processed_args = argProcess(args)
 
-        @show processed_args
 
         return Expr(:., f, Expr(:tuple, processed_args...))
-    else
-        return input_expr
-    end
 end
 
 function scopeDotInterpolation(input_expr::Expr, context::Context)::Expr
     # If inside a benchmark target, the left side of the dot is interpolated to prevent failure reaching values stored in local scopes
 
-    if context.env_flags.inside_target
         @capture(input_expr, a_.b_)
         if (isa(a, Symbol))
             return :(
@@ -326,9 +315,6 @@ function scopeDotInterpolation(input_expr::Expr, context::Context)::Expr
         else
             return input_expr
         end
-    else
-        return input_expr
-    end
 end
 
 ## CONDITION RULES:
@@ -394,7 +380,7 @@ perftest_macro_rule = ASTRule(
 )
 
 perftest_begin_macro_rule = ASTRule(
-    x -> @capture(x, @benchmark __),
+    x -> @capture(x, @benchmark __) || (escCaptureGetblock(x, Symbol("@count_ops")) != nothing),
     (x, ctx) -> (ctx.env_flags.inside_target = true; x)
 )
 
@@ -405,7 +391,7 @@ perftest_scope_assignment_macro_rule = ASTRule(
 
 perftest_scope_arg_macro_rule = ASTRule(
     x -> @capture(x, _(__)),
-    (x, ctx) -> scopeArg(x, ctx)
+    (x, ctx) -> (@show x,scopeArg(x,ctx) ;scopeArg(x, ctx))
 )
 
 perftest_scope_vecf_arg_macro_rule = ASTRule(
@@ -422,6 +408,17 @@ perftest_end_macro_rule = ASTRule(
     x -> x == :(:__CONTEXT_TARGET_END__),
     (x, ctx) -> (ctx.env_flags.inside_target = false; nothing)
 )
+
+perftest_expression_ruleset = [
+    perftest_scope_assignment_macro_rule,
+    perftest_scope_arg_macro_rule,
+    perftest_scope_vecf_arg_macro_rule,
+    perftest_dot_interpolation_rule,
+]
+
+function parseTarget(expr :: Expr, context::Context)::Expr
+    return MacroTools.prewalk(ruleSet(context, perftest_expression_ruleset), expr)
+end
 
 # TOKEN OBSERVERS
 
@@ -441,6 +438,7 @@ config_macro_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@perftest_config")) != nothing,
     (x, ctx) -> (perftestConfigEnter(x, ctx))
 )
+
 
 # CONDITIONAL EXECUTION
 

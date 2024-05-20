@@ -24,6 +24,9 @@ function retvalExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:return) ? :(PerfTests.by_index(export_tree, depth)[:ret_value]) : x), expr)
 end
 
+function autoflopExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:autoflop) ? :(PerfTests.by_index(export_tree, depth)[:autoflop]) : x), expr)
+end
 
 function printedOutputExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTests.by_index(export_tree, depth)[:printed_output]) : x), expr)
@@ -81,6 +84,8 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
             t = customMetricExpressionParser(x.args[end])
             # Fill return
             t = retvalExpressionParser(t)
+            # Fill autoflops
+            t = autoflopExpressionParser(t)
             # Fill output
             t = printedOutputExpressionParser(t)
             # Abbreviated version
