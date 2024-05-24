@@ -8,7 +8,13 @@ function perftestprefix(ctx :: Context)::Expr
     return quote
         using Test;
         using BenchmarkTools;
-        using GFlops;
+        $(
+            if roofline.autoflops
+                quote using GFlops; end
+            else
+                quote begin end end
+            end
+        )
 
         # __PERFTEST__.Test.eval(quote
         #      function record(ts::DefaultTestSet, t::Union{Fail,Error})
@@ -26,7 +32,8 @@ function perftestprefix(ctx :: Context)::Expr
             nofile = false
             data = PerfTests.openDataFile(path)
         else
-            data = PerfTests.Perftest_Datafile_Root(PerfTests.Perftest_Result[])
+            data = PerfTests.Perftest_Datafile_Root(PerfTests.Perftest_Result[],
+                                                    PerfTests.Dict{PerfTests.StrOrSym, Any}[])
 
             PerfTests.p_yellow("[!]")
             println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")

@@ -1,6 +1,8 @@
 using Dates
 using BenchmarkTools
 
+StrOrSym = Union{String,Symbol}
+
 @kwdef struct Metric_Result{N}
     name::AbstractString
     # Used to identify the metric in some situations
@@ -50,5 +52,6 @@ end
 
 @kwdef struct Perftest_Datafile_Root
     results :: Vector{Perftest_Result}
+    methodologies_history :: Vector{Dict{StrOrSym, Any}}
 end
 

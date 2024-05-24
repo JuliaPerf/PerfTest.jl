@@ -178,6 +178,7 @@ function rooflineEvaluation(context::Context)::Expr
 
         PerfTests.printMethodology(methodology_result, $(length(context.depth)))
         # Register metric results TODO
+        current_test_results[:roofline] = methodology_result
 
         @test _test
     end) : quote

@@ -28,10 +28,13 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
         push!(tree_builder[depth-1],
             quote
                 @testset $name (showtiming = false) begin
-                    push!(depth, PerfTests.DepthRecord($name))
-                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
-                    $concat
-                    pop!(depth)
+                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+                    let current_test_results = current_test_results[$name]
+                        push!(depth, PerfTests.DepthRecord($name))
+                        local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                        $concat
+                        pop!(depth)
+                    end
                 end
             end
         )
@@ -43,10 +46,13 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
         push!(tree_builder, Expr[
             quote
                 tt[$name] = (@testset $name (showtiming = false) begin
-                    push!(depth, PerfTests.DepthRecord($name))
-                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
-                    $concat
-                    pop!(depth)
+                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+                    let current_test_results = current_test_results[$name]
+                             push!(depth, PerfTests.DepthRecord($name))
+                             local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                             $concat
+                             pop!(depth)
+                             end
                 end)
             end
         ])
@@ -72,10 +78,13 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder[depth-1],
               quote
                 @testset $name (showtiming = false) for $i in $n
-                    push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
-                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
-                    $concat
-                    pop!(depth)
+                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+                    let current_test_results = current_test_results[$name]
+                        push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
+                        local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                        $concat
+                        pop!(depth)
+                    end
                 end
               end
               )
@@ -86,10 +95,13 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder, Expr[
             quote
                 tt[$name] = (@testset $name (showtiming = false) for $i in $n
-                    push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
-                    local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
-                    $concat
-                    pop!(depth)
+                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+                    let current_test_results = current_test_results[$name]
+                        push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
+                        local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                        $concat
+                        pop!(depth)
+                    end
                 end)
             end
         ])
@@ -109,18 +121,21 @@ function updateTestTreeSideways!(context::Context, name::String)
     # Add the expression to de tree builder
     push!(context.test_tree_expr_builder[depth],
           quote
-            push!(depth, PerfTests.DepthRecord($name))
-            PerfTests.printDepth!(depth)
-            # Metric calc
-            $(buildPrimitiveMetrics()) # See metrics.jl
-            # TODO $(context.local_injection)
-            # Methodology evaluation
-            $(regressionEvaluation(context))
-            $(effMemThroughputEvaluation(context))
-            $(rooflineEvaluation(context))
-            # Reset local customs (not relevant anymore)
-            local_customs = Pair{Set{Symbol},PerfTests.Metric_Result}[]
-            pop!(depth)
+              current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+              let current_test_results = current_test_results[$name]
+                  push!(depth, PerfTests.DepthRecord($name))
+                  PerfTests.printDepth!(depth)
+                  # Metric calc
+                  $(buildPrimitiveMetrics()) # See metrics.jl
+                  # TODO $(context.local_injection)
+                  # Methodology evaluation
+                  $(regressionEvaluation(context))
+                  $(effMemThroughputEvaluation(context))
+                  $(rooflineEvaluation(context))
+                  # Reset local customs (not relevant anymore)
+                  local_customs = Pair{Set{Symbol},PerfTests.Metric_Result}[]
+                  pop!(depth)
+              end
           end)
 
     # Empty local injection once used
@@ -221,7 +236,6 @@ end
 function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Get the elements of interest from the macrocall
     @capture(input_expr, @perftest prop__ expr_)
-    #TODO prop
     num = (last(context.depth).depth_test_count += 1)
     name = "Test $num"
 
@@ -229,7 +243,6 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
     updateTestTreeSideways!(context, name)
 
     parsed_target = parseTarget(expr, context)
-    @show parsed_target
 
     # Return the substitution and setup the in target flag deactivator
     return quote
@@ -237,15 +250,25 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
               quote
               @suppress begin
                   l[$name] = @benchmark ($parsed_target);
-                  export_tree[:autoflops] =
-                      GFlops.flop(@count_ops ($parsed_target))
+                  export_tree[:autoflops] = $(
+                      if roofline.autoflops
+                          quote GFlops.flop(@count_ops ($parsed_target)) end
+                      else
+                          quote 0 end
+                      end
+                  )
               end
               end
           else
               quote
                   l[$name] = @benchmark ($parsed_target);
-                  export_tree[:autoflops] =
-                      GFlops.flop(@count_ops ($parsed_target))
+                  export_tree[:autoflops] = $(
+                      if roofline.autoflops
+                          quote GFlops.flop(@count_ops ($parsed_target)) end
+                      else
+                          quote 0 end
+                      end
+                  )
               end
           end)
 

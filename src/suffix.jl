@@ -48,6 +48,7 @@ function perftextsuffix(context :: Context)
         failed = false
         # Test set hierarchy root
         depth = PerfTests.DepthRecord[]
+        current_test_results = Dict{PerfTests.StrOrSym, Any}()
         tt = Dict()
         try
             # Test set hierarchy
@@ -56,6 +57,14 @@ function perftextsuffix(context :: Context)
             @warn "One or more performance tests have failed"
             failed = true
         end
+
+        $(
+            if save_test_results
+                quote
+                    push!(data.methodologies_history, current_test_results)
+                end
+            end
+        )
 
         if !failed
             PerfTests.saveDataFile(path, data)

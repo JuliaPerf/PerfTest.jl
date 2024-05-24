@@ -29,6 +29,8 @@ end
 @kwdef mutable struct Struct_Roofline_Config
     enabled::Bool
 
+    autoflops::Bool
+
     plotting::Bool
 
     tolerance_around_memcpu_intersection::Struct_Tolerance
@@ -54,6 +56,8 @@ end
 
 """ Where the regression tests are saved """
 save_folder = ".perftests"
+
+save_test_results = true
 
 verbose = false
 
@@ -102,6 +106,8 @@ roofline = Struct_Roofline_Config(
     enabled = true,
 
     plotting = true,
+
+    autoflops = false,
 
     tolerance_around_memcpu_intersection = Struct_Tolerance(
         max_percentage = 2.0,
