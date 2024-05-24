@@ -78,8 +78,8 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder[depth-1],
               quote
                 @testset $name (showtiming = false) for $i in $n
-                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
-                    let current_test_results = current_test_results[$name]
+                    current_test_results[$name * "_" * string($i)] = Dict{PerfTests.StrOrSym, Any}()
+                    let current_test_results = current_test_results[$name * "_" * string($i)]
                         push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
                         local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
                         $concat
@@ -95,8 +95,8 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder, Expr[
             quote
                 tt[$name] = (@testset $name (showtiming = false) for $i in $n
-                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
-                    let current_test_results = current_test_results[$name]
+                    current_test_results[$name * "_" * string($i)] = Dict{PerfTests.StrOrSym, Any}()
+                    let current_test_results = current_test_results[$name * "_" * string($i)]
                         push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
                         local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
                         $concat
