@@ -2,6 +2,8 @@
 include("config.jl")
 include("perftest/structs.jl")
 
+
+
 sym_set = Set([:(:median_time), :(:minimum_time)])
 
 function customMetricExpressionParser(expr :: Expr) :: Expr
@@ -10,6 +12,40 @@ end
 
 function customMetricReferenceExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (@show x; x in sym_set ? :(metric_references[$x]) : x), expr)
+end
+
+"""
+  Checks for the return symbol
+"""
+function retvalExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:return) ? :(PerfTests.by_index(export_tree, depth)[:ret_value]) : x), expr)
+end
+
+function autoflopExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:autoflop) ? :(PerfTests.by_index(export_tree, depth)[:autoflop]) : x), expr)
+end
+
+function printedOutputExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTests.by_index(export_tree, depth)[:printed_output]) : x), expr)
+end
+
+function printedOutputAbbreviationExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:out) ? :(PerfTests.grepOutputXGetNumber(PerfTests.by_index(export_tree, depth)[:printed_output])) : x), expr)
+end
+
+
+function fullParsingSuite(expr::Expr)::Expr
+    # Fill primitives
+    t = customMetricExpressionParser(expr)
+    # Fill return
+    t = retvalExpressionParser(t)
+    # Fill autoflops
+    t = autoflopExpressionParser(t)
+    # Fill output
+    t = printedOutputExpressionParser(t)
+    # Abbreviated version
+    t = printedOutputAbbreviationExpressionParser(t)
+    return t
 end
 
 function onCustomMetricDefinition(expr ::Expr, context :: Context, flags::Set{Symbol}) :: Expr
@@ -23,6 +59,7 @@ function onCustomMetricDefinition(expr ::Expr, context :: Context, flags::Set{Sy
             println("A memory throughput measure has been defined:")
         end
     else
+        @show dump(expr)
         got_name = false
         got_unit = false
         # Scan for name and unit
@@ -182,6 +219,9 @@ end
 # metric (see loop on function below this one)
 function checkCustomMetric(metric :: CustomMetric)::Expr
 
+    if :aux in metric.flags
+        return checkAuxiliaryMetric(metric)
+    else
     return quote
         (threshold_min, threshold_max) = $(
             let a = configFallBack(Struct_Tolerance(), :regression)
@@ -215,20 +255,68 @@ function checkCustomMetric(metric :: CustomMetric)::Expr
 
 
         # Register metric results
-        push!(methodology_result.metrics, (result => constraint))
+            push!(methodology_result.metrics, (result => constraint))
+        end
     end
 end
 
 
 # WARNING Predefined symbols needed before this quote
 # local_customs, global_customs
-function checkCustomMetrics(context :: Context)::Expr
-    result = :(begin end)
+function checkCustomMetrics(context::Context)::Expr
+    result = :(
+        begin end
+    )
     for metric in context.global_c_metrics
-        result = quote $result; $(checkCustomMetric(metric)) end
+        result = quote
+            $result
+            $(checkCustomMetric(metric))
+        end
     end
     for metric in context.local_c_metrics
-        result = quote $result; $(checkCustomMetric(metric)) end
+        result = quote
+            $result
+            $(checkCustomMetric(metric))
+        end
+    end
+    return result
+end
+
+
+
+function checkAuxiliaryMetric(metric::CustomMetric)::Expr
+    return quote
+        # Filling out the formula
+        result_ = PerfTests.Metric_Result(
+            name=$(metric.name),
+            units=$(metric.units),
+            value=$(fullParsingSuite(metric.formula))
+        )
+        # Register metric results
+        methodology_result.custom_elements[Symbol(:aux_, $(metric.name))] = result_
+    end
+end
+
+
+function checkAuxiliaryCustomMetrics(context::Context)::Expr
+    result = :(
+        begin end
+    )
+    for metric in context.global_c_metrics
+        if :aux in metric.flags
+            result = quote
+                $result
+                $(checkCustomMetric(metric))
+            end
+        end
+    end
+    for metric in context.local_c_metrics
+        if :aux in metric.flags
+            result = quote
+                $result
+                $(checkCustomMetric(metric))
+            end
+        end
     end
     return result
 end

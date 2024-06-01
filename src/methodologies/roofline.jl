@@ -17,24 +17,6 @@ include("../benchmarking.jl")
 # local_peakflops
 # local_peakbandwidth
 
-"""
-  Checks for the return symbol
-"""
-function retvalExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:return) ? :(PerfTests.by_index(export_tree, depth)[:ret_value]) : x), expr)
-end
-
-function autoflopExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:autoflop) ? :(PerfTests.by_index(export_tree, depth)[:autoflop]) : x), expr)
-end
-
-function printedOutputExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTests.by_index(export_tree, depth)[:printed_output]) : x), expr)
-end
-
-function printedOutputAbbreviationExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:out) ? :(PerfTests.grepOutputXGetNumber(PerfTests.by_index(export_tree, depth)[:printed_output])) : x), expr)
-end
 
 using UnicodePlots
 
@@ -80,25 +62,17 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
         end
         # Last is the operational intensity BLOCK
         if x.args[end].head == :block
-            # Fill primitives
-            t = customMetricExpressionParser(x.args[end])
-            # Fill return
-            t = retvalExpressionParser(t)
-            # Fill autoflops
-            t = autoflopExpressionParser(t)
-            # Fill output
-            t = printedOutputExpressionParser(t)
-            # Abbreviated version
-            t = printedOutputAbbreviationExpressionParser(t)
+            t = fullParsingSuite(x.args[end])
         else
             error("Malformed @roofline, opint must be in block format")
         end
 
-        push!(ctx.test_tree_expr_builder[end], quote
+        ctx.local_injection = quote
+            $(ctx.local_injection)
             roofline_opint = $t
             local_peakflops = $(peakflops == nothing ? :(peakflops) : peakflops)
             local_peakbandwidth = $(peakbandwidth == nothing ? :(peakbandwidth) : peakbandwidth)
-        end)
+        end
     end
     return quote
         begin end
@@ -173,6 +147,8 @@ function rooflineEvaluation(context::Context)::Expr
         methodology_result.custom_elements[:roof_corner] = roof_corner
 
         methodology_result.custom_elements[:plot] = PerfTests.printRoofline
+
+        $(checkAuxiliaryCustomMetrics(context))
 
         push!(methodology_result.metrics, (result => constraint))
 

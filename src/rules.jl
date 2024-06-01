@@ -127,7 +127,7 @@ function updateTestTreeSideways!(context::Context, name::String)
                   PerfTests.printDepth!(depth)
                   # Metric calc
                   $(buildPrimitiveMetrics()) # See metrics.jl
-                  # TODO $(context.local_injection)
+                  $(context.local_injection)
                   # Methodology evaluation
                   $(regressionEvaluation(context))
                   $(effMemThroughputEvaluation(context))
@@ -246,11 +246,12 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
 
     # Return the substitution and setup the in target flag deactivator
     return quote
+        export_tree[$name] = Dict()
         $(if suppress_output
               quote
               @suppress begin
                   l[$name] = @benchmark ($parsed_target);
-                  export_tree[:autoflops] = $(
+                  export_tree[$name][:autoflop] = $(
                       if roofline.autoflops
                           quote GFlops.flop(@count_ops ($parsed_target)) end
                       else
@@ -261,8 +262,8 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
               end
           else
               quote
-                  l[$name] = @benchmark ($parsed_target);
-                  export_tree[:autoflops] = $(
+                  l[$name] = @benchmark samples=5 evals=1 ($parsed_target);
+                  export_tree[$name][:autoflop] = $(
                       if roofline.autoflops
                           quote GFlops.flop(@count_ops ($parsed_target)) end
                       else
@@ -272,9 +273,9 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
               end
           end)
 
-        export_tree[:printed_output] =
-            @capture_out export_tree[:ret_value] = $expr;
-        @show export_tree[:autoflops]
+        export_tree[$name][:printed_output] =
+            @capture_out export_tree[$name][:ret_value] = $expr;
+        @show export_tree[$name][:autoflop]
     end
 end
 
@@ -485,6 +486,11 @@ define_memory_throughput_rule = ASTRule(
 define_metric_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@define_metric")) != nothing,
     (x, ctx) -> onCustomMetricDefinition(x, ctx, Set{Symbol}())
+)
+
+auxiliary_metric_rule = ASTRule(
+    x -> escCaptureGetblock(x, Symbol("@auxiliary_metric")) != nothing,
+    (x, ctx) -> onCustomMetricDefinition(x, ctx, Set{Symbol}([:aux]))
 )
 
 # MPI

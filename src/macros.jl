@@ -47,3 +47,9 @@ macro roofline(opint_formula, cpu_peak=nothing, membw_peak=nothing)
         begin end
     )
 end
+
+macro auxiliary_metric(formula, name, units)
+    return :(
+        begin end
+    )
+end

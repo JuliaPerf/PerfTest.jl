@@ -42,7 +42,7 @@ function setupMemoryBandwidthBenchmark()::Expr
     else
         ret = quote
             # Begin probing the maximum memory throughput
-            global bench_data = STREAMBenchmark.benchmark()
+            global bench_data = STREAMBenchmark.benchmark(N = 1024 * 256 * 140)
             peakbandwidth = bench_data.multi.maximum / 1e3
         end
     end
