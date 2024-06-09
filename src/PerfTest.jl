@@ -1,4 +1,4 @@
-module PerfTests
+module PerfTest
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
     @define_eff_memory_throughput, @define_metric, @roofline
 
@@ -113,4 +113,4 @@ function treeRun(path :: AbstractString)
 end
 
 
-end # module perftests
+end # module perftest

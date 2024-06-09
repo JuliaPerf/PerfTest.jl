@@ -1,4 +1,5 @@
 using Base: nothing_sentinel
+using MacroTools: blockunify
 
 include("../structs.jl")
 include("../config.jl")
@@ -46,6 +47,9 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
         peakflops = nothing
         peakbandwidth = nothing
 
+        actual_flops_expr = nothing
+
+
         # Enables local roofline model construction
         ctx.env_flags.roofline_prefix = true
 
@@ -54,9 +58,13 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
             # Is macro kwarg?
             if arg isa Expr && arg.head == Symbol("=")
                 if arg.args[1] == Symbol("cpu_peak")
-                    peakflops = arg.args[2]
+                    peakflops = eval(arg.args[2])
                 elseif arg.args[1] == Symbol("membw_peak")
-                    peakbandwidth = arg.args[2]
+                    peakbandwidth = eval(arg.args[2])
+                elseif arg.args[1] == Symbol("actual_flops")
+                    if arg.args[2] isa Expr && arg.args[2].head == :block
+                        actual_flops_expr = fullParsingSuite(arg.args[2])
+                    end
                 end
             end
         end
@@ -70,6 +78,14 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
         ctx.local_injection = quote
             $(ctx.local_injection)
             roofline_opint = $t
+            $(if actual_flops_expr != nothing
+                  ctx.env_flags.roofline_full = true
+                  quote
+                      local_actual_flops_expr = $actual_flops_expr
+                  end
+              else
+                  quote end
+              end)
             local_peakflops = $(peakflops == nothing ? :(peakflops) : peakflops)
             local_peakbandwidth = $(peakbandwidth == nothing ? :(peakbandwidth) : peakbandwidth)
         end
@@ -86,11 +102,32 @@ function rooflineEvaluation(context::Context)::Expr
         min = $(roofline.tolerance_around_memcpu_intersection.min_percentage)
         max = $(roofline.tolerance_around_memcpu_intersection.max_percentage)
 
-        result = PerfTests.Metric_Result(
-            name="OPERATIONAL INTENSITY",
-            units="FLOP/Byte",
-            value=roofline_opint
-        )
+            result = PerfTests.Metric_Result(
+                name="OPERATIONAL INTENSITY",
+                units="FLOP/Byte",
+                value=roofline_opint
+            )
+
+
+            $(
+                if context.env_flags.roofline_full
+                    quote
+                        operational_intensity_result = result
+                        result = PerfTests.Metric_Result(
+                            name="Real Performance vs Model performance",
+                            units="[%(real/model)]",
+                            value=local_actual_flops_expr / minimum(roofline_opint * mem_peak, cpu_peak)
+                        )
+                        methodology_result.custom_elements[:opint] = operational_intensity_result
+                        methodology_result.custom_elements[:realf] = PerfTests.Metric_Result(
+                        name= "Real Performance",
+                        units="GFlops",
+                        value=local_real_performance,)
+                    end
+                    context.env_flags.roofline_full = false
+                end
+            )
+
 
         # MEM LIMIT TO CPU LIMIT THRESHOLD (used as the reference for bounded tests)
         ref = local_peakflops / local_peakbandwidth

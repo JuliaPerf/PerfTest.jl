@@ -1,5 +1,5 @@
-name = "PerfTests"
-uuid = "2a2557ad-b0ad-4d20-b9c0-7bf3a5cf6cdb"
+name = "PerfTest"
+uuid = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
 authors = ["Dvegrod <dvegrodu@gmail.com>"]
 version = "0.1.0"
 

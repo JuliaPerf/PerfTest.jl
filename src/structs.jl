@@ -40,8 +40,9 @@ mutable struct EnvironmentFlags
 
     roofline_prefix::Bool
     roofline_uses_return::Bool
+    roofline_full::Bool
 
-    EnvironmentFlags() = new(false, false, false, false)
+    EnvironmentFlags() = new(false, false, false, false, false)
 end
 
 
