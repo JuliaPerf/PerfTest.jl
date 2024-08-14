@@ -1,4 +1,4 @@
-# Memory copy of [`CuCellArray`](@ref)s with 4x4 `SMatrix` cells
+# Memory copy of  with 4x4 `SMatrix` cells
 
 ```@eval
 Main.mdinclude(joinpath(Main.EXAMPLEROOT, "memcopyCellArray3D.jl"))

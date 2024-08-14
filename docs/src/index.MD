@@ -1,5 +1,5 @@
 # [PerfTest.jl] [![Star on GitHub](https://img.shields.io/github/stars/JuliaPerf/PerfTest.jl.svg)](https://github.com/JuliaPerf/PerfTest.jl/stargazers)
-The package `PerfTest` provides support for an `AbstractArray` subtype [`CellArray`](@ref), which represents arrays with cells that can contain logical arrays instead of single values; the data is stored in an optimal fashion for GPU HPC applications.
+The package `PerfTest` provides ...
 
 ## Dependencies
 `PerfTest` relies on [StaticArrays.jl], [Adapt.jl] and the Julia GPU packages [CUDA.jl] and [AMDGPU.jl].
