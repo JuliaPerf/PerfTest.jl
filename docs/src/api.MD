@@ -12,9 +12,9 @@ help?> PerfTest
 ```
 
 
-## [`CellArray`](@ref) type and basic constructors
+## [`PerfTest`](@ref) type and basic constructors
 ```@docs
-CellArray
+PerfTest
 ```
 
 
