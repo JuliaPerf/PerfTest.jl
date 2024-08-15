@@ -6,6 +6,6 @@ reflinks = Dict(
     "[Julia package manager]" => "https://docs.julialang.org/en/v1/stdlib/Pkg/",
     "[Julia REPL]"            => "https://docs.julialang.org/en/v1/stdlib/REPL/",
     "[ParallelStencil.jl]"    => "https://github.com/omlins/ParallelStencil.jl",
-    "[PerfTest]"              => "https://github.com/JuliaPerf/PerfTest.jl",
+    "[PerfTest.jl]"           => "https://github.com/JuliaPerf/PerfTest.jl",
     "[StaticArrays.jl]"       => "https://github.com/JuliaArrays/StaticArrays.jl",
 )
