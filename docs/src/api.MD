@@ -18,10 +18,17 @@ metrics
 ```
 
 
+## [`regression`](@ref), [`suppress_output`](@ref), [`save_folder`](@ref)
+```@docs
+regression
+suppress_output
+save_folder
+```
+
+
 ## Convenience type aliases and constructors
 #### Index
 * [`PerfTest.retvalExpressionParser`](@ref)
-* [`PerfTest.regression`](@ref)
 * [`PerfTest.metaGet`](@ref)
 
 #### Documentation
