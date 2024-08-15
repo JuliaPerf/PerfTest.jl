@@ -10,3 +10,35 @@ julia> using PerfTest
 julia>?
 help?> PerfTest
 ```
+
+
+## [`metrics`](@ref) type and basic constructors
+```@docs
+metrics
+```
+
+
+## Convenience type aliases and constructors
+#### Index
+* [`PerfTest.retvalExpressionParser`](@ref)
+* [`PerfTest.regression`](@ref)
+* [`PerfTest.metaGet`](@ref)
+
+#### Documentation
+```@autodocs
+Modules = [PerfTest]
+Order   = [:type]
+Filter = t -> typeof(t) !== Array
+```
+
+
+## Functions -- additional to standard `AbstractArray` functionality
+#### Index
+```@index
+Order = [:function]
+```
+#### Documentation
+```@autodocs
+Modules = [PerfTest]
+Order   = [:function]
+```
