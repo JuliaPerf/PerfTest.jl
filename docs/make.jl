@@ -31,7 +31,7 @@ makedocs(;
         canonical        = "https://JuliaPerf.github.io/PerfTest.jl",
         collapselevel    = 1,
         sidebar_sitename = true,
-        edit_link        = "main",
+        edit_link        = "master",
         #assets           = [asset("https://img.shields.io/github/stars/JuliaPerf/PerfTest.jl.svg", class = :ico)],
         #warn_outdated    = true,
     ),
@@ -51,5 +51,5 @@ makedocs(;
 deploydocs(;
     repo         = "github.com/JuliaPerf/PerfTest.jl",
     push_preview = true,
-    devbranch    = "main",
+    devbranch    = "master",
 )
