@@ -1,23 +1,36 @@
 using MacroTools: ismatch
 
-# Function that generates a test name if needed
+"""
+  Function that generates a test name if needed, it is used to name
+  test targets to distinguish them if several go in the same testset.
+"""
 function genTestName!(state::Context)
     v = (last(state.depth).depth_test_count += 1)
     return "Test $v"
 end
 
+
+"""
+  Function used to register a new test set in the hierarchy record of the context, where `name` is the name of the test set.
+"""
 function testsetUpdate!(state::Context, name::String)
     push!(state.depth, ASTWalkDepthRecord(name))
 end
 
-### EXPRESSION LOADER
-function loadFileAsExpr(path ::AbstractString)
+"""
+  Utility to get an expression from a Julia file stored at `path`
+"""
+function loadFileAsExpr(path::AbstractString)
     file = open(path, "r")
     str = read(file, String)
     return Meta.parse("begin $str end")
 end
 
-### EXPRESSION PRINTER
+"""
+  Utility to save an expression (`expr`) to a Julia file stored at `path`
+
+  Requires a :toplevel symbol to be the head of the expression.
+"""
 function saveExprAsFile(expr::Expr, path = "out.jl" :: AbstractString)
 
     #Get the module
@@ -31,7 +44,10 @@ function saveExprAsFile(expr::Expr, path = "out.jl" :: AbstractString)
 
 end
 
-## Pops expr block or quote and returns array of nested expressions
+"""
+Pops `expr` which has a head that is :block or :quote and returns array of nested expressions which are the arguments of such head.
+
+"""
 function removeBlock(expr::Expr)::Vector
     result = []
 
@@ -47,7 +63,9 @@ function removeBlock(expr::Expr)::Vector
 end
 
 
-### Useful to move expressions to the toplevel
+"""
+This function is useful to move expressions to the toplevel when they are enclosed inside a block
+"""
 function unblockAndConcat(exprs::Vector{Expr})::Expr
 
     result = Expr(:toplevel)
@@ -62,10 +80,11 @@ function unblockAndConcat(exprs::Vector{Expr})::Expr
     return result
 end
 
-
-### Useful to correct operations limited by the tree walking
-# Will remove quote blocks inside the main block without recursion and push
-# their expressions into the main block
+"""
+ Useful to correct operations limited by the tree walking
+ Will remove quote blocks inside the main block without recursion and push
+ their expressions into the main block
+"""
 function popQuoteBlocks(expr::Expr)::Expr
     result = []
 
@@ -87,7 +106,20 @@ function popQuoteBlocks(expr::Expr)::Expr
     end
 end
 
+"""
+This method interpolates the `inside_expr` into `outside_expr` anywhere it finds the token `substitution_token`, which is a symbol. The `outside_expr` has to be a block or a quote block. It has the particularity that it will remove block heads from the `inside_expr` and add the nested elements onto the location where the token it.
 
+# Example:
+
+outside_expr = :(:A; 4)
+
+inside_expr = :(begin 2;3 end)
+
+substitution_token = :A
+
+returns = :(2;3;4)
+
+"""
 function flattenedInterpolation(outside_expr::Expr,
     inside_expr::Expr,
     substitution_token::Symbol)::Expr
@@ -176,7 +208,9 @@ function metaGet(expr_array :: AbstractVector, sym :: Symbol)
     return Nothing
 end
 
-
+"""
+  
+"""
 function metaGetString(expr_array::AbstractVector)
 
     for expr in expr_array
@@ -196,7 +230,9 @@ macro inRange(min, max, value)
     return :($min < $value < $max)
 end
 
-
+"""
+  From a string, it will divide it by lines and retrieve the ones that match the regular expression provided.
+"""
 function grepOutput(output :: String, regex_or_string :: Union{Regex, String}):: Vector{SubString{String}}
     lines = split(output, '\n')
 
@@ -206,7 +242,9 @@ function grepOutput(output :: String, regex_or_string :: Union{Regex, String})::
     return cleaned_lines
 end
 
-"""WARNING, SUPPORTS ONLY 1 NUMBER PER LINE"""
+"""
+From a string (`field`), it will parse the first number it finds as a Float
+"""
 function getNumber(field :: String)::Float64
     clean = replace(field, r"[^0-9.]" => "")
 
@@ -214,7 +252,9 @@ function getNumber(field :: String)::Float64
     return parse(Float64, clean)
 end
 
-## Abbreviation gets from the first match
+"""
+  Given a string `output`, it will retrieve the first number in the first line that contains the string `string`.
+"""
 function grepOutputXGetNumber(output :: String, string ::String)::Float64
 
     return getNumber(String(grepOutput(output, string)[1]))

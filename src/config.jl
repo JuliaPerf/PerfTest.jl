@@ -3,7 +3,9 @@ using MacroTools
 
 # CONFIG STRUCTURE DEFINITION
 # FOR DEFAULTS SEE BELOW COMMENT "DEFAULTCONFIG":
-
+"""
+ TEST
+"""
 @kwdef mutable struct Struct_Regression
     enabled::Bool
 
@@ -53,7 +55,7 @@ end
 
 # DEFAULTCONFIG
 
-""" Where the regression tests are saved """
+# Where the regression tests are saved
 save_folder = ".perftests"
 
 save_test_results = true

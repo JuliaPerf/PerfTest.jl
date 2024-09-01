@@ -5,7 +5,6 @@ __precompile__(false) # Temporary workaround to avoid error
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
     @define_eff_memory_throughput, @define_metric, @roofline
 
-# Possibly redundant
 using MacroTools
 include("structs.jl")
 include("auxiliar.jl")
@@ -70,6 +69,15 @@ rules = ASTRule[testset_macro_rule,
 
 # Main transform routine
 
+"""
+This method builds what is known as a rule set. Which is a function that will evaluate if an expression triggers a rule in a set and if that is the case apply the rule modifier. See the ASTRule documentation for more information.
+
+WARNING: the rule set will apply the FIRST rule that matches with the expression, therefore other matches will be ignored
+
+# Arguments
+ - `context` the context structure of the tree run, it will be ocassinally used by some rules on the set.
+ - `rules` the collection of rules that will belong to the resulting set.
+"""
 function ruleSet(context::Context, rules :: Vector{ASTRule})
     function _ruleSet(x)
         for rule in rules
@@ -84,13 +92,28 @@ function ruleSet(context::Context, rules :: Vector{ASTRule})
 end
 
 
-function _treeRun(input_expr :: Expr, context :: Context, args...)
+"""
+This method gets a input julia expression, and a context register and executes a transformation of the input that converts a recipe script (input) into a fully-fledged testing suite (return value).
+
+# Arguments
+ - `input_expr` the recipe/source expression. (internally, a.k.a source code space)
+ - `context` a register that will store information useful for the transformation over its run over the AST of the input
+
+"""
+function _treeRun(input_expr::Expr, context::Context, args...)
 
     return MacroTools.prewalk(ruleSet(context, rules), input_expr)
 end
 
 
+"""
+This method implements the transformation that converts a recipe script into a fully-fledged testing suite.
+The function will return a Julia expression with the resulting performance testing suite. This can be then executed or saved in a file for later usage.
 
+# Arguments
+ - `path` the path of the script to be transformed.
+
+"""
 function treeRun(path :: AbstractString)
 
     # Load original
@@ -119,6 +142,8 @@ function treeRun(path :: AbstractString)
 
     return MacroTools.prettify(module_full)
 end
+
+transform = treeRun
 
 
 end # module perftest
