@@ -3,10 +3,12 @@ macro perftest(anything)
     return esc(anything)
 end
 
-macro perftest_config(anything)
-    return :(
-        begin end
-    )
+# Perftest_config macro, used to set customised configuration
+macro perftest_config(expr)
+    # It deletes the contents and does nothing since this macro wont
+    # be evaluated during performance testing but during functional testing
+    # The contents are used by parsing them during the test translation
+    return begin end
 end
 
 macro on_perftest_exec(anything)

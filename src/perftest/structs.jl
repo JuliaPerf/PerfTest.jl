@@ -1,4 +1,3 @@
-using Dates
 using BenchmarkTools
 
 StrOrSym = Union{String,Symbol}

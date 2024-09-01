@@ -1,38 +1,38 @@
 
-include("config.jl")
-include("perftest/structs.jl")
-
 
 
 sym_set = Set([:(:median_time), :(:minimum_time)])
 
 function customMetricExpressionParser(expr :: Expr) :: Expr
-    return MacroTools.postwalk(x -> (@show x; x in sym_set ? :(metric_results[$x].value) : x), expr)
+    return MacroTools.postwalk(x -> (x in sym_set ? :(metric_results[$x].value) : x), expr)
 end
 
 function customMetricReferenceExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (@show x; x in sym_set ? :(metric_references[$x]) : x), expr)
+    return MacroTools.postwalk(x -> (x in sym_set ? :(metric_references[$x]) : x), expr)
 end
 
 """
   Checks for the return symbol
 """
 function retvalExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:return) ? :(PerfTests.by_index(export_tree, depth)[:ret_value]) : x), expr)
+    return MacroTools.postwalk(x -> (x == :(:return) ? :(PerfTest.by_index(export_tree, depth)[:ret_value]) : x), expr)
 end
 
 function autoflopExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:autoflop) ? :(PerfTests.by_index(export_tree, depth)[:autoflop]) : x), expr)
+    return MacroTools.postwalk(x -> ((@show x;x == :(:autoflop)) ? :(PerfTest.by_index(export_tree, depth)[:autoflop]) : x), expr)
 end
 
 function printedOutputExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTests.by_index(export_tree, depth)[:printed_output]) : x), expr)
+    return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTest.by_index(export_tree, depth)[:printed_output]) : x), expr)
 end
 
 function printedOutputAbbreviationExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> (x == :(:out) ? :(PerfTests.grepOutputXGetNumber(PerfTests.by_index(export_tree, depth)[:printed_output])) : x), expr)
+    return MacroTools.postwalk(x -> (x == :(:out) ? :(PerfTest.grepOutputXGetNumber(PerfTest.by_index(export_tree, depth)[:printed_output])) : x), expr)
 end
 
+function iteratorExpressionParser(expr::Expr)::Expr
+    return MacroTools.postwalk(x -> (x == :(:iterator) ? :(PerfTest.by_index(export_tree, depth)[:iterator]) : x), expr)
+end
 
 function fullParsingSuite(expr::Expr)::Expr
     # Fill primitives
@@ -45,6 +45,8 @@ function fullParsingSuite(expr::Expr)::Expr
     t = printedOutputExpressionParser(t)
     # Abbreviated version
     t = printedOutputAbbreviationExpressionParser(t)
+    # Fill iterator on for testsets
+    t = iteratorExpressionParser(t)
     return t
 end
 
@@ -124,19 +126,19 @@ end
 # TODO flops memory
 function buildPrimitiveMetrics() :: Expr
     return quote
-        metric_results = Dict{Symbol, PerfTests.Metric_Result}()
+        metric_results = Dict{Symbol, PerfTest.Metric_Result}()
 
         # Median time
-        metric_results[:median_time] = PerfTests.Metric_Result(
+        metric_results[:median_time] = PerfTest.Metric_Result(
             name = "Median Time",
             units = "ns",
-            value = PerfTests.by_index(median_suite, depth).time
+            value = PerfTest.by_index(median_suite, depth).time
         )
         # Min time
-        metric_results[:minimum_time] = PerfTests.Metric_Result(
+        metric_results[:minimum_time] = PerfTest.Metric_Result(
             name = "Minimum Time",
             units = "ns",
-            value = PerfTests.by_index(min_suite, depth).time
+            value = PerfTest.by_index(min_suite, depth).time
         )
 
     end
@@ -157,7 +159,7 @@ function checkMedianTime(thresholds ::Struct_Tolerance)::Expr
         # Test boolean
 	      _test = threshold_min < (reference_value / result.value) < threshold_max
 
-        constraint = PerfTests.Metric_Constraint(
+        constraint = PerfTest.Metric_Constraint(
             reference=reference_value,
             threshold_min=threshold_min * reference_value,
             threshold_min_percent = threshold_min,
@@ -192,7 +194,7 @@ function checkMinTime(thresholds::Struct_Tolerance)::Expr
         # Test boolean
 	      _test = threshold_min < (reference_value / result.value) < threshold_max
 
-        constraint = PerfTests.Metric_Constraint(
+        constraint = PerfTest.Metric_Constraint(
             reference=reference_value,
             threshold_min=threshold_min * reference_value,
             threshold_min_percent = threshold_min,
@@ -231,7 +233,7 @@ function checkCustomMetric(metric :: CustomMetric)::Expr
 
         # Filling out the formula
         reference_value = $(customMetricReferenceExpressionParser(metric.formula))
-        result = PerfTests.Metric_Result(
+        result = PerfTest.Metric_Result(
             name = $(metric.name),
             units = $(metric.units),
             value = $(customMetricExpressionParser(metric.formula))
@@ -240,7 +242,7 @@ function checkCustomMetric(metric :: CustomMetric)::Expr
         # Test boolean
 	      _test = threshold_min < (reference_value / result.value) < threshold_max
 
-        constraint = PerfTests.Metric_Constraint(
+        constraint = PerfTest.Metric_Constraint(
             reference=reference_value,
             threshold_min=threshold_min * reference_value,
             threshold_min_percent = threshold_min,
@@ -287,7 +289,7 @@ end
 function checkAuxiliaryMetric(metric::CustomMetric)::Expr
     return quote
         # Filling out the formula
-        result_ = PerfTests.Metric_Result(
+        result_ = PerfTest.Metric_Result(
             name=$(metric.name),
             units=$(metric.units),
             value=$(fullParsingSuite(metric.formula))

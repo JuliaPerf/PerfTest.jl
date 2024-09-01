@@ -1,8 +1,3 @@
-include("../structs.jl")
-include("../config.jl")
-include("../perftest/structs.jl")
-include("../perftest/data_handling.jl")
-include("../metrics.jl")
 
 # THIS FILE SAVES THE MAIN COMPONENTS OF THE REGRESSION METHODOLOGY BEHAVIOUR
 
@@ -54,7 +49,7 @@ function regressionSuffix(ctx::Context)::Expr
                 median_ratio = ratio(median_suite, median_reference)
                 min_ratio = ratio(min_suite, min_reference)
             else
-                PerfTests.p_yellow("[ℹ]")
+                PerfTest.p_yellow("[ℹ]")
                 println(" Regression: No previous results.")
             end
         end
@@ -71,22 +66,22 @@ function regressionEvaluation(context :: Context)::Expr
     return regression.enabled ? quote
         if res_num > 0
             # Setup result collecting struct
-            methodology_result = PerfTests.Methodology_Result(
+            methodology_result = PerfTest.Methodology_Result(
                 name = "REGRESSION TESTING",
-                metrics = Pair{PerfTests.Metric_Result, PerfTests.Metric_Constraint}[]
+                metrics = Pair{PerfTest.Metric_Result, PerfTest.Metric_Constraint}[]
             )
 
             metric_references = Dict{Symbol, Any}()
 
             # Metric data generation
             # MEDIAN TIME
-            reference_value = PerfTests.by_index(median_reference, depth).time
+            reference_value = PerfTest.by_index(median_reference, depth).time
             metric_references[:median_time] = reference_value
             $(checkMedianTime(
                 configFallBack(metrics.median_time.regression_threshold,
                     :regression)))
             # MIN TIME
-            reference_value = PerfTests.by_index(min_reference, depth).time
+            reference_value = PerfTest.by_index(min_reference, depth).time
             metric_references[:minimum_time] = reference_value
             $(checkMinTime(
                 configFallBack(metrics.median_time.regression_threshold,
@@ -100,7 +95,7 @@ function regressionEvaluation(context :: Context)::Expr
             $(checkCustomMetrics(context))
 
             # Metric print
-            PerfTests.printMethodology(methodology_result, length(depth))
+            PerfTest.printMethodology(methodology_result, length(depth))
 
             # Metric actual test
             for pair in methodology_result.metrics

@@ -1,14 +1,11 @@
 
-include("structs.jl")
-include("config.jl")
-
-using MPI
+#using MPI
 using LinearAlgebra
 # Memory and CPU benchmarks used by different methodologies
 
 
 function setupMemoryBandwidthBenchmark()::Expr
-    # MPI
+    # TODO MPI extra behaviour
     #println("="^26 * "Maximum memory throughput calculation" * "="^26)
     if mpi_enabled
         ret = quote
@@ -42,7 +39,7 @@ function setupMemoryBandwidthBenchmark()::Expr
     else
         ret = quote
             # Begin probing the maximum memory throughput
-            global bench_data = STREAMBenchmark.benchmark(N = 1024 * 256 * 140)
+            global bench_data = STREAMBenchmark.benchmark(N = 1024 * 256 * 540)
             peakbandwidth = bench_data.multi.maximum / 1e3
         end
     end

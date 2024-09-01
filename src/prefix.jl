@@ -1,7 +1,3 @@
-using Dates
-include("config.jl")
-include("perftest/structs.jl")
-include("methodologies/regression.jl")
 
 ### PREFIX FILLER
 function perftestprefix(ctx :: Context)::Expr
@@ -25,17 +21,17 @@ function perftestprefix(ctx :: Context)::Expr
         suite_name = $("$(basename(ctx.original_file_path))_PERFORMANCE")
 
         # Used to save data about this test suite if needed
-        path = "./$(PerfTests.save_folder)/$(suite_name).JLD2"
+        path = "./$(PerfTest.save_folder)/$(suite_name).JLD2"
 
         nofile = true
         if isfile(path)
             nofile = false
-            data = PerfTests.openDataFile(path)
+            data = PerfTest.openDataFile(path)
         else
-            data = PerfTests.Perftest_Datafile_Root(PerfTests.Perftest_Result[],
-                                                    PerfTests.Dict{PerfTests.StrOrSym, Any}[])
+            data = PerfTest.Perftest_Datafile_Root(PerfTest.Perftest_Result[],
+                                                    PerfTest.Dict{PerfTest.StrOrSym, Any}[])
 
-            PerfTests.p_yellow("[!]")
+            PerfTest.p_yellow("[!]")
             println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
         end
 

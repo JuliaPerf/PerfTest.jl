@@ -1,8 +1,6 @@
 using Printf
 using BenchmarkTools
 
-include("perftest/structs.jl")
-
 macro lpad(pad)
     return :(" " ^ $(esc(pad)))
 end

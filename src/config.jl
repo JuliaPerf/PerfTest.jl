@@ -1,6 +1,5 @@
 
 using MacroTools
-include("structs.jl")
 
 # CONFIG STRUCTURE DEFINITION
 # FOR DEFAULTS SEE BELOW COMMENT "DEFAULTCONFIG":
@@ -33,7 +32,7 @@ end
 
     plotting::Bool
 
-    tolerance_around_memcpu_intersection::Struct_Tolerance
+    tolerance::Struct_Tolerance
 end
 
 @kwdef mutable struct Struct_Metric_Config
@@ -109,7 +108,7 @@ roofline = Struct_Roofline_Config(
 
     autoflops = false,
 
-    tolerance_around_memcpu_intersection = Struct_Tolerance(
+    tolerance = Struct_Tolerance(
         max_percentage = 2.0,
         min_percentage = 0.7
     )
@@ -147,14 +146,6 @@ metrics = Struct_Metrics(
     )
 )
 
-# MACROS
-# Perftest_config macro, used to set customised configuration
-macro perftest_config(expr)
-    # It deletes the contents and does nothing since this macro wont
-    # be evaluated during performance testing but during functional testing
-    # The contents are used by parsing them during the test translation
-    return nothing
-end
 
 # AST MODIFIERS
 # Perftest_config AST Manipulation

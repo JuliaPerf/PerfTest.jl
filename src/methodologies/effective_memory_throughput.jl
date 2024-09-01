@@ -1,12 +1,4 @@
 
-using Suppressor
-using STREAMBenchmark
-
-include("../structs.jl")
-include("../config.jl")
-include("../perftest/structs.jl")
-include("../perftest/data_handling.jl")
-include("../metrics.jl")
 
 
 # THIS FILE SAVES THE MAIN COMPONENTS OF THE EMPYRICAL EFFECTIVE MEM. THROUGHPUT
@@ -35,7 +27,7 @@ function effMemThroughputEvaluation(context :: Context)::Expr
                     min = $(effective_memory_throughput.tolerance.min_percentage)
                     max = $(effective_memory_throughput.tolerance.max_percentage)
 
-                    result = PerfTests.Metric_Result(
+                    result = PerfTest.Metric_Result(
                         name=$(cmetric.name),
                         units=$(cmetric.units),
                         value=$(customMetricExpressionParser(cmetric.formula))
@@ -47,7 +39,7 @@ function effMemThroughputEvaluation(context :: Context)::Expr
                     _test = min < ratio < max
 
 
-                    constraint = PerfTests.Metric_Constraint(
+                    constraint = PerfTest.Metric_Constraint(
                         reference=peakbandwidth,
                         threshold_min=min * peakbandwidth,
                         threshold_min_percent=min,
@@ -61,14 +53,14 @@ function effMemThroughputEvaluation(context :: Context)::Expr
 
 
                     # Setup result collecting struct
-                    methodology_result = PerfTests.Methodology_Result(
+                    methodology_result = PerfTest.Methodology_Result(
                         name="EFFECTIVE MEMORY THROUGHPUT RATIO",
-                        metrics=Pair{PerfTests.Metric_Result,PerfTests.Metric_Constraint}[]
+                        metrics=Pair{PerfTest.Metric_Result,PerfTest.Metric_Constraint}[]
                     )
 
                     push!(methodology_result.metrics, (result => constraint))
 
-                    PerfTests.printMethodology(methodology_result, $(length(context.depth)))
+                    PerfTest.printMethodology(methodology_result, $(length(context.depth)))
                     # Register metric results TODO
 
                     @test _test

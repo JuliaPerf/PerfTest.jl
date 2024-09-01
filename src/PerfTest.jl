@@ -9,7 +9,6 @@ export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
 using MacroTools
 include("structs.jl")
 include("auxiliar.jl")
-include("prints.jl")
 include("macros.jl")
 
 include("config.jl")
@@ -17,10 +16,16 @@ include("config.jl")
 include("perftest/structs.jl")
 include("perftest/data_handling.jl")
 
+include("benchmarking.jl")
+
+include("prints.jl")
+
 include("metrics.jl")
 
 include("methodologies/regression.jl")
 include("methodologies/effective_memory_throughput.jl")
+include("methodologies/roofline.jl")
+#include("methodologies/fullroofline.jl")
 
 include("prefix.jl")
 include("suffix.jl")

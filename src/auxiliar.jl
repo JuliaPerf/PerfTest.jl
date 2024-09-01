@@ -1,7 +1,4 @@
-include("structs.jl")
 using MacroTools: ismatch
-include("perftest/structs.jl")
-include("config.jl")
 
 # Function that generates a test name if needed
 function genTestName!(state::Context)

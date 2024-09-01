@@ -1,14 +1,8 @@
 using BenchmarkTools
 using MacroTools
-using Test
 using Base: input_color, ExprNode
+using Test
 using BenchmarkTools: TrialJudgement
-
-include("structs.jl")
-include("prefix.jl")
-include("config.jl")
-include("perftest/structs.jl")
-include("methodologies/roofline.jl")
 
 
 # Builds a tree from the ground up
@@ -28,10 +22,10 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
         push!(tree_builder[depth-1],
             quote
                 @testset $name (showtiming = false) begin
-                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+                    current_test_results[$name] = Dict{PerfTest.StrOrSym, Any}()
                     let current_test_results = current_test_results[$name]
-                        push!(depth, PerfTests.DepthRecord($name))
-                        local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                        push!(depth, PerfTest.DepthRecord($name))
+                        local_customs = Pair{Set{Symbol}, PerfTest.Metric_Result}[]
                         $concat
                         pop!(depth)
                     end
@@ -46,10 +40,10 @@ function updateTestTreeUpwards!(tree_builder :: AbstractArray, name :: Union{Str
         push!(tree_builder, Expr[
             quote
                 tt[$name] = (@testset $name (showtiming = false) begin
-                    current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+                    current_test_results[$name] = Dict{PerfTest.StrOrSym, Any}()
                     let current_test_results = current_test_results[$name]
-                             push!(depth, PerfTests.DepthRecord($name))
-                             local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                             push!(depth, PerfTest.DepthRecord($name))
+                             local_customs = Pair{Set{Symbol}, PerfTest.Metric_Result}[]
                              $concat
                              pop!(depth)
                              end
@@ -78,10 +72,10 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder[depth-1],
               quote
                 @testset $name (showtiming = false) for $i in $n
-                    current_test_results[$name * "_" * string($i)] = Dict{PerfTests.StrOrSym, Any}()
+                    current_test_results[$name * "_" * string($i)] = Dict{PerfTest.StrOrSym, Any}()
                     let current_test_results = current_test_results[$name * "_" * string($i)]
-                        push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
-                        local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                        push!(depth, PerfTest.DepthRecord($name * "_" * string($i)))
+                        local_customs = Pair{Set{Symbol}, PerfTest.Metric_Result}[]
                         $concat
                         pop!(depth)
                     end
@@ -95,10 +89,10 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder, Expr[
             quote
                 tt[$name] = (@testset $name (showtiming = false) for $i in $n
-                    current_test_results[$name * "_" * string($i)] = Dict{PerfTests.StrOrSym, Any}()
+                    current_test_results[$name * "_" * string($i)] = Dict{PerfTest.StrOrSym, Any}()
                     let current_test_results = current_test_results[$name * "_" * string($i)]
-                        push!(depth, PerfTests.DepthRecord($name * "_" * string($i)))
-                        local_customs = Pair{Set{Symbol}, PerfTests.Metric_Result}[]
+                        push!(depth, PerfTest.DepthRecord($name * "_" * string($i)))
+                        local_customs = Pair{Set{Symbol}, PerfTest.Metric_Result}[]
                         $concat
                         pop!(depth)
                     end
@@ -121,10 +115,10 @@ function updateTestTreeSideways!(context::Context, name::String)
     # Add the expression to de tree builder
     push!(context.test_tree_expr_builder[depth],
           quote
-              current_test_results[$name] = Dict{PerfTests.StrOrSym, Any}()
+              current_test_results[$name] = Dict{PerfTest.StrOrSym, Any}()
               let current_test_results = current_test_results[$name]
-                  push!(depth, PerfTests.DepthRecord($name))
-                  PerfTests.printDepth!(depth)
+                  push!(depth, PerfTest.DepthRecord($name))
+                  PerfTest.printDepth!(depth)
                   # Metric calc
                   $(buildPrimitiveMetrics()) # See metrics.jl
                   $(context.local_injection)
@@ -133,7 +127,7 @@ function updateTestTreeSideways!(context::Context, name::String)
                   $(effMemThroughputEvaluation(context))
                   $(rooflineEvaluation(context))
                   # Reset local customs (not relevant anymore)
-                  local_customs = Pair{Set{Symbol},PerfTests.Metric_Result}[]
+                  local_customs = Pair{Set{Symbol},PerfTest.Metric_Result}[]
                   pop!(depth)
               end
           end)
@@ -173,6 +167,7 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
             for $a in $b
                 l[$name * "_" * string($a)] = BenchmarkGroup();
                 export_tree[$name * "_" * string($a)] = Dict();
+                export_tree[$name * "_" * string($a)][:iterator] = $a;
                 let l = l[$name * "_" * string($a)], export_tree = export_tree[$name * "_" * string($a)]
                     $inner_block
                 end;
@@ -247,6 +242,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Return the substitution and setup the in target flag deactivator
     return quote
         export_tree[$name] = Dict()
+        export_tree[$name][:iterator] = export_tree[:iterator]
         $(if suppress_output
               quote
               @suppress begin

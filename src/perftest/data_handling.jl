@@ -2,8 +2,6 @@
 using JLD2: StringDatatype
 using JLD2
 
-include("structs.jl")
-
 function openDataFile(path :: AbstractString) :: Perftest_Datafile_Root
     return JLD2.load(path)["contents"]
 end
