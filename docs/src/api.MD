@@ -12,18 +12,18 @@ help?> PerfTest
 ```
 
 
-## [`metrics`](@ref) type and basic constructors
-```@docs
-metrics
-```
+<!-- ## [`metrics`](@ref) type and basic constructors -->
+<!-- ```@docs -->
+<!-- metrics -->
+<!-- ``` -->
 
 
-## [`regression`](@ref), [`suppress_output`](@ref), [`save_folder`](@ref)
-```@docs
-regression
-suppress_output
-save_folder
-```
+<!-- ## [`regression`](@ref), [`suppress_output`](@ref), [`save_folder`](@ref) -->
+<!-- ```@docs -->
+<!-- regression -->
+<!-- suppress_output -->
+<!-- save_folder -->
+<!-- ``` -->
 
 
 ## Convenience type aliases and constructors
