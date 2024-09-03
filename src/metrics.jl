@@ -337,7 +337,9 @@ function checkCustomMetrics(context::Context)::Expr
 end
 
 
-
+"""
+This method is used to generate the code that computes the value of a given auxiliary custom metric in the context the code is generated.
+"""
 function checkAuxiliaryMetric(metric::CustomMetric)::Expr
     return quote
         # Filling out the formula
@@ -351,7 +353,9 @@ function checkAuxiliaryMetric(metric::CustomMetric)::Expr
     end
 end
 
-
+"""
+This method is used to generate the code that computes the value of every auxiliary custom metric enabled in th current context, where the code is generated.
+"""
 function checkAuxiliaryCustomMetrics(context::Context)::Expr
     result = :(
         begin end

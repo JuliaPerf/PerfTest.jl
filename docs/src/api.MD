@@ -11,6 +11,19 @@ julia>?
 help?> PerfTest
 ```
 
+## [`metrics`](@ref) type and basic constructors
+```@docs
+metrics
+```
+
+
+## [`regression`](@ref), [`suppress_output`](@ref), [`save_folder`](@ref)
+```@docs
+regression
+suppress_output
+save_folder
+```
+
 
 ## Types
 #### Index
@@ -22,17 +35,16 @@ Order = [:type]
 ```@autodocs
 Modules = [PerfTest]
 Order   = [:type]
-Filter = t -> typeof(t) !== Array
 ```
 
 
 ## Functions -- additional to standard `AbstractArray` functionality
 #### Index
 ```@index
-Order = [:function]
+Order = [:function, :macro]
 ```
 #### Documentation
 ```@autodocs
 Modules = [PerfTest]
-Order   = [:function]
+Order   = [:function, :macro]
 ```
