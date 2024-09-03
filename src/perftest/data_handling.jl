@@ -30,7 +30,6 @@ function by_index(dict::Union{Dict,BenchmarkGroup}, idx::Vector{DepthRecord})
     return eval(e)
 end
 
-
 """
 This method will return a flattened array of all of the results for all the methodologies exercised in the provided dictionary.
 

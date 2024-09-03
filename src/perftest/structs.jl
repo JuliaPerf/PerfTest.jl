@@ -44,9 +44,8 @@ This struct is used in the test suite to save a metric test result and its assoc
     full_print::Bool
 end
 
-"""
-  A custom methodology element is used to save informational metrics, other special values and custom functions to be executed after testing.
-"""
+
+# A custom methodology element is used to save informational metrics, other special values and custom functions to be executed after testing.
 Custom_Methodology_Elements = Union{Metric_Result,Float64,Function}
 
 

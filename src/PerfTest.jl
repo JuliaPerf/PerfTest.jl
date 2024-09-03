@@ -24,7 +24,6 @@ include("metrics.jl")
 include("methodologies/regression.jl")
 include("methodologies/effective_memory_throughput.jl")
 include("methodologies/roofline.jl")
-#include("methodologies/fullroofline.jl")
 
 include("prefix.jl")
 include("suffix.jl")

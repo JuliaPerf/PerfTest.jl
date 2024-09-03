@@ -85,7 +85,6 @@ verbose = false
 
 max_saved_results = 10
 
-""" MPI, CUDA, ROC options """
 # Will be set to true if the MPI is detected, but it can be triggered manually if needed
 mpi_enabled = false
 
@@ -98,10 +97,8 @@ mpi_enabled = false
 mpi_test_mode = :single
 
 
-""" Tested expressions output handling """
 suppress_output = true
 
-""" Regression testing configuration """
 regression = Struct_Regression(
     enabled = true,
 
