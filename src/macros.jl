@@ -144,6 +144,8 @@ Any formula block specified in this macro supports these symbols.
         :autoflop / mem
     end
 
+The code block defines operational intensity, whilst the other arguments define how to measure and compare the actual performance with the roofline performance. If the actual to projected performance ratio goes below the target, the test fails.
+
 """
 macro roofline(opint_formula, cpu_peak=nothing, membw_peak=nothing)
     return :(

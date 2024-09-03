@@ -4,7 +4,15 @@ using MacroTools
 # CONFIG STRUCTURE DEFINITION
 # FOR DEFAULTS SEE BELOW COMMENT "DEFAULTCONFIG":
 """
- TEST
+This struct holds the configuration of the basic metric regression methodology.
+
+`enabled` is used to enable or disable the methodology
+`save_failed` will record historical measurements of failed tests if true
+`general_regression_threshold` sets the torelance interval for the test comparison
+
+`regression_calculation` can be:
+ - :latest    The reference will be the latest saved result
+ - :average The reference will be the average of all saved results
 """
 @kwdef mutable struct Struct_Regression
     enabled::Bool
@@ -13,20 +21,26 @@ using MacroTools
 
     general_regression_threshold::Struct_Tolerance
 
-
-    """
-    Can be:
-        - :latest    The reference will be the latest saved result
-        - :average The reference will be the average of all saved results
-    """
     regression_calculation::Symbol
 end
 
+"""
+This struct holds the configuration of the basic effective memory throughput methodology.
+
+ - `enabled` is used to enable or disable the methodology
+ - `tolerance` defines the interval of ratios (eff.mem.through. / max. bandwidth) that make the test succeed.
+"""
 @kwdef mutable struct Struct_Eff_Mem_Throughput
     enabled::Bool
     tolerance::Struct_Tolerance
 end
 
+"""
+This struct holds the configuration of the basic roofline methodology.
+
+ - `enabled` is used to enable or disable the methodology
+ - `tolerance` defines the interval of ratios (eff.mem.through. / max. bandwidth) that make the test succeed.
+"""
 @kwdef mutable struct Struct_Roofline_Config
     enabled::Bool
 
@@ -37,6 +51,13 @@ end
     tolerance::Struct_Tolerance
 end
 
+
+"""
+This struct can hold the configuration of any metric.
+
+ - `enabled` is used to enable or disable the methodology
+ - `regression_threshold`, when comparing the measure with a reference, defines how far can the measurement be from the reference
+"""
 @kwdef mutable struct Struct_Metric_Config
     enabled::Bool
 
@@ -151,7 +172,10 @@ metrics = Struct_Metrics(
 
 # AST MODIFIERS
 # Perftest_config AST Manipulation
-function perftestConfigEnter(expr :: Expr, context :: Context)::Expr
+"""
+  Function to trigger the configuration mode on the context register
+"""
+function perftestConfigEnter(expr::Expr, context::Context)::Expr
     block = escCaptureGetblock(expr, Symbol("@perftest_config"))
 
     # TODO Enable environment flag
@@ -160,10 +184,13 @@ function perftestConfigEnter(expr :: Expr, context :: Context)::Expr
     eval(block)
 
     return quote
-	      nothing
+        nothing
     end
 end
 
+"""
+  Function to deactivate the configuration mode on the context register
+"""
 function perftestConfigExit(_ :: Expr, context :: Context)::Expr
     # TODO
     # Disable environment flag
@@ -174,9 +201,6 @@ function perftestConfigExit(_ :: Expr, context :: Context)::Expr
     end
 end
 
-function perftestConfigParseField(expr :: Expr, context::Context)::Expr
-    #TODO
-end
 
 # CONFIG UTILS
 

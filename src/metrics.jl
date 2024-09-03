@@ -3,25 +3,42 @@
 
 sym_set = Set([:(:median_time), :(:minimum_time)])
 
-function customMetricExpressionParser(expr :: Expr) :: Expr
+"""
+This is one of the parser functions that expand any formula block for metric definition.
+This function will parse all primitive metric symbols with the structure where the corresponding value of the metric is.
+"""
+function customMetricExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x in sym_set ? :(metric_results[$x].value) : x), expr)
 end
 
+"""
+This is one of the parser functions that expand any formula block for metric definition.
+This function will parse all primitive metric symbols with the structure where the corresponding reference value for the metric is.
+"""
 function customMetricReferenceExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x in sym_set ? :(metric_references[$x]) : x), expr)
 end
 
 """
-  Checks for the return symbol
+This is one of the parser functions that expand any formula block for metric definition.
+This function will parse the appropiate symbol and substitute it by the return value of the test target execution.
 """
 function retvalExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:return) ? :(PerfTest.by_index(export_tree, depth)[:ret_value]) : x), expr)
 end
 
+"""
+This is one of the parser functions that expand any formula block for metric definition.
+This function will parse the `:autoflop` symbol and substitute it with the flop count of the test target
+"""
 function autoflopExpressionParser(expr::Expr)::Expr
-    return MacroTools.postwalk(x -> ((@show x;x == :(:autoflop)) ? :(PerfTest.by_index(export_tree, depth)[:autoflop]) : x), expr)
+    return MacroTools.postwalk(x -> ((@show x; x == :(:autoflop)) ? :(PerfTest.by_index(export_tree, depth)[:autoflop]) : x), expr)
 end
 
+"""
+This is one of the parser functions that expand any formula block for metric definition.
+This function will parse the `:printed_output` symbol and substitute it with the standard output of the test target execution
+"""
 function printedOutputExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:printed_output) ? :(PerfTest.by_index(export_tree, depth)[:printed_output]) : x), expr)
 end
@@ -30,10 +47,17 @@ function printedOutputAbbreviationExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:out) ? :(PerfTest.grepOutputXGetNumber(PerfTest.by_index(export_tree, depth)[:printed_output])) : x), expr)
 end
 
+"""
+This is one of the parser functions that expand any formula block for metric definition.
+This function will parse the `:iterator` symbol and substitute it with the current value of the innermost test set loop of the current test target execution
+"""
 function iteratorExpressionParser(expr::Expr)::Expr
     return MacroTools.postwalk(x -> (x == :(:iterator) ? :(PerfTest.by_index(export_tree, depth)[:iterator]) : x), expr)
 end
 
+"""
+This function combines a collection of rules to turn a formula block into a functioning expression to calculate any metric defined by said formula
+"""
 function fullParsingSuite(expr::Expr)::Expr
     # Fill primitives
     t = customMetricExpressionParser(expr)
@@ -50,6 +74,9 @@ function fullParsingSuite(expr::Expr)::Expr
     return t
 end
 
+"""
+This function is called to register a custom metric, it will parse the arguments of the definition macro and add the metric to the context to be later used in test targets on the same scope.
+"""
 function onCustomMetricDefinition(expr ::Expr, context :: Context, flags::Set{Symbol}) :: Expr
 
     # Special case
@@ -117,13 +144,18 @@ function onCustomMetricDefinition(expr ::Expr, context :: Context, flags::Set{Sy
     )
 end
 
+"""
+This function is used to register a special custom metric, which is the effective memory throughput calculation, and is registered in the same way as any other but with a special flag that the EMT metholodogy will use to get and use the metric.
+"""
 function onMemoryThroughputDefinition(expr::Expr, context::Context)::Expr
     # Communicate that this can be used with the mem throughput methodology
     flags = Set{Symbol}([:mem_throughput])
     return onCustomMetricDefinition(expr, context, flags)
 end
 
-# TODO flops memory
+"""
+This function generates the code that make primitive metrics values available to all metodologies and custom metrics.
+"""
 function buildPrimitiveMetrics() :: Expr
     return quote
         metric_results = Dict{Symbol, PerfTest.Metric_Result}()
@@ -144,9 +176,14 @@ function buildPrimitiveMetrics() :: Expr
     end
 end
 
-# WARNING Predefined symbols needed before this quote
-# reference_value
-# metric_results
+"""
+This function is used to generate the code that evaluates if the median time of execution of a target is within a specified reference.
+
+# WARNING
+Predefined symbols needed before this code is added to the generated space:
+ - `reference_value`
+ - `metric_results`
+"""
 function checkMedianTime(thresholds ::Struct_Tolerance)::Expr
     return metrics.median_time.enabled ? quote
 
@@ -179,9 +216,14 @@ function checkMedianTime(thresholds ::Struct_Tolerance)::Expr
     end : quote nothing end
 end
 
-# WARNING Predefined symbols needed before this quote
-# reference_value
-# metric_results
+"""
+This function is used to generate the code that evaluates if the minimum time of execution of a target is within a specified reference.
+
+# WARNING
+Predefined symbols needed before this code is added to the generated space:
+ - `reference_value`
+ - `metric_results`
+"""
 function checkMinTime(thresholds::Struct_Tolerance)::Expr
     return metrics.median_time.enabled ? quote
 
@@ -215,10 +257,14 @@ function checkMinTime(thresholds::Struct_Tolerance)::Expr
 end
 
 
-# WARNING Predefined symbols needed before this quote
-# metric_results
-# msym
-# metric (see loop on function below this one)
+"""
+This function is used to generate the code that evaluates if a custom metric result f a target is within a specified reference.
+
+# WARNING
+Predefined symbols needed before this code is added to the generated space:
+ - `reference_value`
+ - `metric_results`
+"""
 function checkCustomMetric(metric :: CustomMetric)::Expr
 
     if :aux in metric.flags
@@ -263,8 +309,14 @@ function checkCustomMetric(metric :: CustomMetric)::Expr
 end
 
 
-# WARNING Predefined symbols needed before this quote
-# local_customs, global_customs
+"""
+This function is used to generate the code that evaluates if a custom metric result f a target is within a specified reference.
+
+# WARNING
+Predefined symbols needed before this code is added to the generated space:
+ - `reference_value`
+ - `metric_results`
+"""
 function checkCustomMetrics(context::Context)::Expr
     result = :(
         begin end

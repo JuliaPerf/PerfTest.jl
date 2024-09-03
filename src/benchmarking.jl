@@ -3,7 +3,9 @@
 using LinearAlgebra
 # Memory and CPU benchmarks used by different methodologies
 
-
+"""
+  This method is used to generate the code responsible for sampling the maximum memory bandwith in every resulting suite.
+"""
 function setupMemoryBandwidthBenchmark()::Expr
     # TODO MPI extra behaviour
     #println("="^26 * "Maximum memory throughput calculation" * "="^26)
@@ -49,6 +51,9 @@ function setupMemoryBandwidthBenchmark()::Expr
 end
 
 
+"""
+  This method is used to generate the code responsible for sampling the maximum CPU FLOPS based on the avaiable threads in every resulting suite.
+"""
 function setupCPUPeakFlopBenchmark()::Expr
 
     return mpi_enabled ? quote

@@ -1,28 +1,48 @@
 using Printf
 using BenchmarkTools
-
+"""
+  Macro that adds a space at the beggining of a string
+"""
 macro lpad(pad)
     return :(" " ^ $(esc(pad)))
 end
 
+"""
+  Prints the element in color blue
+"""
 function p_blue(printable)
     printstyled(printable, color=:blue)
 end
 
+"""
+  Prints the element in color red
+"""
 function p_red(printable)
-	  printstyled(printable, color=:red)
+    printstyled(printable, color=:red)
 end
+
+"""
+  Prints the element in color yellow
+"""
 function p_yellow(printable)
-	  printstyled(printable, color=:yellow)
+    printstyled(printable, color=:yellow)
 end
+
+
+"""
+  Prints the element in color green
+"""
 function p_green(printable)
 	  printstyled(printable, color=:green)
 end
 
-# Auxiliar print functions
-function printDepth!(depth :: AbstractArray)
-	  for i in eachindex(depth)
-	      if depth[i].depth_flag == false
+"""
+  This method is used to print the test names, with consideration on
+the hierarchy and adding indentation whenever necessary
+"""
+function printDepth!(depth::AbstractArray)
+    for i in eachindex(depth)
+        if depth[i].depth_flag == false
             if firstindex(depth) == i
                 printstyled("PERFORMANCE TEST:\n", color=:yellow)
             end
@@ -36,6 +56,9 @@ function printDepth!(depth :: AbstractArray)
 end
 
 
+"""
+This method dumps into the output a test result in case of failure. The output will be formatted to make it easy to read.
+"""
 function printfail(judgement::BenchmarkTools.TrialJudgement, trial::BenchmarkTools.Trial, reference :: BenchmarkTools.Trial, tolerance :: FloatRange, tab::Int)
 
     print(lpad(">", tab))
@@ -53,6 +76,9 @@ function printfail(judgement::BenchmarkTools.TrialJudgement, trial::BenchmarkToo
     println("")
 end
 
+"""
+This method is used to print a graphical representation on a test result and the admisible intervals it can take. The result will and the two bounds will be printed in order.
+"""
 function printIntervalLanding(bot, top, landing, down_is_bad::Bool = true)
 
     @assert bot < top
@@ -84,6 +110,9 @@ function printIntervalLanding(bot, top, landing, down_is_bad::Bool = true)
     end
 end
 
+"""
+This method is used to dump into the output the information about a metric and the value obtained in a specific test.
+"""
 function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, tab::Int)
 
     println(@lpad(tab) * "-" ^ 72)
@@ -117,14 +146,18 @@ function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, ta
     end
 end
 
-
+"""
+This function is used to dump metric information regading auxiliar metrics, which are not used in testing.
+"""
 function auxiliarMetricPrint(metric :: Metric_Result, tab::Int)
     println(" " ^ tab * "Metric: " * metric.name * " [" * metric.units * "]")
     println(" " ^ tab * "  = ", metric.value)
     println("")
 end
 
-
+"""
+This function is used to print the information relative to a methodology, relative to a a specific test execution result. This will usually print a series of metrics and might also print plots.
+"""
 function printMethodology(methodology :: Methodology_Result, tab :: Int)
 
     println(@lpad(tab) * "═"^72)
