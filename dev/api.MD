@@ -26,7 +26,7 @@ Order   = [:type]
 ```
 
 
-## Functions -- additional to standard `AbstractArray` functionality
+## Functions
 #### Index
 ```@index
 Order = [:function, :macro]
