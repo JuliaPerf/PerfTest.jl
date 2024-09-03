@@ -80,7 +80,6 @@ function rooflineMacroParse(x::Expr, ctx::Context)::Expr
                 elseif arg.args[1] == Symbol("target_opint")
                     #TODO
                 elseif arg.args[1] == Symbol("target_ratio")
-                    @warn "LOL"
                     target_ratio = eval(arg.args[2])
                     @show target_ratio, arg.args[2]
                 elseif arg.args[1] == Symbol("membw_peak")
