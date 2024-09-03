@@ -134,7 +134,6 @@ roofline = Struct_Roofline_Config(
     )
 )
 
-""" Metrics configuration """
 metrics = Struct_Metrics(
     median_time = Struct_Metric_Config(
         enabled = true,
