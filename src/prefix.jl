@@ -22,6 +22,10 @@ function perftestprefix(ctx :: Context)::Expr
 
         # Used to save data about this test suite if needed
         path = "./$(PerfTest.save_folder)/$(suite_name).JLD2"
+        if isdir("./$(PerfTest.save_folder)")
+        else
+            mkdir("./$(PerfTest.save_folder)")
+        end
 
         nofile = true
         if isfile(path)
