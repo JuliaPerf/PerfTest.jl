@@ -264,7 +264,7 @@ using Pkg
 
 function install_deps()
     Pkg.add("BenchmarkTools")
-    Pkg.add("GFlops")
+    Pkg.add("CountFlops")
     Pkg.add("HDF5")
     Pkg.add("STREAMBenchmark")
     Pkg.add("Suppressor")

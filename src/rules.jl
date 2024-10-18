@@ -246,10 +246,10 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
         $(if suppress_output
               quote
               @suppress begin
-                  l[$name] = @benchmark ($parsed_target);
+                  l[$name] = @benchmark($(prop...), ($parsed_target));
                   export_tree[$name][:autoflop] = $(
                       if roofline.autoflops
-                          quote GFlops.flop(@count_ops ($parsed_target)) end
+                          quote CountFlops.flop(@count_ops ($parsed_target)) end
                       else
                           quote 0 end
                       end
@@ -258,10 +258,10 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
               end
           else
               quote
-                  l[$name] = @benchmark samples=5 evals=1 ($parsed_target);
+                  l[$name] = @benchmark($(prop...), ($parsed_target));
                   export_tree[$name][:autoflop] = $(
                       if roofline.autoflops
-                          quote GFlops.flop(@count_ops ($parsed_target)) end
+                          quote CountFlops.flop(@count_ops ($parsed_target)) end
                       else
                           quote 0 end
                       end

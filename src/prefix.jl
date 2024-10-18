@@ -6,7 +6,7 @@ function perftestprefix(ctx :: Context)::Expr
         using BenchmarkTools;
         $(
             if roofline.autoflops
-                quote using GFlops; end
+                quote using CountFlops; end
             else
                 quote begin end end
             end
