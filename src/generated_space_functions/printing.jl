@@ -1,40 +1,26 @@
-using Printf
-using BenchmarkTools
-"""
-  Macro that adds a space at the beggining of a string
-"""
-macro lpad(pad)
-    return :(" " ^ $(esc(pad)))
-end
-
-"""
-  Prints the element in color blue
-"""
-function p_blue(printable)
-    printstyled(printable, color=:blue)
-end
-
-"""
-  Prints the element in color red
-"""
-function p_red(printable)
-    printstyled(printable, color=:red)
-end
-
-"""
-  Prints the element in color yellow
-"""
-function p_yellow(printable)
-    printstyled(printable, color=:yellow)
-end
 
 
-"""
-  Prints the element in color green
-"""
-function p_green(printable)
-	  printstyled(printable, color=:green)
+function printFullRoofline(_roofline :: Methodology_Result)
+
+    factor = _roofline.custom_elements[:factor]
+
+    if CONFIG.roofline.plotting
+        p = Plot([0, max(_roofline.custom_elements[:opint].value + 1.0, _roofline.custom_elements[:roof_corner].value * 2.0)], [0, _roofline.custom_elements[:cpu_peak].value * 1.2], yscale=:log2)
+        p = lineplot(0, max(_roofline.custom_elements[:opint].value + 1., _roofline.custom_elements[:roof_corner].value * 2.),
+                     rooflineCalc(_roofline.custom_elements[:cpu_peak].value,
+                _roofline.custom_elements[:mem_peak].value), name="Automatic Roofline")
+
+        lineplot!(p, 0, max(_roofline.custom_elements[:opint].value + 1.0, _roofline.custom_elements[:roof_corner].value * 2.0),
+                     rooflineCalc(_roofline.custom_elements[:cpu_peak].value * factor,
+                                  _roofline.custom_elements[:mem_peak].value * factor), name="Test threshold")
+        vline!(p, _roofline.custom_elements[:opint].value, color=:yellow, name="Tested function")
+
+        scatterplot!(p, [_roofline.custom_elements[:opint].value],[_roofline.custom_elements[:realf].value], color=:red, marker=:circle, name="Execution (Circle)")
+        show(print(p))
+        println("")
+    end
 end
+
 
 """
   This method is used to print the test names, with consideration on
@@ -42,19 +28,18 @@ the hierarchy and adding indentation whenever necessary
 """
 function printDepth!(depth::AbstractArray)
     for i in eachindex(depth)
-        if depth[i].depth_flag == false
+        if depth[i].header_printed == false
             if firstindex(depth) == i
                 printstyled("PERFORMANCE TEST:\n", color=:yellow)
             end
-            depth[i].depth_flag = true
+            depth[i].header_printed = true
 
             print(repeat(" ", i))
             printstyled(lastindex(depth) == i ? "AT: " : "IN: ", color=:blue)
-            println(depth[i].depth_name)
+            println(depth[i].name)
         end
     end
 end
-
 
 """
 This method dumps into the output a test result in case of failure. The output will be formatted to make it easy to read.
@@ -110,13 +95,29 @@ function printIntervalLanding(bot, top, landing, down_is_bad::Bool = true)
     end
 end
 
+function printThresholdLanding(threshold, landing, down_is_bad::Bool = true)
+    if (threshold > landing)
+        print("--[Result: ")
+        down_is_bad ? p_red(@sprintf("%.3f", landing)) : p_blue(@sprintf("%.3f", landing))
+        print("]---(Threshold: ")
+        down_is_bad ? p_red(@sprintf("%.3f", threshold)) : p_green(@sprintf("%.3f", threshold))
+        print(")--")
+    else
+        print("--(Bottom threshold: ")
+        down_is_bad ? p_red(@sprintf("%.3f", threshold)) : p_green(@sprintf("%.3f", threshold))
+        print(")---[Result: ")
+        p_blue(@sprintf("%.3f", landing))
+        print("]--")
+    end
+end
+
 """
 This method is used to dump into the output the information about a metric and the value obtained in a specific test.
 """
-function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, tab::Int)
+function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
 
     println(@lpad(tab) * "-" ^ 72)
-    if !(constraint.succeeded)
+    if !(test.succeeded)
         p_red("[!]")
     else
         p_green("[✓]")
@@ -126,20 +127,25 @@ function printMetric(metric :: Metric_Result, constraint:: Metric_Constraint, ta
     println(" ["* metric.units *"]:")
     println(@lpad(tab) * "."^72)
     print(@lpad(tab))
-    printIntervalLanding(constraint.threshold_min, constraint.threshold_max, metric.value, constraint.low_is_bad)
+    if test.threshold_max_percent isa Nothing
+        printThresholdLanding(test.threshold_min_percent * test.reference, metric.value, test.low_is_bad)
+    else
+        printIntervalLanding(test.threshold_min_percent * test.reference, test.threshold_max_percent * test.reference, metric.value, test.low_is_bad)
+    end
     println("")
-    if constraint.full_print
+    if test.full_print
         println(@lpad(tab) * "."^72)
-        println(@lpad(tab) * "| Expected: " * @sprintf("%.3f", constraint.reference) * " [" * metric.units * "]" * " "^20 * "Threshold: " * @sprintf("%.3f", metric.value < constraint.reference ? constraint.threshold_min : constraint.threshold_max) * " [" * metric.units * "]")
+        println(@lpad(tab) * "| Reference: " * @sprintf("%.3f", test.reference) * " [" * metric.units * "]" * " "^20 * "Threshold: " * @sprintf("%.3f", metric.value < test.reference || (test.threshold_max_percent isa Nothing) ? test.threshold_min_percent * test.reference : test.threshold_max_percent * test.reference) * " [" * metric.units * "]")
         print(@lpad(tab) * "| Got: ")
-        if !(constraint.succeeded)
+        if !(test.succeeded)
             p_red(@sprintf("%.3f", metric.value))
         else
             p_yellow(@sprintf("%.3f", metric.value))
         end
+
         println(" [" * metric.units * "]" * " "^20)
     end
-    if length(constraint.custom_plotting) > 0
+    if length(test.custom_plotting) > 0
         println(@lpad(tab) * "."^72)
     else
         println(@lpad(tab) * "_"^72)
@@ -181,4 +187,16 @@ function printMethodology(methodology :: Methodology_Result, tab :: Int)
         end
     end
     println(@lpad(tab) * "═"^72)
+end
+
+
+
+
+function printAuxiliaries(metrics :: Dict{Symbol, Metric_Result}, tab :: Int)
+    println(@lpad(tab) * "Auxiliary results:")
+	  for (_,metric) in metrics
+        if metric.auxiliary
+            PerfTest.auxiliarMetricPrint(metric, tab)
+        end
+    end
 end

@@ -1,3 +1,4 @@
+# TODO REFACTOR
 
 # THIS FILE SAVES THE MAIN COMPONENTS OF THE REGRESSION METHODOLOGY BEHAVIOUR
 
@@ -8,37 +9,38 @@
 # x_ratio
 
 function regressionPrefix(ctx::Context)::Expr
-    return regression.enabled ?
+    a = CONFIG.regression.enabled
+    return (a ?
            quote
         # Get reference trials given the specified calculation policy
         $(
-            if regression.regression_calculation == :latest
+            if true
                 quote
                     try
                         global reference = last(data.results).benchmarks
                     catch e
                     end
                 end
-            elseif regression.regression_calculation == :average
-                quote
-                    reference_components::Vector{BenchmarkGroup} = []
-                    for result in data.results
-                        push!(reference_components, result.benchmarks)
-                        # TODO Extra information needed??
-                    end
-                    global reference = reference_components[1]
-                end
-            else
-                error("Invalid: regression.regression_calculation")
+            # elseif false # TODO
+            #     quote
+            #         reference_components::Vector{BenchmarkGroup} = []
+            #         for result in data.results
+            #             push!(reference_components, result.benchmarks)
+            #             # TODO Extra information needed??
+            #         end
+            #         global reference = reference_components[1]
+            #     end
+            # else
+            #     error("Invalid: regression.regression_calculation")
             end
         )
     end : quote
         nothing
-    end
+    end)
 end
 
 function regressionSuffix(ctx::Context)::Expr
-    if regression.enabled
+    if CONFIG.regression.enabled
         return quote
             if res_num > 0
 
@@ -63,7 +65,7 @@ end
 # dictionaries defined in the function above
 # metric_reference has to be cleared out in the function
 function regressionEvaluation(context :: Context)::Expr
-    return regression.enabled ? quote
+    return CONFIG.regression.enabled ? quote
         if res_num > 0
             # Setup result collecting struct
             methodology_result = PerfTest.Methodology_Result(
@@ -77,22 +79,23 @@ function regressionEvaluation(context :: Context)::Expr
             # MEDIAN TIME
             reference_value = PerfTest.by_index(median_reference, depth).time
             metric_references[:median_time] = reference_value
-            $(checkMedianTime(
-                configFallBack(metrics.median_time.regression_threshold,
-                    :regression)))
+            # $(checkMedianTime(
+            #     configFallBack(metrics.median_time.regression_threshold,
+            #         :regression)))
             # MIN TIME
             reference_value = PerfTest.by_index(min_reference, depth).time
             metric_references[:minimum_time] = reference_value
-            $(checkMinTime(
-                configFallBack(metrics.median_time.regression_threshold,
-                               :regression)))
+            # $(checkMinTime(
+            #     configFallBack(metrics.median_time.regression_threshold,
+            #                    :regression)))
             
             #$(testMeanMemory())
             #$(testMinMemory())
             #$(testMeanAllocs())
             #$(testMinAllocs())
 
-            $(checkCustomMetrics(context))
+            # TODO COMMENTED
+            #$(checkCustomMetrics(context))
 
             # Metric print
             PerfTest.printMethodology(methodology_result, length(depth))

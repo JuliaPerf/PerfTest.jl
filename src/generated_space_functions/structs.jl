@@ -1,4 +1,13 @@
-using BenchmarkTools
+
+using BenchmarkTools: BenchmarkGroup
+
+
+mutable struct DepthRecord
+    name :: AbstractString
+    header_printed :: Bool
+
+    DepthRecord(name) = new(name, false)
+end
 
 StrOrSym = Union{String,Symbol}
 
@@ -11,32 +20,16 @@ therefore its saves the metric `name`, its `units` space and its `value`.
     # Used to identify the metric in some situations
     units::AbstractString
     value::N
-end
-
-
-"""
-This struct is used in the test suite to save a metric reference,
-a reference is meant to be later compared with a result, its combination gives the `Metric_Constraint` struct.
-It holds:
- - A `reference` value.
- - `low_is_bad` registers if in this metric lower values are less desired than higher ones, or the opposite (e.g. time vs  FLOP/s).
-"""
-@kwdef struct Metric_Reference{N}
-    reference::N
-    low_is_bad::Bool
-    # [!!] Unused yet
-    custom_elements::Vector{Symbol} = Symbol[]
+    auxiliary::Bool = false
 end
 
 """
 This struct is used in the test suite to save a metric test result and its associated data, it saves the reference used and the toreance intervals in absolute and percentual values, also it shows if the test succeded and some additional variables for data printing
 """
-@kwdef struct Metric_Constraint{N}
+@kwdef struct Metric_Test{N}
     reference::N
-    threshold_min::N
     threshold_min_percent::Float64
-    threshold_max::N
-    threshold_max_percent::Float64
+    threshold_max_percent::Union{Nothing, Float64}
     low_is_bad::Bool
     succeeded::Bool
     # Additional metric X methodology data
@@ -54,7 +47,7 @@ This struct is used in the test suite to save a methodology result, which in tur
 """
 @kwdef struct Methodology_Result
     name::AbstractString
-    metrics :: Vector{Pair{Metric_Result, Metric_Constraint}}
+    metrics :: Vector{Pair{Metric_Result, Metric_Test}} = Pair{Metric_Result, Metric_Test}[]
     custom_elements::Dict{Symbol, Custom_Methodology_Elements} = Dict{Symbol, Custom_Methodology_Elements}()
     custom_auto_print::Bool = true
 end
@@ -75,4 +68,3 @@ This struct is the root of the data recording file, it can save several performa
     results :: Vector{Perftest_Result}
     methodologies_history :: Vector{Dict{StrOrSym, Any}}
 end
-
