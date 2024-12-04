@@ -42,10 +42,10 @@ include("metrics/primitives.jl") #DONE
 include("metrics/custom.jl")    #DONE
 
 # Methodology transformation
-include("methodologies/regression.jl") #TODO
+include("methodologies/regression.jl") #DONE
 include("methodologies/manual.jl")
 include("methodologies/mem_bandwidth.jl")
-include("methodologies/roofline.jl") #TODO
+include("methodologies/roofline.jl") #DONE
 
 include("prefix.jl") # Basic DONE
 include("suffix.jl") # DONE
@@ -84,7 +84,8 @@ rules = ASTRule[testset_macro_rule,
     define_memory_throughput_rule,
     define_metric_rule,
     auxiliary_metric_rule, roofline_macro_rule,
-    raw_macro_rule
+    raw_macro_rule,
+    recursive_rule
 ]
 
 
@@ -139,6 +140,7 @@ function _treeRun(input_expr::Expr, context::Context, args...)
 end
 
 
+
 """
 This method implements the transformation that converts a recipe script into a fully-fledged testing suite.
 The function will return a Julia expression with the resulting performance testing suite. This can be then executed or saved in a file for later usage.
@@ -179,6 +181,11 @@ function treeRun(path :: AbstractString)
     return MacroTools.prettify(module_full)
 end
 
+
+
 transform = treeRun
+
+
+include("execution.jl")
 
 end

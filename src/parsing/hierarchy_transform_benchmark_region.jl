@@ -76,6 +76,10 @@ end
 
 function backTokenToContextUpdate!(input_expr ::QuoteNode, context::Context)
 
+    if CONFIG.recursive && context._global.in_recursion && length(context._local.depth_record) == 1
+        return nothing;
+    end
+
     # Check if inside a for loop
     if last(context._local.depth_record).for_loop !== nothing
         # Update context: consolidate tree level

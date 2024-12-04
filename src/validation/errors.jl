@@ -29,3 +29,10 @@ function printErrors(collection :: VecErrorCollection)
         printError(e...)
     end
 end
+
+function importErrors!(importer::VecErrorCollection, exporter::VecErrorCollection, path :: String)
+    for e in zip(exporter.errors, exporter.loc)
+        push!(importer.errors, e.first)
+        push!(importer.loc, "INCLUDED: $path : " * e.second)
+    end
+end

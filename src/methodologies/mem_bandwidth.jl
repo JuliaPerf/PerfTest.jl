@@ -26,7 +26,6 @@ function captureMethodologyInfo(id::Symbol, methodologies::Vector{Vector{Methodo
 
     # Iterate through the methodologies from the end of the vector (backwards)
     for methodology_group in reverse(methodologies)
-        @show methodology_group
         for methodology in methodology_group
             if methodology.id == id
                 # Set or update the name if it's empty

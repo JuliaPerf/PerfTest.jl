@@ -109,8 +109,12 @@ end
 mutable struct GlobalContext
     original_file_path::AbstractString
 
+    in_recursion::Bool
     errors::ErrorCollection
     valid_symbols::Set{Symbol}
+
+    GlobalContext(path, errors, valid) = new(path, false, errors, valid)
+    GlobalContext(path, errors, valid, _) = new(path, true, errors, valid)
 end
 
 """

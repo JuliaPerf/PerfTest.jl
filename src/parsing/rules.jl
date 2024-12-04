@@ -180,3 +180,35 @@ raw_macro_rule = ASTRule(
     define_test_metric_validation,
     (x, ctx, info) -> onRawDefinition(x, ctx, info)
 )
+
+function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pair{ExtendedExpr,ExtendedExpr}
+
+    input_expr = loadFileAsExpr(path)
+
+    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, :recursive))
+    ctx._global.original_file_path = path
+    ctx._local = parent_context._local
+
+    # Run through AST and build new expressions
+    middle = _treeRun(input_expr, ctx)
+
+    importErrors!(error_collection, ctx._global.errors, path)
+
+    return Pair(middle, ctx.test_tree_expr_builder[1][1])
+end
+
+# RECURSIVE
+recursive_rule = ASTRule(
+    x -> @capture(x, include(path_)),
+    always_true,
+    (x, ctx, info) -> (begin
+        if CONFIG.recursive
+            @capture(x, include(path_))
+            measure_expr, test_expr = treeRunRecursive!(joinpath(dirname(ctx._global.original_file_path), path), ctx)
+            push!(ctx.test_tree_expr_builder[end], test_expr)
+            measure_expr
+        else
+            quote end
+        end
+    end)
+)
