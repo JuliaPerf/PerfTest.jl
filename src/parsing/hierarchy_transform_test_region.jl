@@ -55,7 +55,7 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         concat = :($concat; $expr)
     end
 
-    i,n = last(context._local.depth_record).on_for
+    i,n = last(context._local.depth_record).for_loop
 
     if depth > 1
         push!(tree_builder[depth-1],
