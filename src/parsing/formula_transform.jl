@@ -11,8 +11,8 @@ formula_rules = ASTRule[
     ),
     ASTRule(
         checkType(QuoteNode),
-        (x, ctx) -> x.value in ctx._global.valid_symbols ? true : (throwParseError!("Invalid symbol $(x.value) in formula", ctx); false),
-        abort_if_invalid((x, ctx, info) -> quote _PRFT_LOCAL[:primitives][$x] end)
+        (x, ctx) -> x.value in ctx._global.valid_symbols ? true : x, #(@show x;throwParseError!("Invalid symbol $(x.value) in formula", ctx); false),
+        (x, ctx, info) -> x == true ? quote _PRFT_LOCAL[:primitives][$x] end : x
     ),
 ]
 

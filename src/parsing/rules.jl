@@ -192,7 +192,7 @@ function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pai
     # Run through AST and build new expressions
     middle = _treeRun(input_expr, ctx)
 
-    importErrors!(error_collection, ctx._global.errors, path)
+    importErrors!(parent_context._global.errors, ctx._global.errors, path)
 
     return Pair(middle, ctx.test_tree_expr_builder[1][1])
 end
