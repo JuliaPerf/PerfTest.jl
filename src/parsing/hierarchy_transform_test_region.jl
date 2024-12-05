@@ -61,7 +61,7 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder[depth-1],
               quote
                 @testset $name (showtiming = false) for $i in $n
-                    $(newLocalScope(name * "_" * string(i), concat))
+                    $(newLocalScopeFor(name, i, concat))
                 end
               end
               )
@@ -72,7 +72,7 @@ function updateTestTreeUpwardsFor!(tree_builder::AbstractArray, name::Union{Stri
         push!(tree_builder, Expr[
             quote
                 tt[$name] = (@testset $name (showtiming = false) for $i in $n
-                    $(newLocalScope(name * "_" * string(i), concat))
+                    $(newLocalScopeFor(name, i, concat))
                 end)
             end
         ])

@@ -24,6 +24,24 @@ function newLocalScope(name::String, body::Expr)::Expr
     end
 end
 
+
+function newLocalScopeFor(name::String, iterator :: ExtendedExpr, body::Expr)::Expr
+    return quote
+        _PRFT_LOCAL[$name + "_" + $iterator] = Dict{PerfTest.StrOrSym,Any}()
+        _PRFT_LOCAL[$name + "_" + $iterator][:additional] = _PRFT_LOCAL[:additional][$name]
+        _PRFT_LOCAL[$name + "_" + $iterator][:suite] = _PRFT_LOCAL[:suite][$name]
+        _PRFT_LOCAL[$name + "_" + $iterator][:depth] = _PRFT_LOCAL[:depth]
+        let _PRFT_LOCAL = _PRFT_LOCAL[$name + "_" + $iterator]
+            push!(_PRFT_LOCAL[:depth], PerfTest.DepthRecord($name + "_" + $iterator))
+            _PRFT_LOCAL[:primitives] = Dict{Symbol,Any}()
+            _PRFT_LOCAL[:metrics] = Dict{Symbol,Metric_Result}()
+            _PRFT_LOCAL[:auxiliar] = Dict{Symbol,Metric_Result}()
+            $body
+            pop!(_PRFT_LOCAL[:depth])
+        end
+    end
+end
+
 function buildPrimitiveMetrics()::Expr
     return quote
         _PRFT_LOCAL[:primitives][:median_time] = median(_PRFT_LOCAL[:suite]).time / 1e9
