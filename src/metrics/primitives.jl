@@ -1,8 +1,8 @@
 
-struct MetricMeasure{V}
-using Configurations: ExproniconLite
 using Pkg: build
-    name :: String
+using Configurations: ExproniconLite
+struct MetricMeasure{V}
+    name::String
     units:: String
     value:: V
 end
