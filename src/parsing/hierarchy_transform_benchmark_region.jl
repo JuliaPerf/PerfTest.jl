@@ -120,7 +120,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
         $(if CONFIG.suppress_output
               quote
               @suppress begin
-                  _PRFT_LOCAL_SUITE[$name] = @benchmark($(prop...), ($parsed_target));
+                        _PRFT_LOCAL_SUITE[$name] = @benchmark($parsed_target ,$(prop...))
                   _PRFT_LOCAL_ADDITIONAL[$name][:autoflop] = $(
                       if CONFIG.autoflops
                           quote CountFlops.flop(@count_ops ($parsed_target)) end
