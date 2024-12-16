@@ -216,6 +216,7 @@ function buildRoofline(context::Context)::Expr
                 methodology_res.custom_elements[:mem_peak] = resultAdjust(aux_mem)
                 methodology_res.custom_elements[:cpu_peak] = resultAdjust(aux_flops)
                 methodology_res.custom_elements[:roof_corner] = resultAdjust(aux_rcorner)
+                methodology_res.custom_elements[:roof_corner_raw] = aux_rcorner
                 methodology_res.custom_elements[:factor] = $(info.params[:target_ratio])
 
 

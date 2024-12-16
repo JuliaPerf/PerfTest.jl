@@ -5,12 +5,12 @@ function printFullRoofline(_roofline :: Methodology_Result)
     factor = _roofline.custom_elements[:factor]
 
     if CONFIG.roofline.plotting
-        p = Plot([0, max(_roofline.custom_elements[:opint].value + 1.0, _roofline.custom_elements[:roof_corner].value * 2.0)], [0, _roofline.custom_elements[:cpu_peak].value * 1.2], yscale=:log2)
-        p = lineplot(0, max(_roofline.custom_elements[:opint].value + 1., _roofline.custom_elements[:roof_corner].value * 2.),
+        p = Plot([0, max(_roofline.custom_elements[:opint].value + 1.0,  _roofline.custom_elements[:roof_corner_raw].value * 2.)], [0, _roofline.custom_elements[:cpu_peak].value * 1.2], yscale=:log2)
+        p = lineplot(0, max(_roofline.custom_elements[:opint].value + 1., _roofline.custom_elements[:roof_corner_raw].value * 2.),
                      rooflineCalc(_roofline.custom_elements[:cpu_peak].value,
                 _roofline.custom_elements[:mem_peak].value), name="Automatic Roofline")
 
-        lineplot!(p, 0, max(_roofline.custom_elements[:opint].value + 1.0, _roofline.custom_elements[:roof_corner].value * 2.0),
+        lineplot!(p, 0, max(_roofline.custom_elements[:opint].value + 1.0, _roofline.custom_elements[:roof_corner_raw].value * 2.0),
                      rooflineCalc(_roofline.custom_elements[:cpu_peak].value * factor,
                                   _roofline.custom_elements[:mem_peak].value * factor), name="Test threshold")
         vline!(p, _roofline.custom_elements[:opint].value, color=:yellow, name="Tested function")

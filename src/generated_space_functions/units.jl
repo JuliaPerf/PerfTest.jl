@@ -12,7 +12,7 @@ magnitude_prefixes = Dict(
 function magnitudeAdjust(value :: Number, unit :: String) :: Pair{Number, String}
     # Check for the adequate order of magnitude
     for (magnitude_order, prefix) in magnitude_prefixes
-        if 1e0 <= (value / magnitude_order) < 1e3
+        if 1e-1 <= (value / magnitude_order) < 1e2
             return Pair(value / magnitude_order, prefix * unit)
         end
     end
