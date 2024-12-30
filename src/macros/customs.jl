@@ -98,14 +98,14 @@ end
 
 
 define_eff_memory_throughput_validation = defineMacroParams([
-    MacroParameter(Symbol(""),
-                   ExtendedExpr,
-                   true),
     MacroParameter(:ratio,
                    Float64,
                    (x) -> 0.0 <= x <= 1.0,
                    0.7, #default
-                   false)
+                   false),
+    MacroParameter(Symbol(""),
+                   ExtendedExpr,
+                   true)
 ])
 """
 This macro is used to define the memory bandwidth of a target in order to execute the effective memory thorughput methodology.

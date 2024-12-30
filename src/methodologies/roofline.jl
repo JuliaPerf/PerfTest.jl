@@ -188,7 +188,7 @@ function buildRoofline(context::Context)::Expr
                       quote
                       end
                 end)
-                methodology_res.custom_elements[:realf] = resultAdjust(_PRFT_LOCAL[:metrics][:attainedFLOPS])
+                methodology_res.custom_elements[:realf] = magnitudeAdjust(_PRFT_LOCAL[:metrics][:attainedFLOPS])
 
                 methodology_res.custom_elements[:opint] = _PRFT_LOCAL[:metrics][:opInt]
                 # result_opint = _PRFT_LOCAL[:metrics][:opint]
@@ -213,9 +213,9 @@ function buildRoofline(context::Context)::Expr
                     units="Flop/Byte",
                     value=aux_flops.value/aux_mem.value
                 )
-                methodology_res.custom_elements[:mem_peak] = resultAdjust(aux_mem)
-                methodology_res.custom_elements[:cpu_peak] = resultAdjust(aux_flops)
-                methodology_res.custom_elements[:roof_corner] = resultAdjust(aux_rcorner)
+                methodology_res.custom_elements[:mem_peak] = magnitudeAdjust(aux_mem)
+                methodology_res.custom_elements[:cpu_peak] = magnitudeAdjust(aux_flops)
+                methodology_res.custom_elements[:roof_corner] = magnitudeAdjust(aux_rcorner)
                 methodology_res.custom_elements[:roof_corner_raw] = aux_rcorner
                 methodology_res.custom_elements[:factor] = $(info.params[:target_ratio])
 

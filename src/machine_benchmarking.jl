@@ -2,6 +2,7 @@
 
 #using MPI
 using LinearAlgebra
+using CpuId
 # Memory and CPU benchmarks used by different methodologies
 
 """
@@ -51,40 +52,11 @@ function setupMemoryBandwidthBenchmark()::Expr
     return ret
 end
 
-# TODO
-function getAproxCacheSize()
-    if Sys.islinux() || Sys.isbsd() || Sys.isapple()
-        # Use `lscpu` on Linux-like systems
-        try
-            cache_info = read(`lscpu`, String)
-            for line in split(cache_info, '\n')
-                if occursin("L3 cache", line)
-                    return parse(Int, match(r"\d+", line).match) * 1024
-                elseif occursin("L2 cache", line)
-                    return parse(Int, match(r"\d+", line).match) * 1024
-                end
-            end
-        catch
-            return "Unable to determine cache size"
-        end
-    elseif Sys.iswindows()
-        # Use PowerShell on Windows
-        try
-            cache_info = read(`powershell -Command "Get-WmiObject Win32_Processor | Select-Object -ExpandProperty L3CacheSize"`, String)
-            return parse(Int, cache_info) * 1024
-        catch
-            return "Unable to determine cache size"
-        end
-    else
-        return "Operating system not supported"
-    end
-end
 
 function getMachineInfo()::Expr
     quote
-	      # Approx cache size (used for empirical benchmarks tuning)
-        size = PerfTest.getAproxCacheSize()
-        global _PRFT_GLOBAL[:machine][:approx_cache_size] = size isa Int ? size : 30000
+        size = CpuId.cachesize()[end]
+        global _PRFT_GLOBAL[:machine][:approx_cache_size] = size
     end
 end
 
@@ -99,7 +71,7 @@ end
 
 function measureMemBandwidth()::Expr
     quote
-        bench_data = STREAMBenchmark.benchmark(N = 4 * _PRFT_GLOBAL[:machine][:approx_cache_size])
+        bench_data = STREAMBenchmark.benchmark(N = div(_PRFT_GLOBAL[:machine][:cache_sizes][end], 2))
         # In B/s
         peakbandwidth = bench_data.multi.maximum * 1e6
         global _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = peakbandwidth

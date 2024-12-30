@@ -103,8 +103,8 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                     name="Effective Memory Throughput",
                 )
                 push!(methodology_res.metrics, (result => test))
-                methodology_res.custom_elements[:abs] = aux_abs_value
-                methodology_res.custom_elements[:abs_ref] = aux_ref_value
+                methodology_res.custom_elements[:abs] = magnitudeAdjust(aux_abs_value)
+                methodology_res.custom_elements[:abs_ref] = magnitudeAdjust(aux_ref_value)
 
                 # Printing
                 PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)))

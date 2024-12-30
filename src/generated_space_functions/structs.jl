@@ -21,6 +21,9 @@ therefore its saves the metric `name`, its `units` space and its `value`.
     units::AbstractString
     value::N
     auxiliary::Bool = false
+    # Below are magnitude specifiers for the value given (might not apply in some cases e.g. String)
+    magnitude_prefix::AbstractString = ""
+    magnitude_mult::Number = 0
 end
 
 """

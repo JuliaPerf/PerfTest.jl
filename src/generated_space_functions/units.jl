@@ -9,36 +9,48 @@ magnitude_prefixes = Dict(
     1e-9=> "n"
 )
 
-function magnitudeAdjust(value :: Number, unit :: String) :: Pair{Number, String}
+# Used to directly turn a result into a convenient magnitude order
+function magnitudeAdjust(m::Metric_Result)::Metric_Result
+
+    # Check for valid number, do nothing if not
+    if !(m.value isa Number)
+        return m
+    end
+
     # Check for the adequate order of magnitude
     for (magnitude_order, prefix) in magnitude_prefixes
-        if 1e-1 <= (value / magnitude_order) < 1e2
-            return Pair(value / magnitude_order, prefix * unit)
+        if 1e-1 <= (m.value / magnitude_order) < 1e2
+            return Metric_Result(
+                m.name,
+                m.units,
+                m.value / magnitude_order,
+                m.auxiliary,
+                prefix,
+                magnitude_order
+            )
         end
     end
 
     # Extremes beyond supported orders
-    if value > 1
-        return Pair(value / 1e9, "G" * unit)
+    if m.value > 1
+        return Metric_Result(
+            m.name,
+            m.units,
+            m.value / 1e9,
+            m.auxiliary,
+            "G",
+            1e9
+        )
     else
-        return Pair(value * 1e9, "n" * unit)
+        return Metric_Result(
+            m.name,
+            m.units,
+            m.value * 1e9,
+            m.auxiliary,
+            "n",
+            1e-9
+        )
     end
 end
 
-# Just in case a non numeric metric is passed to the function
-function magnitudeAdjust(value :: Any, unit :: String) :: Pair{Number, String}
-    return Pair(value, unit)
-end
 
-
-# Used to directly turn a result into a convenient magnitude order
-function resultAdjust(result :: Metric_Result) :: Metric_Result
-    newval,newunit = magnitudeAdjust(result.value, result.units)
-
-    return Metric_Result(
-        name = result.name,
-        value = newval,
-        units = newunit,
-        auxiliary = result.auxiliary
-    )
-end
