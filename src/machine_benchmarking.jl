@@ -55,7 +55,12 @@ end
 
 function getMachineInfo()::Expr
     quote
-        size = CpuId.cachesize()[end]
+        size = try
+            CpuId.cachesize()[end]
+        catch
+            # Default assumes 25MB (usually too much)
+            12 * 1024 * 1024
+        end
         global _PRFT_GLOBAL[:machine][:approx_cache_size] = size
     end
 end
