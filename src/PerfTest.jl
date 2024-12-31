@@ -1,7 +1,7 @@
 module PerfTest
 
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
-    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric
+    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust
 
 using MacroTools
 using MLStyle.Modules.AST
