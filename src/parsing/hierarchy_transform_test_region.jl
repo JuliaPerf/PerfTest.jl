@@ -97,13 +97,16 @@ function updateTestTreeSideways!(context::Context, name::String)
                             PerfTest.printDepth!(_PRFT_LOCAL[:depth])
                             # Metric calc
                             $(buildPrimitiveMetrics()) # See metrics.jl
-                            # Custom metric calc TODO Regulating
-                            $(buildCustomMetrics(context._local.custom_metrics))
-                            # Methodology evaluation
-                            $(buildMemTRPTMethodology(context))
-                            $(buildRoofline(context))
-                            $(buildRaw(context))
+                            # Only one rank does the testing
+                            if _PRFT_GLOBAL[:is_main_rank]
+                                # Custom metric calc TODO Regulating
+                                $(buildCustomMetrics(context._local.custom_metrics))
+                                # Methodology evaluation
+                                $(buildMemTRPTMethodology(context))
+                                $(buildRoofline(context))
+                                $(buildRaw(context))
 
-                            PerfTest.printAuxiliaries(_PRFT_LOCAL[:metrics], length(_PRFT_LOCAL[:depth]))
+                                PerfTest.printAuxiliaries(_PRFT_LOCAL[:metrics], length(_PRFT_LOCAL[:depth]))
+                            end
                         end))
 end

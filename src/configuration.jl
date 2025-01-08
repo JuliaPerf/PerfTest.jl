@@ -1,6 +1,13 @@
 
 using Configurations, YAML
 
+abstract struct MPIOption
+end
+struct MPICombineResults <: MPIOption
+end
+struct MPISeparateResults <: MPIOption
+end
+
 @option "BoundaryConfig" struct BoundConfig
     worse::Float64 = 0.2
     better::Maybe{Float64} = nothing
@@ -34,10 +41,16 @@ end
     memtest_buffer_size :: Maybe{Int}
 end
 
+@option "MPIConfig" struct MPIConfig
+    mpi_mode:: MPIOption = MPICombineResults
+    combination_method = :max
+end
+
 @option "GeneralConfig" struct GeneralConfig
     autoflops::Bool = true
 
     recursive::Bool = true
+    mpi::Maybe{MPIOption} = MPICombineResults
 
     save_folder::AbstractString = ".perftests"
     save_test_results::Bool = false

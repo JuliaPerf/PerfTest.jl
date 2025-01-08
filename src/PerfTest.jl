@@ -65,6 +65,7 @@ include("generated_space_functions/structs.jl")
 include("generated_space_functions/printing.jl")
 include("generated_space_functions/data_handling.jl")
 include("generated_space_functions/units.jl")
+include("generated_space_functions/misc.jl")
 
 # Base active rules
 rules = ASTRule[testset_macro_rule,
@@ -78,6 +79,7 @@ rules = ASTRule[testset_macro_rule,
     test_broken_macro_rule,
     test_skip_macro_rule, perftest_macro_rule, back_macro_rule,
     prefix_macro_rule,
+#    suffix_macro_rule,
     config_macro_rule,
     on_perftest_exec_rule,
     on_perftest_ignore_rule,
@@ -115,6 +117,7 @@ function ruleSet(context::Context, rules :: Vector{ASTRule})
     function _ruleSet(x)
         for rule in rules
             if rule.match(x)
+                @show x
                 info = rule.validation(x, context)
                 return rule.transformation(x, context, info)
             end
@@ -157,16 +160,12 @@ function treeRun(path :: AbstractString)
     ctx._global.original_file_path = path
 
     # Run through AST and build new expressions
-    middle = _treeRun(input_expr, ctx)
+    full = _treeRun(input_expr, ctx)
 
-    # Assemble
-    full = quote
-            a
-            b
-    end
-
-    full = flattenedInterpolation(full, middle, :a)
-    full = flattenedInterpolation(full, perftextsuffix(ctx), :b)
+    #full = flattenedInterpolation(full, middle, :a)
+    #full = flattenedInterpolation(full, perftestsuffix(ctx), :__PERFTEST_AFTER__)
+    # Insert suffix
+    full = MacroTools.postwalk(ruleSet(ctx, [suffix_macro_rule]), full)
 
     # Mount inside a module environment
     module_full = Expr(:toplevel,

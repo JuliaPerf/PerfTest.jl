@@ -13,10 +13,14 @@ function perftestprefix(ctx :: Context)::Expr
         using BenchmarkTools
         using STREAMBenchmark
         using Suppressor
-        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result,resultAdjust
+        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust
 
         # Where all needed data for the tests is going to saved
         _PRFT_GLOBAL = Dict{Symbol,Any}()
+        # If no MPI there is just one "rank" which is the main one
+        _PRFT_GLOBAL[:is_main_rank] = true
+        _PRFT_GLOBAL[:comm_size] = 1
+        MPI_setup(_PRFT_GLOBAL)
 
         $(
             if CONFIG.autoflops
@@ -31,20 +35,22 @@ function perftestprefix(ctx :: Context)::Expr
         )
 
         # TODO
+        
+        if _PRFT_GLOBAL[:is_main_rank]
+            # Used to save data about this test suite if needed
+            path = $("./$(CONFIG.save_folder)/$(suite_name).JLD2")
 
-        # Used to save data about this test suite if needed
-        path = $("./$(CONFIG.save_folder)/$(suite_name).JLD2")
+            nofile = true
+            if isfile(path)
+                nofile = false
+                _PRFT_GLOBAL[:datafile] = PerfTest.openDataFile(path)
+            else
+                _PRFT_GLOBAL[:datafile] = PerfTest.Perftest_Datafile_Root(PerfTest.Perftest_Result[],
+                    PerfTest.Dict{PerfTest.StrOrSym,Any}[])
 
-        nofile = true
-        if isfile(path)
-            nofile = false
-            _PRFT_GLOBAL[:datafile] = PerfTest.openDataFile(path)
-        else
-            _PRFT_GLOBAL[:datafile] = PerfTest.Perftest_Datafile_Root(PerfTest.Perftest_Result[],
-                PerfTest.Dict{PerfTest.StrOrSym,Any}[])
-
-            PerfTest.p_yellow("[!]")
-            println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
+                PerfTest.p_yellow("[!]")
+                println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
+            end
         end
 
         # Do machine specs

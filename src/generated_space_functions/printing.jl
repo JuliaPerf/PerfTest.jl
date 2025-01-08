@@ -124,7 +124,13 @@ function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
     end
     print(@lpad(tab) *"METRIC ")
     p_blue("$(metric.name)")
-    println(" ["* metric.units *"]:")
+    print(" ["* metric.units *"]:")
+    # MPI info
+    if metric.mpi
+        println(" "^10 * p_yellow(MPI Enabled) * " " * p_blue(metric.mpi_redux) * " - " * metric.mpi_size *"ranks")
+    else
+        println()
+    end
     println(@lpad(tab) * "."^72)
     print(@lpad(tab))
     if test.threshold_max_percent isa Nothing

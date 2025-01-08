@@ -87,7 +87,7 @@ perftest_scope_assignment_macro_rule = ASTRule(
 perftest_scope_arg_macro_rule = ASTRule(
     x -> @capture(x, _(__)),
     no_validation,
-    (x, ctx, info) -> (@show x, scopeArg(x, ctx); scopeArg(x, ctx))
+    (x, ctx, info) -> (scopeArg(x, ctx))
 )
 
 perftest_scope_vecf_arg_macro_rule = ASTRule(
@@ -121,6 +121,12 @@ prefix_macro_rule = ASTRule(
     x -> (x == :(:__PERFTEST_FW__)),
     no_validation,
     (x, ctx, info) -> perftestprefix(ctx)
+)
+
+suffix_macro_rule = ASTRule(
+    x -> (x == :(:__PERFTEST_AFTER__)),
+    no_validation,
+    (x, ctx, info) -> perftestsuffix(ctx)
 )
 
 # CONFIG

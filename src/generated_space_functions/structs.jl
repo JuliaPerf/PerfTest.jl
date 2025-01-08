@@ -24,6 +24,10 @@ therefore its saves the metric `name`, its `units` space and its `value`.
     # Below are magnitude specifiers for the value given (might not apply in some cases e.g. String)
     magnitude_prefix::AbstractString = ""
     magnitude_mult::Number = 0
+    # Additional data for MPI
+    mpi :: Bool = false
+    mpi_size :: Int = 1
+    mpi_redux :: AbstractString = "None"
 end
 
 """

@@ -47,6 +47,7 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
                 end;
                 :__BACK_CONTEXT__;
             end;
+            :__PERFTEST_AFTER__
         )
     else
         # Return the substitution
@@ -69,7 +70,8 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
                 $test_block
             end;
 
-            :__BACK_CONTEXT__
+            :__BACK_CONTEXT__;
+            :__PERFTEST_AFTER__
         )
     end
 end
@@ -100,7 +102,7 @@ end
 function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Get the elements of interest from the macrocall
     @capture(input_expr, @perftest prop__ expr_)
-    @show context._local.depth_record[end]
+    #@show context._local.depth_record[end]
     num = (context._local.depth_record[end].test_count += 1)
     name = "Test $num"
 
@@ -120,7 +122,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
         $(if CONFIG.suppress_output
               quote
               @suppress begin
-                        _PRFT_LOCAL_SUITE[$name] = @benchmark($parsed_target ,$(prop...))
+                        _PRFT_LOCAL_SUITE[$name] = @ benchmark($parsed_target ,$(prop...))
                   _PRFT_LOCAL_ADDITIONAL[$name][:autoflop] = $(
                       if CONFIG.autoflops
                           quote CountFlops.flop(@count_ops ($parsed_target)) end
@@ -145,7 +147,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
 
         _PRFT_LOCAL_ADDITIONAL[$name][:printed_output] =
             @capture_out _PRFT_LOCAL_ADDITIONAL[$name][:ret_value] = $expr;
-        @show _PRFT_LOCAL_ADDITIONAL[$name][:autoflop]
+        #@show _PRFT_LOCAL_ADDITIONAL[$name][:autoflop]
     end
 end
 

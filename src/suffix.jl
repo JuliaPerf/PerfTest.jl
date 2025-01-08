@@ -71,26 +71,14 @@ function perftextsuffix2(context :: Context)
 end
 
 
-function perftextsuffix(context :: Context)
+function perftestsuffix(context :: Context)
+    @show "A"
     return quote
         # Local scope on the lowest level == Global scope
         _PRFT_GLOBAL[:suite] = _PRFT_LOCAL_SUITE
         _PRFT_GLOBAL[:additional] = _PRFT_LOCAL_ADDITIONAL
 
-        # Deal with recorder results
-        let
-            res_num = length(_PRFT_GLOBAL[:datafile].results)
-
-            if (excess = $(CONFIG.max_saved_results) - res_num) <= 0
-                PerfTest.p_yellow("[ℹ]")
-                println(" Regression: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
-                for i in 1:(-1*excess+1)
-                    popfirst!(_PRFT_GLOBAL[:datafile].results)
-                end
-            end
-        end
-
-        # TODO Inyect globally defined metrics
+                # TODO Inyect globally defined metrics
 
         # Trial Estimates
         #median_suite = median(_PRFT_GLOBAL[:suite])
@@ -98,16 +86,35 @@ function perftextsuffix(context :: Context)
 
         # Methodology suffixes
         #$(regressionSuffix(context))
+        
+        if _PRFT_GLOBAL[:is_main_rank]
+            # Deal with recorder results
+            let
+                res_num = length(_PRFT_GLOBAL[:datafile].results)
 
-        # Compose the serializable data structure for this execution
-        let
-            current_result = PerfTest.Perftest_Result(timestamp=time(),
-                                                      benchmarks=_PRFT_GLOBAL[:suite],
-                                                      perftests=Dict())
+                if (excess = $(CONFIG.max_saved_results) - res_num) <= 0
+                    PerfTest.p_yellow("[ℹ]")
+                    println(" Regression: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
+                    for i in 1:(-1*excess+1)
+                        popfirst!(_PRFT_GLOBAL[:datafile].results)
+                    end
+                end
+            end
 
-            push!(_PRFT_GLOBAL[:datafile].results, current_result)
-            PerfTest.p_yellow("[ℹ]")
+
+
+
+            # Compose the serializable data structure for this execution
+            let
+                current_result = PerfTest.Perftest_Result(timestamp=time(),
+                                                        benchmarks=_PRFT_GLOBAL[:suite],
+                                                        perftests=Dict())
+
+                push!(_PRFT_GLOBAL[:datafile].results, current_result)
+                PerfTest.p_yellow("[ℹ]")
+            end
         end
+        
         #println(" Regression: A perfomance reference has been registered.")
         # TODO free vars
         failed = false
@@ -126,16 +133,18 @@ function perftextsuffix(context :: Context)
             failed = true
         end
 
-        $(
-            if CONFIG.save_test_results
-                quote
-                    push!(_PRFT_GLOBAL[:datafile].methodologies_history, current_test_results)
+        if _PRFT_GLOBAL[:is_main_rank]
+            $(
+                if CONFIG.save_test_results
+                    quote
+                        push!(_PRFT_GLOBAL[:datafile].methodologies_history, current_test_results)
+                    end
                 end
-            end
-        )
+            )
 
-        if !failed
-            PerfTest.saveDataFile(path, _PRFT_GLOBAL[:datafile])
+            if !failed
+                PerfTest.saveDataFile(path, _PRFT_GLOBAL[:datafile])
+            end
         end
 
         println("[✓] $path Performance tests have been finished")

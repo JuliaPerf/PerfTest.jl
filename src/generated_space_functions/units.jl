@@ -20,36 +20,36 @@ function magnitudeAdjust(m::Metric_Result)::Metric_Result
     # Check for the adequate order of magnitude
     for (magnitude_order, prefix) in magnitude_prefixes
         if 1e-1 <= (m.value / magnitude_order) < 1e2
-            return Metric_Result(
-                m.name,
-                m.units,
-                m.value / magnitude_order,
-                m.auxiliary,
-                prefix,
-                magnitude_order
+            return newMetricResult(
+                name = m.name,
+                units= m.units,
+                value = m.value / magnitude_order,
+                auxiliary = m.auxiliary,
+                magnitude_prefix=prefix,
+                magnitude_mult=magnitude_order
             )
         end
     end
 
     # Extremes beyond supported orders
     if m.value > 1
-        return Metric_Result(
-            m.name,
-            m.units,
-            m.value / 1e9,
-            m.auxiliary,
-            "G",
-            1e9
-        )
+        return newMetricResult(
+                name = m.name,
+                units= m.units,
+                value = m.value / 1e9,
+                auxiliary = m.auxiliary,
+                magnitude_prefix="G",
+                magnitude_mult=1e9
+            )
     else
-        return Metric_Result(
-            m.name,
-            m.units,
-            m.value * 1e9,
-            m.auxiliary,
-            "n",
-            1e-9
-        )
+        return newMetricResult(
+                name = m.name,
+                units= m.units,
+                value = m.value * 1e9,
+                auxiliary = m.auxiliary,
+                magnitude_prefix="n",
+                magnitude_mult=1e-9
+            )
     end
 end
 
