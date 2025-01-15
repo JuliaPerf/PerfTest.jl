@@ -9,8 +9,16 @@ using Configurations
 using Printf
 
 using BenchmarkTools
+using STREAMBenchmark
+using LinearAlgebra
+using CpuId
 
 var"@capture" = MacroTools.var"@capture"
+
+abstract type NormalMode end
+struct MPIMode <: NormalMode end
+
+mode = NormalMode
 
 ### PARSING TIME
 
@@ -181,9 +189,17 @@ function treeRun(path :: AbstractString)
 end
 
 
+function toggleMPI()
+    if mode == NormalMode
+        global mode = MPIMode
+    else
+        global mode = NormalMode
+    end
+end
 
 transform = treeRun
 
+MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
 include("execution.jl")
 

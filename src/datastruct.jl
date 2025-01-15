@@ -180,5 +180,4 @@ greaterThan0(n :: Number) = n > 0
 # TODO
 
 # Stubs used when MPI is disabled or unsupported types are present e.g. String
-function MPISetup(global_ctx :: Dict{Symbol,Any}) end
-function MPICommunicateResults(results :: Any) end
+function MPISetup(::Type{<:NormalMode}, args...) end

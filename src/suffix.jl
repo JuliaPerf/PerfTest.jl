@@ -145,8 +145,8 @@ function perftestsuffix(context :: Context)
             if !failed
                 PerfTest.saveDataFile(path, _PRFT_GLOBAL[:datafile])
             end
+            println("[✓] $path Performance tests have been finished")
         end
 
-        println("[✓] $path Performance tests have been finished")
     end
 end

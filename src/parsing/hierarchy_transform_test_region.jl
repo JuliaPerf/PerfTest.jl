@@ -88,15 +88,15 @@ function updateTestTreeSideways!(context::Context, name::String)
 
     # Get depth level
     depth = length(context.test_tree_expr_builder)
-    @show context._local
+    @show mode
     # Add the expression to de tree builder
     push!(context.test_tree_expr_builder[depth],
           newLocalScope(name,
                         quote
-                            #TODO?
+                            #TODO ?
                             PerfTest.printDepth!(_PRFT_LOCAL[:depth])
                             # Metric calc
-                            $(buildPrimitiveMetrics()) # See metrics.jl
+                            buildPrimitiveMetrics!($mode, _PRFT_LOCAL, _PRFT_GLOBAL) # See primitives.jl
                             # Only one rank does the testing
                             if _PRFT_GLOBAL[:is_main_rank]
                                 # Custom metric calc TODO Regulating

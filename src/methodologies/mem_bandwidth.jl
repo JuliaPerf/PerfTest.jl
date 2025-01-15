@@ -73,7 +73,8 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                 value = _PRFT_LOCAL[:metrics][:effMemTP].value / _PRFT_GLOBAL[:machine][:empirical][:peakmemBW]
                 success = value >= $(info.params[:ratio])
 
-                result = Metric_Result(name="Effective Throughput Ratio",
+                result = newMetricResult($mode,
+                                       name="Effective Throughput Ratio",
                                        units="%",
                                        value=value*100)
                 test = Metric_Test(
@@ -87,12 +88,14 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                 )
 
                 # Absolute value as an additional metric
-                aux_abs_value = Metric_Result(
+                aux_abs_value = newMetricResult(
+                    $mode,
                     name="Attained Bandwidth",
                     units="GB/s",
                     value=_PRFT_LOCAL[:metrics][:effMemTP].value
                 )
-                aux_ref_value = Metric_Result(
+                aux_ref_value = newMetricResult(
+                    $mode,
                     name="Peak empirical bandwidth",
                     units="GB/s",
                     value=_PRFT_GLOBAL[:machine][:empirical][:peakmemBW]

@@ -11,23 +11,31 @@ end
 
 StrOrSym = Union{String,Symbol}
 
+struct MPI_MetricInfo
+    size :: Int
+    reduct :: AbstractString
+end
+
 """
 This struct is used in the test suite to save a metric measurement,
 therefore its saves the metric `name`, its `units` space and its `value`.
 """
-@kwdef struct Metric_Result{N}
+struct Metric_Result{N}
     name::AbstractString
     # Used to identify the metric in some situations
     units::AbstractString
     value::N
-    auxiliary::Bool = false
-    # Below are magnitude specifiers for the value given (might not apply in some cases e.g. String)
-    magnitude_prefix::AbstractString = ""
-    magnitude_mult::Number = 0
+    auxiliary::Bool
+    # Below are magnitude specifiers for the value given (might not apply in some cases e.g. String
+    magnitude_prefix::AbstractString
+    magnitude_mult::Number
     # Additional data for MPI
-    mpi :: Bool = false
-    mpi_size :: Int = 1
-    mpi_redux :: AbstractString = "None"
+    mpi :: Union{Nothing, MPI_MetricInfo}
+end
+
+function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 0, reduct="")
+
+    return Metric_Result(name,units,value,auxiliary, magnitude_prefix, magnitude_mult, nothing)
 end
 
 """

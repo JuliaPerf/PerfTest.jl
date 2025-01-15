@@ -126,8 +126,12 @@ function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
     p_blue("$(metric.name)")
     print(" ["* metric.units *"]:")
     # MPI info
-    if metric.mpi
-        println(" "^10 * p_yellow(MPI Enabled) * " " * p_blue(metric.mpi_redux) * " - " * metric.mpi_size *"ranks")
+    if !(metric.mpi isa Nothing)
+        print(" "^10)
+        p_yellow("MPI Enabled")
+        print(" ")
+        p_blue(metric.mpi.reduct)
+        println(" - " * string(metric.mpi.size) * " ranks")
     else
         println()
     end

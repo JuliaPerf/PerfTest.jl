@@ -1,7 +1,7 @@
 
 using Configurations, YAML
 
-abstract struct MPIOption
+abstract type MPIOption
 end
 struct MPICombineResults <: MPIOption
 end
@@ -50,7 +50,7 @@ end
     autoflops::Bool = true
 
     recursive::Bool = true
-    mpi::Maybe{MPIOption} = MPICombineResults
+    #mpi::Maybe{MPIOption} = MPICombineResults
 
     save_folder::AbstractString = ".perftests"
     save_test_results::Bool = false

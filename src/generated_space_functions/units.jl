@@ -21,6 +21,7 @@ function magnitudeAdjust(m::Metric_Result)::Metric_Result
     for (magnitude_order, prefix) in magnitude_prefixes
         if 1e-1 <= (m.value / magnitude_order) < 1e2
             return newMetricResult(
+                mode,
                 name = m.name,
                 units= m.units,
                 value = m.value / magnitude_order,
@@ -34,6 +35,7 @@ function magnitudeAdjust(m::Metric_Result)::Metric_Result
     # Extremes beyond supported orders
     if m.value > 1
         return newMetricResult(
+                mode,
                 name = m.name,
                 units= m.units,
                 value = m.value / 1e9,
@@ -43,6 +45,7 @@ function magnitudeAdjust(m::Metric_Result)::Metric_Result
             )
     else
         return newMetricResult(
+                mode,
                 name = m.name,
                 units= m.units,
                 value = m.value * 1e9,

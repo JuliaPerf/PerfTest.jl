@@ -13,14 +13,15 @@ function perftestprefix(ctx :: Context)::Expr
         using BenchmarkTools
         using STREAMBenchmark
         using Suppressor
-        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust
+        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!
 
         # Where all needed data for the tests is going to saved
         _PRFT_GLOBAL = Dict{Symbol,Any}()
         # If no MPI there is just one "rank" which is the main one
         _PRFT_GLOBAL[:is_main_rank] = true
         _PRFT_GLOBAL[:comm_size] = 1
-        MPI_setup(_PRFT_GLOBAL)
+        MPISetup($mode, _PRFT_GLOBAL)
+        @show _PRFT_GLOBAL
 
         $(
             if CONFIG.autoflops

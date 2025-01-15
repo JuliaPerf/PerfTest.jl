@@ -42,15 +42,13 @@ function newLocalScopeFor(name::String, iterator :: ExtendedExpr, body::Expr)::E
     end
 end
 
-function buildPrimitiveMetrics()::Expr
-    return quote
+function buildPrimitiveMetrics!(::Type{NormalMode}, _PRFT_LOCAL::Dict, _PRFT_GLOBAL::Dict{Symbol,Any})
         _PRFT_LOCAL[:primitives][:median_time] = median(_PRFT_LOCAL[:suite]).time / 1e9
         _PRFT_LOCAL[:primitives][:min_time] = minimum(_PRFT_LOCAL[:suite]).time / 1e9
         _PRFT_LOCAL[:primitives][:autoflop] = _PRFT_LOCAL[:additional][:autoflop]
         _PRFT_LOCAL[:primitives][:ret_value] = _PRFT_LOCAL[:additional][:ret_value]
         _PRFT_LOCAL[:primitives][:printed_output] = _PRFT_LOCAL[:additional][:printed_output]
         _PRFT_LOCAL[:primitives][:iterator] = _PRFT_LOCAL[:additional][:iterator]
-    end
 end
 
 
@@ -87,11 +85,12 @@ function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}})::Exp
         end
         buffer = quote
             $buffer
-            _PRFT_LOCAL[:metrics][$(QuoteNode(symbol))] = Metric_Result(
-                $(metric_def.name),
-                $(metric_def.units),
-                $(metric_def.formula),
-                $(metric_def.auxiliary)
+            _PRFT_LOCAL[:metrics][$(QuoteNode(symbol))] = newMetricResult(
+                $mode,
+                name = $(metric_def.name),
+                units = $(metric_def.units),
+                value = $(metric_def.formula),
+                auxiliary = $(metric_def.auxiliary)
             )
         end
     end
