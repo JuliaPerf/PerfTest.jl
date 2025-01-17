@@ -79,7 +79,7 @@ add_kernel(C,A,B;kwargs...) = begin STREAMBenchmark.add_nthreads(C,A,B;kwargs...
 function _run_kernels(copy, add;
                       verbose = true,
                       N,
-                      evals_per_sample = 5,
+                      evals_per_sample = 10,
                       write_allocate = true,
                       nthreads = Threads.nthreads(),
                       init = :parallel)
@@ -129,7 +129,7 @@ function _run_kernels(copy, add;
     values = [bw_copy, bw_add]
     calc = f -> round(f(values); digits = 1)
 
-    return (median = calc(median), minimum = calc(minimum), maximum = calc(maximum))
+    return (bw_copy,bw_add)
 end
 
 
