@@ -6,12 +6,14 @@
 
 module PerfTest_MPIExt
 
+using STREAMBenchmark: add_allthreads
 using LinearAlgebra: peakflops
 using MPI
 using PerfTest
 using LinearAlgebra
 using STREAMBenchmark
 using BenchmarkTools
+
 
 mpi_rank = 0
 mpi_size = 1
@@ -67,16 +69,79 @@ function MPIShareAndReduce!(value::Union{Number,Dict{Int64,Number}}, reduction_o
     return value
 end
 
+# MEM MW MPI BEGIN
+using Base.Threads
+# Synchonize the local kernels at the end just in case they took turns doing the transfer, the important is the total transfer of data not the local
+# CAUTION adds overhead
+copy_kernel(C,A;kwargs...) = begin STREAMBenchmark.copy_nthreads(C,A;kwargs...); MPI.Barrier(MPI.COMM_WORLD) end
+add_kernel(C,A,B;kwargs...) = begin STREAMBenchmark.add_nthreads(C,A,B;kwargs...); MPI.Barrier(MPI.COMM_WORLD) end
+
+function _run_kernels(copy, add;
+                      verbose = true,
+                      N,
+                      evals_per_sample = 5,
+                      write_allocate = true,
+                      nthreads = Threads.nthreads(),
+                      init = :parallel)
+    α = write_allocate ? 24 : 16
+    β = write_allocate ? 32 : 24
+
+    f = t -> N * α / t
+    g = t -> N * β / t
+
+    # N / nthreads if necessary
+    thread_indices = STREAMBenchmark._threadidcs(N, nthreads)
+
+    # initialize memory
+    if init == :parallel
+        A = Vector{Float64}(undef, N)
+        B = Vector{Float64}(undef, N)
+        C = Vector{Float64}(undef, N)
+        s = rand()
+
+        # fill in parallel (important for NUMA mapping / first-touch policy)
+        @threads :static for tid in 1:nthreads
+            @inbounds for i in thread_indices[tid]
+                A[i] = 0.0
+                B[i] = 0.0
+                C[i] = 0.0
+            end
+        end
+    else
+        A = zeros(N)
+        B = zeros(N)
+        C = zeros(N)
+        s = rand()
+    end
+
+    # COPY
+    t_copy = @belapsed $copy($C, $A; nthreads = $nthreads, thread_indices = $thread_indices) samples=10 evals=evals_per_sample setup=begin MPI.Barrier(MPI.COMM_WORLD) end
+    bw_copy = f(t_copy)
+    verbose && println("╟─ $(MPI.Comm_rank(MPI.COMM_WORLD)) COPY:  ", round(bw_copy; digits = 1), "B/s")
+
+    # ADD
+    t_add = @belapsed $add($C, $A, $B; nthreads = $nthreads,
+                           thread_indices = $thread_indices) samples=10 evals=evals_per_sample setup=begin MPI.Barrier(MPI.COMM_WORLD) end
+    bw_add = g(t_add)
+    verbose && println("╟─ $(MPI.Comm_rank(MPI.COMM_WORLD)) ADD:   ", round(bw_add; digits=1), "B/s")
+
+    # statistics
+    values = [bw_copy, bw_add]
+    calc = f -> round(f(values); digits = 1)
+
+    return (median = calc(median), minimum = calc(minimum), maximum = calc(maximum))
+end
+
 
 function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBAL::Dict{Symbol, Any})
 
-    MPI.Barrier(MPI.COMM_WORLD)
-    bench_data = STREAMBenchmark.benchmark(N = div(_PRFT_GLOBAL[:machine][:cache_sizes][end], 2))
+    N = div(_PRFT_GLOBAL[:machine][:cache_sizes][end], 2)
     # In B/s
-    peakbandwidth = bench_data.multi.maximum * 1e6
 
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = MPIShareAndReduce!(peakbandwidth, op_sum, _PRFT_GLOBAL[:mpi_rank], _PRFT_GLOBAL[:comm_size])
+    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = _run_kernels(copy_kernel, add_kernel; N=N)
 end
+
+# MEM BW MPI END
 
 function PerfTest.measureCPUPeakFlops!(::Type{PerfTest.MPIMode}, _PRFT_GLOBAL :: Dict{Symbol, Any})
         LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
