@@ -138,7 +138,7 @@ function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBAL::D
     N = div(_PRFT_GLOBAL[:machine][:cache_sizes][end], 2)
     # In B/s
 
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = _run_kernels(copy_kernel, add_kernel; N=N)
+    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = _run_kernels(copy_kernel, add_kernel; N=N)[1]
 end
 
 # MEM BW MPI END
