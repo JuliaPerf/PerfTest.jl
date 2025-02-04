@@ -32,7 +32,7 @@ end
 
 function importErrors!(importer::VecErrorCollection, exporter::VecErrorCollection, path :: String)
     for e in zip(exporter.errors, exporter.loc)
-        push!(importer.errors, e.first)
-        push!(importer.loc, "INCLUDED: $path : " * e.second)
+        push!(importer.errors, e[1])
+        push!(importer.loc, "INCLUDED: $path : " * e[2])
     end
 end

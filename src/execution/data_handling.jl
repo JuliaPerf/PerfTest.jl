@@ -111,3 +111,63 @@ function extractNamesResultArray(methodology_dict::Dict, methodology :: Symbol):
     end
     return retval
 end
+
+
+# NEW ONES
+#This function will return all results associated with a specific methodology across all tests.
+function get_methodology_results(datafile::Perftest_Datafile_Root, methodology_name::AbstractString)
+    results = []
+    for result in datafile.results
+        for (name, methodology_result) in result.perftests
+            if methodology_result.name == methodology_name
+                push!(results, methodology_result)
+            end
+        end
+    end
+    return results
+end
+
+"""This function will return all tests that failed (i.e., where succeeded is false)."""
+function get_failed_tests(datafile::Perftest_Datafile_Root)
+    failed_tests = []
+    for result in datafile.results
+        for (name, methodology_result) in result.perftests
+            for (metric_result, metric_test) in methodology_result.metrics
+                if !metric_test.succeeded
+                    push!(failed_tests, (methodology_result.name, metric_result.name, metric_test))
+                end
+            end
+        end
+    end
+    return failed_tests
+end
+
+"""This function will return all metrics for a specific test name."""
+function get_metrics_for_test(datafile::Perftest_Datafile_Root, test_name::AbstractString)
+    metrics = []
+    for result in datafile.results
+        for (name, methodology_result) in result.perftests
+            if name == test_name
+                for (metric_result, metric_test) in methodology_result.metrics
+                    push!(metrics, metric_result)
+                end
+            end
+        end
+    end
+    return metrics
+end
+
+"""This function will return all results for a specific metric across all methodologies."""
+function get_metric_results(datafile::Perftest_Datafile_Root, metric_name::AbstractString)
+    metric_results = []
+    for result in datafile.results
+        for (name, methodology_result) in result.perftests
+            for (metric_result, metric_test) in methodology_result.metrics
+                if metric_result.name == metric_name
+                    push!(metric_results, (methodology_result.name, metric_result, metric_test))
+                end
+            end
+        end
+    end
+    return metric_results
+end

@@ -3,17 +3,14 @@
 function perftestprefix(ctx :: Context)::Expr
     suite_name = "$(basename(ctx._global.original_file_path))_PERFORMANCE"
 
-    if isdir("./$(CONFIG.save_folder)")
+    if isdir("./$(ctx._global.configuration["general"]["save_folder"])")
     else
-        mkdir("./$(CONFIG.save_folder)")
+        mkdir("./$(ctx._global.configuration["general"]["save_folder"])")
     end
 
     return quote
         using Test
-        using BenchmarkTools
-        using STREAMBenchmark
-        using Suppressor
-        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!
+        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress
 
         # Where all needed data for the tests is going to saved
         _PRFT_GLOBAL = Dict{Symbol,Any}()
@@ -21,10 +18,9 @@ function perftestprefix(ctx :: Context)::Expr
         _PRFT_GLOBAL[:is_main_rank] = true
         _PRFT_GLOBAL[:comm_size] = 1
         MPISetup($mode, _PRFT_GLOBAL)
-        @show _PRFT_GLOBAL
 
         $(
-            if CONFIG.autoflops
+            if ctx._global.configuration["general"]["autoflops"]
                 quote
                     using CountFlops
                 end
@@ -35,11 +31,9 @@ function perftestprefix(ctx :: Context)::Expr
             end
         )
 
-        # TODO
-        
         if _PRFT_GLOBAL[:is_main_rank]
             # Used to save data about this test suite if needed
-            path = $("./$(CONFIG.save_folder)/$(suite_name).JLD2")
+            path = $("./$(ctx._global.configuration["general"]["save_folder"])/$(suite_name).JLD2")
 
             nofile = true
             if isfile(path)
@@ -62,7 +56,7 @@ function perftestprefix(ctx :: Context)::Expr
         #$(regressionPrefix(ctx))
         #$(effMemThroughputPrefix(ctx))
 
-        _PRFT_LOCAL_SUITE = BenchmarkGroup()
+        _PRFT_LOCAL_SUITE = PRFTBenchmarkGroup()
         # Additional, used to save values from the function evaluation that need to be reused in the testing phase
         _PRFT_LOCAL_ADDITIONAL = Dict()
     end

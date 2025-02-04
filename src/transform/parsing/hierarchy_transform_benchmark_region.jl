@@ -1,4 +1,5 @@
 function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
+
     # Get the elements of interest from the macrocall
     @capture(input_expr, @testset properties__ test_block_) ? Nothing : error("Incompatible testset syntax \n");
 
@@ -16,9 +17,11 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
     push!(context._local.custom_metrics, CustomMetric[])
     push!(context._local.enabled_methodologies, MethodologyParameters[])
 
+    # Debug info
+    addLog("hierarchy", "[BNCH] New Group: $([i.set_name for i in context._local.depth_record])")
+
     # Update context: add new level to the tree
     updateTestTreeDownwards!(context.test_tree_expr_builder)
-
     if theres_for
         @capture(test_block, for a_ in b_
             inner_block_
@@ -28,20 +31,22 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
             :(
             for $a in $b
                 # For a s
-                _PRFT_LOCAL_SUITE[$name * "_" * string($a)] = BenchmarkGroup();
+                _PRFT_LOCAL_SUITE[$name * "_" * string($a)] = PRFTBenchmarkGroup();
                 _PRFT_LOCAL_ADDITIONAL[$name * "_" * string($a)] = Dict();
                 _PRFT_LOCAL_ADDITIONAL[$name * "_" * string($a)][:iterator] = $a;
-                let _PRFT_LOCAL_SUITE = _PRFT_LOCAL_SUITE[$name * "_" * string($a)], _PRFT_LOCAL_ADDITIONAL = _PRFT_LOCAL_ADDITIONAL[$name * "_" * string($a)]
+                _PRFT_LOCAL_ADDITIONAL[$name*"_"*string($a)][:exported] = copy(_PRFT_LOCAL_ADDITIONAL[:exported])
+                let _PRFT_LOCAL_SUITE = _PRFT_LOCAL_SUITE[$name*"_"*string($a)], _PRFT_LOCAL_ADDITIONAL = _PRFT_LOCAL_ADDITIONAL[$name*"_"*string($a)]
                     $inner_block
-                end;
-                :__BACK_CONTEXT__;
-            end;
+                end
+                :__BACK_CONTEXT__
+            end
         ) :
-            :(
+               :(
             :__PERFTEST_FW__;
             for $a in $b
-                _PRFT_LOCAL_SUITE[$name * "_" * string($a)] = BenchmarkGroup();
-                _PRFT_LOCAL_ADDITIONAL[$name * "_" * string($a)] = Dict();
+                _PRFT_LOCAL_SUITE[$name*"_"*string($a)] = PRFTBenchmarkGroup()
+                _PRFT_LOCAL_ADDITIONAL[$name*"_"*string($a)] = Dict()
+                _PRFT_LOCAL_ADDITIONAL[$name*"_"*string($a)][:exported] = Dict{Symbol,Any}()
                 let _PRFT_LOCAL_SUITE = _PRFT_LOCAL_SUITE[$name * "_" * string($a)], _PRFT_LOCAL_ADDITIONAL = _PRFT_LOCAL_ADDITIONAL[$name * "_" * string($a)]
                     $inner_block
                 end;
@@ -53,8 +58,9 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
         # Return the substitution
         return length(context._local.depth_record) > 1 ?
                :(
-            _PRFT_LOCAL_SUITE[$name] = BenchmarkGroup();
+            _PRFT_LOCAL_SUITE[$name] = PRFTBenchmarkGroup();
             _PRFT_LOCAL_ADDITIONAL[$name] = Dict();
+            _PRFT_LOCAL_ADDITIONAL[$name][:exported] = copy(_PRFT_LOCAL_ADDITIONAL[:exported]);
             let _PRFT_LOCAL_SUITE = _PRFT_LOCAL_SUITE[$name], _PRFT_LOCAL_ADDITIONAL = _PRFT_LOCAL_ADDITIONAL[$name]
                 $test_block
             end;
@@ -64,8 +70,9 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
                :(
             :__PERFTEST_FW__;
 
-            _PRFT_LOCAL_SUITE[$name] = BenchmarkGroup();
+            _PRFT_LOCAL_SUITE[$name] = PRFTBenchmarkGroup();
             _PRFT_LOCAL_ADDITIONAL[$name] = Dict();
+            _PRFT_LOCAL_ADDITIONAL[$name][:exported] = Dict{Symbol,Any}();
             let _PRFT_LOCAL_SUITE = _PRFT_LOCAL_SUITE[$name], _PRFT_LOCAL_ADDITIONAL = _PRFT_LOCAL_ADDITIONAL[$name]
                 $test_block
             end;
@@ -74,13 +81,15 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
             :__PERFTEST_AFTER__
         )
     end
+
 end
 
-function backTokenToContextUpdate!(input_expr ::QuoteNode, context::Context)
+function backTokenToContextUpdate!(input_expr::QuoteNode, context::Context)
 
-    if CONFIG.recursive && context._global.in_recursion && length(context._local.depth_record) == 1
-        return nothing;
-    end
+
+    # NOTE if CONFIG.recursive && context._global.in_recursion && length(context._local.depth_record) == 1
+    #    return nothing;
+    #end
 
     # Check if inside a for loop
     if last(context._local.depth_record).for_loop !== nothing
@@ -89,20 +98,20 @@ function backTokenToContextUpdate!(input_expr ::QuoteNode, context::Context)
                            context._local.depth_record[end].set_name, context)
     else
         updateTestTreeUpwards!(context.test_tree_expr_builder,
-                           context._local.depth_record[end].set_name)
+                           context._local.depth_record[end].set_name, context._global.in_recursion)
     end
     # Update context: delete depth level
     pop!(context._local.depth_record)
     pop!(context._local.custom_metrics)
     pop!(context._local.enabled_methodologies)
 
+    addLog("hierarchy", "[BNCH] Exiting group")
     return nothing;
 end
 
 function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Get the elements of interest from the macrocall
     @capture(input_expr, @perftest prop__ expr_)
-    #@show context._local.depth_record[end]
     num = (context._local.depth_record[end].test_count += 1)
     name = "Test $num"
 
@@ -115,17 +124,20 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
         loop isa Nothing ? nothing : loop.first
     end
 
+    addLog("hierarchy", "[BNCH] New Test: $name \"$expr\" @ $([i.set_name for i in context._local.depth_record])")
+
     # Return the substitution and setup the in target flag deactivator
     return quote
         _PRFT_LOCAL_ADDITIONAL[$name] = Dict()
+        _PRFT_LOCAL_ADDITIONAL[$name][:exported] = _PRFT_LOCAL_ADDITIONAL[:exported]
         _PRFT_LOCAL_ADDITIONAL[$name][:iterator] = $(iterator)
-        $(if CONFIG.suppress_output
+        $(if context._global.configuration["general"]["suppress_output"]
               quote
-              @suppress begin
-                        _PRFT_LOCAL_SUITE[$name] = @benchmark($parsed_target ,$(prop...))
+              @PRFTSuppress begin
+                        _PRFT_LOCAL_SUITE[$name] = @PRFTBenchmark($parsed_target ,$(prop...))
                   _PRFT_LOCAL_ADDITIONAL[$name][:autoflop] = $(
-                      if CONFIG.autoflops
-                          quote CountFlops.flop(@count_ops ($parsed_target)) end
+                      if context._global.configuration["general"]["autoflops"]
+                          quote PRFTflop(@PRFTCount_ops ($parsed_target)) end
                       else
                           quote 0 end
                       end
@@ -134,10 +146,10 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
               end
           else
               quote
-                  _PRFT_LOCAL_SUITE[$name] = @benchmark($(prop...), ($parsed_target));
+                  _PRFT_LOCAL_SUITE[$name] = @PRFTBenchmark($(prop...), ($parsed_target));
                   _PRFT_LOCAL_ADDITIONAL[$name][:autoflop] = $(
-                      if CONFIG.autoflops
-                          quote CountFlops.flop(@count_ops ($parsed_target)) end
+                        if context._global.configuration["general"]["autoflops"]
+                          quote PRFTflop(@PRFTCount_ops ($parsed_target)) end
                       else
                           quote 0 end
                       end
@@ -146,8 +158,16 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
           end)
 
         _PRFT_LOCAL_ADDITIONAL[$name][:printed_output] =
-            @capture_out _PRFT_LOCAL_ADDITIONAL[$name][:ret_value] = $expr;
-        #@show _PRFT_LOCAL_ADDITIONAL[$name][:autoflop]
+            @PRFTCapture_out _PRFT_LOCAL_ADDITIONAL[$name][:ret_value] = $expr;
     end
 end
 
+# TODO
+var"@PRFTBenchmark" = BenchmarkTools.var"@benchmark"
+PRFTBenchmarkGroup = BenchmarkTools.BenchmarkGroup
+using Suppressor
+var"@PRFTSuppress" = Suppressor.var"@suppress"
+var"@PRFTCapture_out" = Suppressor.var"@capture_out"
+using CountFlops
+var"@PRFTCount_ops" = CountFlops.var"@count_ops"
+PRFTflop = CountFlops.flop

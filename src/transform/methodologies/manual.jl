@@ -37,7 +37,7 @@ function buildRaw(context :: Context) :: Expr
     else
         buffer = quote
         end
-        # Get all metrics in the info
+        # Get all metrics in the info TODO
         for (metric_id, (reference_id, low_is_bad)) in info.params
             buffer = quote
                 $buffer
@@ -62,13 +62,15 @@ function buildRaw(context :: Context) :: Expr
         return quote
             let
                 methodology_res = Methodology_Result(
-                    name="Raw Metric Testing"
+                    name="Simple Metric Testing"
                 )
 
                 $buffer
 
                 # TODO
-                PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)))
+                if $(context._global.configuration["general"]["verbose"]) || !(flop_test.succeeded)
+                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(context._global.configuration["general"]["plotting"]))
+                end
 
                 for (r,test) in methodology_res.metrics
                     @test test.succeeded

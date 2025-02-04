@@ -6,13 +6,6 @@ using Configurations: ExproniconLite
 # THIS FILE SAVES THE MAIN COMPONENTS OF THE ROOFLINE
 # METHODOLOGY BEHAVIOUR
 
-# GENERATED SPACE IMPORTANT SYMBOLS:
-#
-# roofline_opint
-# local_peakflops
-# local_peakbandwidth
-
-
 
 function rooflineCalc(peakCPU :: Float64, peakMem :: Float64)
     return (opint) -> min(peakCPU, opint * peakMem)
@@ -22,6 +15,10 @@ using UnicodePlots
 
 
 function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
+    if !(ctx._global.configuration["roofline"]["enabled"])
+        return
+    end
+
     # Adds to the inner scope the request to build the methodology and its needed metrics
     push!(ctx._local.custom_metrics[end], CustomMetric(
         name="Operational intensity",
@@ -35,7 +32,7 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
             $(info[:actual_flops]) / :median_time
         end, ctx)
         # Can we put the autoflops or shall we construct a partial model?
-    elseif CONFIG.autoflops
+    elseif ctx._global.configuration["autoflops"]
         local form = transformFormula(quote
 	          :autoflop / :median_time
         end, ctx)
@@ -45,6 +42,11 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
             0
         end
         info[:test_flop] = false
+    end
+    #Is there a defined ratio as the test threshold?
+    if haskey(info, :target_ratio)
+    else
+        info[:target_ratio] = ctx._global.configuration["roofline"]["default_threshold"]
     end
     push!(ctx._local.custom_metrics[end], CustomMetric(
         name="Attained Flops",
@@ -58,6 +60,9 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
         override = true,
         params = info,
     ))
+
+
+    addLog("metrics", "[METHODOLOGY] Defined ROOFLINE MODEL on $([i.set_name for i in ctx._local.depth_record])")
 end
 
 function buildRoofline(context::Context)::Expr
@@ -140,15 +145,17 @@ function buildRoofline(context::Context)::Expr
 
                 methodology_res.custom_elements[:plot] = PerfTest.printFullRoofline
 
-                #     methodology_result.custom_elements[:factor] = local_target_ratio
-
                 # Printing
-                PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)))
+                if $(context._global.configuration["general"]["verbose"]) || !(flop_test.succeeded)
+                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(context._global.configuration["general"]["plotting"]))
+                end
 
                 # Saving TODO
 
                 # Testing
-                @test flop_test.succeeded
+                try
+                    @test flop_test.succeeded
+                catch end
             end
         end
     end

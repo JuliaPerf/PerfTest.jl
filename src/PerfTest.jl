@@ -1,6 +1,6 @@
 module PerfTest
 
-export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
+export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars,
     @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust
 
 using MacroTools
@@ -23,57 +23,62 @@ mode = NormalMode
 ### PARSING TIME
 
 # Data structures used in the parse and transform procedures
-include("datastruct.jl")
+include("transform/datastruct.jl")
 
 # Structures and defaults of the package configuration
-include("configuration.jl")     # NOTE
+include("transform/configuration.jl")     # NOTE
 
 # Formatting
 include("printing.jl")
+include("logs.jl")
 
 # General validation
-include("validation/errors.jl")  #DONE
-include("validation/formula.jl") #DONE
-include("validation/macro.jl")   #DONE
-
-# Macro definitions
-include("macros/perftest.jl")
-include("macros/roofline.jl")
-include("macros/exec_ignore.jl")
-include("macros/customs.jl")
+include("transform/validation/errors.jl")
+include("transform/validation/formula.jl")
+include("transform/validation/macro.jl")
+include("transform/validation/export_vars.jl")
 
 # Machine features extraction
-include("machine_benchmarking.jl") #1ST DONE
+include("execution/machine_benchmarking.jl")
 
 # Metric transformation
-include("metrics/primitives.jl") #DONE
-include("metrics/custom.jl")    #DONE
+include("transform/metrics/primitives.jl")
+include("transform/metrics/custom.jl")
 
 # Methodology transformation
-include("methodologies/regression.jl") #DONE
-include("methodologies/manual.jl")
-include("methodologies/mem_bandwidth.jl")
-include("methodologies/roofline.jl") #DONE
+include("transform/methodologies/common.jl")
+include("transform/methodologies/regression.jl")
+include("transform/methodologies/manual.jl")
+include("transform/methodologies/mem_bandwidth.jl")
+include("transform/methodologies/roofline.jl")
 
-include("prefix.jl") # Basic DONE
-include("suffix.jl") # DONE
+include("transform/prefix.jl")
+include("transform/suffix.jl")
+
+
+# TODO: Separate Macro definitions
+include("execution/macros/perftest.jl")
+include("execution/macros/roofline.jl")
+include("execution/macros/exec_ignore.jl")
+include("execution/macros/customs.jl")
+include("execution/macros/configuration.jl")
 
 # Rules of the ruleset
-include("parsing/hierarchy_transform_test_region.jl") #DONE
-include("parsing/hierarchy_transform_benchmark_region.jl") #DONE
-include("parsing/target_transform.jl")    #DONE
-include("parsing/formula_transform.jl")   #DONE
-include("parsing/rules.jl")               #DONE
+include("transform/parsing/hierarchy_transform_test_region.jl")
+include("transform/parsing/hierarchy_transform_benchmark_region.jl")
+include("transform/parsing/target_transform.jl")
+include("transform/parsing/formula_transform.jl")
+include("transform/parsing/rules.jl")
 
 # Additional
-include("auxiliar.jl")
+include("transform/auxiliar.jl")
 
 # Functions used by the generated suites
-include("generated_space_functions/structs.jl")
-include("generated_space_functions/printing.jl")
-include("generated_space_functions/data_handling.jl")
-include("generated_space_functions/units.jl")
-include("generated_space_functions/misc.jl")
+include("execution/structs.jl")
+include("execution/printing.jl")
+include("execution/data_handling.jl")
+include("execution/units.jl")
+include("execution/misc.jl")
 
 # Base active rules
 rules = ASTRule[testset_macro_rule,
@@ -93,6 +98,7 @@ rules = ASTRule[testset_macro_rule,
     on_perftest_ignore_rule,
     define_memory_throughput_rule,
     define_metric_rule,
+    export_vars_rule,
     auxiliary_metric_rule, roofline_macro_rule,
     raw_macro_rule,
     recursive_rule
@@ -125,7 +131,6 @@ function ruleSet(context::Context, rules :: Vector{ASTRule})
     function _ruleSet(x)
         for rule in rules
             if rule.match(x)
-                @show x
                 info = rule.validation(x, context)
                 return rule.transformation(x, context, info)
             end
@@ -161,17 +166,24 @@ The function will return a Julia expression with the resulting performance testi
 """
 function treeRun(path :: AbstractString)
 
+    # Clear logs
+    clearLogs()
+    # Load configuration
+    config = Configuration.load_config()
+
+    if config["general"]["verbose"]
+        verboseOutput()
+    end
+
     # Load original
     input_expr = loadFileAsExpr(path)
 
-    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols))
+    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, config))
     ctx._global.original_file_path = path
 
     # Run through AST and build new expressions
     full = _treeRun(input_expr, ctx)
 
-    #full = flattenedInterpolation(full, middle, :a)
-    #full = flattenedInterpolation(full, perftestsuffix(ctx), :__PERFTEST_AFTER__)
     # Insert suffix
     full = MacroTools.postwalk(ruleSet(ctx, [suffix_macro_rule]), full)
 
@@ -188,7 +200,9 @@ function treeRun(path :: AbstractString)
     return MacroTools.prettify(module_full)
 end
 
-
+"""
+  In order for the suite to be MPI aware, this function has to be called. Calling it again will disable this feature.
+"""
 function toggleMPI()
     if mode == NormalMode
         global mode = MPIMode
@@ -201,6 +215,5 @@ transform = treeRun
 
 MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
-include("execution.jl")
 
 end

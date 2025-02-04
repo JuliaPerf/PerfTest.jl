@@ -22,7 +22,7 @@ This macro is used to define a new custom metric.
 # Arguments
  - `name` : the name of the metric for identification purposes.
  - `units` : the unit space that the metric values will be in.
- - formula block : an expression that returns a single value, which would be the metric value. The formula can have any julia expression inside and additionally some special symbols are supported. The formula may be evaluated several times, so its applied to every target in every test set or just once, if the formula is defined inside a test set, which makes it only applicable to it.
+ - formula block : an expression that returns a single value, which would be the metric value. The formula can have any julia expression inside and additionally some special symbols are supported. The formula may be evaluated several times, so its applied to every target in every test set or just once, if the formula is defined inside a test set, which makes it only applicable to it. NOTE: If there is the need of referring to a variable on a formula block, it first needs to be exported using the macro @export_vars, otherwise an error will occur.
 
 # Special symbols:
  - `:median_time` : will be substituted by the median time the target took to execute in the benchmark.
@@ -132,6 +132,19 @@ The following definition assumes that each execution of the target expression in
 
 """
 macro define_eff_memory_throughput(args...)
+    return :(
+        begin end
+    )
+end
+
+
+
+"""
+@export_vars vars...
+
+Exports the specified symbols --along with the values they hold at the moment of the calling-- to the scope of metric definitions. In order to use any variable on the definition of a metric such variable needs to be exported with this macro.
+"""
+macro export_vars(symbols...)
     return :(
         begin end
     )

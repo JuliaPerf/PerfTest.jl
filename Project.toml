@@ -18,9 +18,9 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 STREAMBenchmark = "05e9033e-e298-417a-adae-495536c11ad4"
 Suppressor = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
-YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [weakdeps]
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"

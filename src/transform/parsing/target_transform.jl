@@ -17,13 +17,16 @@ function scopeArg(input_expr::Expr, context::Context)::Expr
             :($(Expr(:$,arg))) :
             arg for arg in args]
 
-        return Expr(:call, f, processed_args...)
+        if @capture(f, _._)
+            return Expr(:call, f, processed_args...)
+        else
+            return Expr(:call, Expr(:$,f), processed_args...)
+        end
 end
 
 function argProcess(args :: Vector)::Vector
     newargs = []
     for arg in args
-        @show arg
         if isa(arg, Symbol)
             push!(newargs, :($(Expr(:$,arg))))
         elseif arg.head == :tuple

@@ -1,6 +1,4 @@
 
-using Pkg: build
-using Configurations: ExproniconLite
 struct MetricMeasure{V}
     name::String
     units:: String
@@ -42,6 +40,7 @@ function newLocalScopeFor(name::String, iterator :: ExtendedExpr, body::Expr)::E
     end
 end
 
+# EXCEPTIONAL FUNCTION SHALL BE MOVED TO EXECUTION SOONER OR LATER - NOTE
 function buildPrimitiveMetrics!(::Type{NormalMode}, _PRFT_LOCAL::Dict, _PRFT_GLOBAL::Dict{Symbol,Any})
         _PRFT_LOCAL[:primitives][:median_time] = median(_PRFT_LOCAL[:suite]).time / 1e9
         _PRFT_LOCAL[:primitives][:min_time] = minimum(_PRFT_LOCAL[:suite]).time / 1e9
@@ -52,47 +51,3 @@ function buildPrimitiveMetrics!(::Type{NormalMode}, _PRFT_LOCAL::Dict, _PRFT_GLO
 end
 
 
-function defineCustomMetric(type :: Symbol, ctx :: Context, info)
-
-    if info isa Nothing
-        return
-    end
-
-    push!(ctx._local.custom_metrics[end], CustomMetric(
-        name=info[:name],
-        units=info[:units],
-        formula=transformFormula(info[Symbol("")], ctx),
-        symbol=Symbol(info[:name]),
-        auxiliary= type == :aux
-    ))
-end
-
-
-function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}})::Expr
-
-    buffer = :(begin end)
-    built_set = Set{Symbol}()
-
-
-    # Evaluate all available metrics
-    for metric_def in Iterators.flatten(custom_metrics)
-        symbol = metric_def.symbol isa Nothing ? Symbol(metric_def.name) : metric_def.symbol
-        if symbol in built_set # Metric already built
-            @warn "Metric collision, this might be intended or might be a mistake, the inner scope is prioritized"
-            continue
-        else
-            push!(built_set, symbol)
-        end
-        buffer = quote
-            $buffer
-            _PRFT_LOCAL[:metrics][$(QuoteNode(symbol))] = newMetricResult(
-                $mode,
-                name = $(metric_def.name),
-                units = $(metric_def.units),
-                value = $(metric_def.formula),
-                auxiliary = $(metric_def.auxiliary)
-            )
-        end
-    end
-    return buffer
-end

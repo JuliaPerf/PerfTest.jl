@@ -178,9 +178,11 @@ function getBlock(expr_vec::Vector)::Union{Nothing, Expr}
 end
 
 function escCaptureGetblock(input, macro_symbol)
+
     return_ast = Ref([])
     captureMacro(input, macro_symbol, return_ast)
     val = getBlock(return_ast[])
+
     return val
 end
 

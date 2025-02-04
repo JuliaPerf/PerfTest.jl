@@ -1,10 +1,10 @@
 
 
-function printFullRoofline(_roofline :: Methodology_Result)
+function printFullRoofline(_roofline :: Methodology_Result, printplots :: Bool)
 
     factor = _roofline.custom_elements[:factor]
 
-    if CONFIG.roofline.plotting
+    if printplots
         p = Plot([0, max(_roofline.custom_elements[:opint].value + 1.0,  _roofline.custom_elements[:roof_corner_raw].value * 2.)], [0, _roofline.custom_elements[:cpu_peak].value * 1.2], yscale=:log2)
         p = lineplot(0, max(_roofline.custom_elements[:opint].value + 1., _roofline.custom_elements[:roof_corner_raw].value * 2.),
                      rooflineCalc(_roofline.custom_elements[:cpu_peak].value,
@@ -174,7 +174,7 @@ end
 """
 This function is used to print the information relative to a methodology, relative to a a specific test execution result. This will usually print a series of metrics and might also print plots.
 """
-function printMethodology(methodology :: Methodology_Result, tab :: Int)
+function printMethodology(methodology :: Methodology_Result, tab :: Int, printplots :: Bool)
 
     println(@lpad(tab) * "═"^72)
     print(@lpad(tab) * "METHODOLOGY: ")
@@ -192,7 +192,7 @@ function printMethodology(methodology :: Methodology_Result, tab :: Int)
             end
             # Custom behaviour when printing, i.e used to plot
             if elem isa Function
-                elem(methodology)
+                elem(methodology, printplots)
             end
         end
     end

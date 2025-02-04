@@ -133,8 +133,8 @@ suffix_macro_rule = ASTRule(
 
 config_macro_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@perftest_config")) !== nothing,
-    no_validation,
-    (x, ctx, info) -> (perftestConfigEnter(x, ctx))
+    config_validation,
+    (x, ctx, info) -> (parseConfigurationMacro(x, ctx, info))
 )
 
 
@@ -172,6 +172,28 @@ auxiliary_metric_rule = ASTRule(
     (x, ctx, info) -> defineCustomMetric(:aux, ctx, info)
 )
 
+function exportVars(symbols :: Set{Symbol}, context :: Context) :: Expr
+
+    export_one(sym) = quote
+	      _PRFT_LOCAL_ADDITIONAL[:exported][$(QuoteNode(sym))] = $sym
+    end
+
+    expr = quote end
+    for symbol in symbols
+        @show symbol
+        expr = :($expr; $(export_one(symbol)))
+        push!(context._local.exported_vars, symbol)
+    end
+
+    return expr
+end
+
+export_vars_rule = ASTRule(
+    x -> (@capture(x, @m_ __); m == Symbol("@export_vars")),
+    export_vars_validation,
+    (x, ctx, info) -> exportVars(info, ctx)
+)
+
 # ROOFLINE
 roofline_macro_rule = ASTRule(
     x -> @capture(x, @roofline __),
@@ -189,10 +211,12 @@ raw_macro_rule = ASTRule(
 
 function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pair{ExtendedExpr,ExtendedExpr}
 
+    addLog("hierarchy", "[RECURSIVE] Recursivity is enabled, entering \"$path\"")
+    # The transformation treats child files as if it were into the main one plugging their testsets into the global hierarchy
+
     input_expr = loadFileAsExpr(path)
 
-    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, :recursive))
-    ctx._global.original_file_path = path
+    ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, parent_context._global.configuration, :RECURSIVE))
     ctx._local = parent_context._local
 
     # Run through AST and build new expressions
@@ -200,6 +224,7 @@ function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pai
 
     importErrors!(parent_context._global.errors, ctx._global.errors, path)
 
+    addLog("hierarchy", "[RECURSIVE] \"$path\" has been processed, $(num_errors(ctx._global.errors)) errors found")
     return Pair(middle, ctx.test_tree_expr_builder[1][1])
 end
 
@@ -208,7 +233,7 @@ recursive_rule = ASTRule(
     x -> @capture(x, include(path_)),
     always_true,
     (x, ctx, info) -> (begin
-        if CONFIG.recursive
+        if ctx._global.configuration["general"]["recursive"]
             @capture(x, include(path_))
             measure_expr, test_expr = treeRunRecursive!(joinpath(dirname(ctx._global.original_file_path), path), ctx)
             push!(ctx.test_tree_expr_builder[end], test_expr)

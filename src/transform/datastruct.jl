@@ -98,7 +98,7 @@ end
 mutable struct LocalContext
     depth_record::AbstractArray{DepthEntry}
     # :target
-    environment::Set{Symbol}
+    exported_vars::Set{Symbol}
 
     custom_metrics::Vector{Vector{CustomMetric}}
     enabled_methodologies::Vector{Vector{MethodologyParameters}}
@@ -112,9 +112,10 @@ mutable struct GlobalContext
     in_recursion::Bool
     errors::ErrorCollection
     valid_symbols::Set{Symbol}
+    configuration::Dict
 
-    GlobalContext(path, errors, valid) = new(path, false, errors, valid)
-    GlobalContext(path, errors, valid, _) = new(path, true, errors, valid)
+    GlobalContext(path, errors, valid, config) = new(path, false, errors, valid, config)
+    GlobalContext(path, errors, valid, config, _) = new(path, true, errors, valid, config)
 end
 
 """
