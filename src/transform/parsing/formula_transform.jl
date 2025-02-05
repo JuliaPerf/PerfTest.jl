@@ -22,9 +22,8 @@ formula_rules = ASTRule[
     ),
     ASTRule(
         checkType(QuoteNode),
-        (x, ctx) -> (x.value in ctx._global.valid_symbols) ? true :  (throwParseError!("Invalid symbol $(x.value) in formula", ctx); false),
-        (x, ctx, info) -> info == true ? (quote _PRFT_LOCAL[:primitives][$x] end) : empty_expr()
-    )
+        (x, ctx) -> (x.value in ctx._global.valid_symbols) ? true :  (@info "$(x.value) has been parsed on a formula, its availability is not checked automatically"),
+        (x, ctx, info) -> info == true ? (quote _PRFT_LOCAL[:primitives][$x] end) : x),
 ]
 
 
