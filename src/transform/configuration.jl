@@ -132,6 +132,7 @@ CONFIG_SHAPE = Dict(
         "plotting" => Bool,
         "verbose" => Bool,
         "recursive" => Bool,
+        "safe_formulas" => Bool,
         "suppress_output" => Bool),
     "regression" => Dict(
         "enabled" => Bool,
@@ -166,6 +167,7 @@ DEFAULT = Dict(
         "verbose" => true,
         "recursive" => true,
         "suppress_output" => true,
+        "safe_formulas" => false,
     ),
     "regression" => Dict(
         "enabled" => false,
