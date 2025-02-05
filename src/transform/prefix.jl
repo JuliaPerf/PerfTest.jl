@@ -50,7 +50,7 @@ function perftestprefix(ctx :: Context)::Expr
 
         # Do machine specs
         # Will compute peak flops and peak bandwidth and populate
-        $(machineBenchmarks())
+        $(machineBenchmarks(ctx))
 
         # Methodology prefixes
         #$(regressionPrefix(ctx))

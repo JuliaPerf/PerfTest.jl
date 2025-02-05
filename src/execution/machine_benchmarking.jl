@@ -41,13 +41,13 @@ function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBAL::Dict{Symbol,An
 end
 
 
-function machineBenchmarks()::Expr
+function machineBenchmarks(ctx :: Context)::Expr
     quote
 	      # Block to create a separated scope
         let
             _PRFT_GLOBAL[:machine] = Dict{Symbol,Any}()
             _PRFT_GLOBAL[:machine][:empirical] = Dict{Symbol,Any}()
-            $(getMachineInfo())
+            $(getMachineInfo(ctx))
             measureCPUPeakFlops!($mode, _PRFT_GLOBAL)
             measureMemBandwidth!($mode, _PRFT_GLOBAL)
         end
