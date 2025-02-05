@@ -29,4 +29,4 @@ jobs:
       # Runs a single command using the runners shell
       - name: Rename version to match commit
         run: |
-          sed -i -E 's/version=([[:alnum:]]+)\.([[:alnum:]]+)\.([[:alnum:]]+)/version=\1.\2.${{ github.run_number }}/' Project.toml
+          sed -E "s/version = \"([[:alnum:]]+)\.([[:alnum:]]+)\.([[:alnum:]]+)\"/version = \"\1\.\2\.${{ github.run_number }}\"/" Project.toml
