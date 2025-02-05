@@ -2,18 +2,26 @@
 
 # Memory and CPU benchmarks used by different methodologies
 
-function getMachineInfo()::Expr
-    quote
-        size = try
-            CpuId.cachesize()
-        catch
-            addLog("machine", "[MACHINE] CpuId failed, using default cache size")
-            # Default assumes 25MB (usually too much)
-            [12 * 1024 * 1024]
-        end
-        global _PRFT_GLOBAL[:machine][:cache_sizes] = size
+function getMachineInfo(context:: Context)::Expr
+    if context._global.configuration["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == false
+        return quote
+            size = try
+                CpuId.cachesize()
+            catch
+                addLog("machine", "[MACHINE] CpuId failed, using default cache size")
+                # Default assumes 25MB (usually too much)
+                [12 * 1024 * 1024]
+            end
+            global _PRFT_GLOBAL[:machine][:cache_sizes] = size
 
-        addLog("machine", "[MACHINE] Assumed CPU cache size = $(size ./ 1024 ./ 1024) [MB]")
+            addLog("machine", "[MACHINE] Assumed CPU cache size = $(size ./ 1024 ./ 1024) [MB]")
+        end
+    else
+        return quote
+            global _PRFT_GLOBAL[:machine][:cache_sizes] = $(context._global.configuration["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])
+
+            addLog("machine", "[MACHINE] Set by config, CPU cache size = $(size ./ 1024 ./ 1024) [MB]")
+        end
     end
 end
 
