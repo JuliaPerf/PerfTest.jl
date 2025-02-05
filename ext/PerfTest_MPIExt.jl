@@ -115,13 +115,13 @@ function _run_kernels(copy, add;
     end
 
     # COPY
-    t_copy = @belapsed $copy($C, $A; nthreads = $nthreads, thread_indices = $thread_indices) samples=10 evals=evals_per_sample setup=begin MPI.Barrier(MPI.COMM_WORLD) end
+    t_copy = @belapsed $copy($C, $A; nthreads = $nthreads, thread_indices = $thread_indices) setup=begin MPI.Barrier(MPI.COMM_WORLD) end samples=10 evals=evals_per_sample
     bw_copy = f(t_copy)
     verbose && println("╟─ $(MPI.Comm_rank(MPI.COMM_WORLD)) COPY:  ", round(bw_copy; digits = 1), "B/s")
 
     # ADD
     t_add = @belapsed $add($C, $A, $B; nthreads = $nthreads,
-                           thread_indices = $thread_indices) samples=10 evals=evals_per_sample setup=begin MPI.Barrier(MPI.COMM_WORLD) end
+        thread_indices=$thread_indices) samples = 10 evals = evals_per_sample setup = begin MPI.Barrier(MPI.COMM_WORLD) end
     bw_add = g(t_add)
     verbose && println("╟─ $(MPI.Comm_rank(MPI.COMM_WORLD)) ADD:   ", round(bw_add; digits=1), "B/s")
 
