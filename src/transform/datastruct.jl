@@ -112,10 +112,9 @@ mutable struct GlobalContext
     in_recursion::Bool
     errors::ErrorCollection
     valid_symbols::Set{Symbol}
-    configuration::Dict
 
-    GlobalContext(path, errors, valid, config) = new(path, false, errors, valid, config)
-    GlobalContext(path, errors, valid, config, _) = new(path, true, errors, valid, config)
+    GlobalContext(path, errors, valid) = new(path, false, errors, valid)
+    GlobalContext(path, errors, valid, _) = new(path, true, errors, valid)
 end
 
 """

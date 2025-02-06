@@ -2,8 +2,8 @@
 
 # Memory and CPU benchmarks used by different methodologies
 
-function getMachineInfo(context:: Context)::Expr
-    if context._global.configuration["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == false
+function getMachineInfo()::Expr
+    if Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == false
         return quote
             size = try
                 CpuId.cachesize()
@@ -18,9 +18,9 @@ function getMachineInfo(context:: Context)::Expr
         end
     else
         return quote
-            global _PRFT_GLOBAL[:machine][:cache_sizes] = $(context._global.configuration["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])
+            global _PRFT_GLOBAL[:machine][:cache_sizes] = [$(Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])]
 
-            addLog("machine", "[MACHINE] Set by config, CPU cache size = $(size ./ 1024 ./ 1024) [MB]")
+            addLog("machine", "[MACHINE] Set by config, benchmark buffer size = $(_PRFT_GLOBAL[:machine][:cache_sizes] * 8 ./ 1024 ./ 1024) [MB]")
         end
     end
 end
@@ -41,13 +41,13 @@ function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBAL::Dict{Symbol,An
 end
 
 
-function machineBenchmarks(ctx :: Context)::Expr
+function machineBenchmarks()::Expr
     quote
 	      # Block to create a separated scope
         let
             _PRFT_GLOBAL[:machine] = Dict{Symbol,Any}()
             _PRFT_GLOBAL[:machine][:empirical] = Dict{Symbol,Any}()
-            $(getMachineInfo(ctx))
+            $(getMachineInfo())
             measureCPUPeakFlops!($mode, _PRFT_GLOBAL)
             measureMemBandwidth!($mode, _PRFT_GLOBAL)
         end

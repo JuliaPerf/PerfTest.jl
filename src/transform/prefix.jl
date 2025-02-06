@@ -3,9 +3,9 @@
 function perftestprefix(ctx :: Context)::Expr
     suite_name = "$(basename(ctx._global.original_file_path))_PERFORMANCE"
 
-    if isdir("./$(ctx._global.configuration["general"]["save_folder"])")
+    if isdir("./$(Configuration.CONFIG["general"]["save_folder"])")
     else
-        mkdir("./$(ctx._global.configuration["general"]["save_folder"])")
+        mkdir("./$(Configuration.CONFIG["general"]["save_folder"])")
     end
 
     return quote
@@ -20,7 +20,7 @@ function perftestprefix(ctx :: Context)::Expr
         MPISetup($mode, _PRFT_GLOBAL)
 
         $(
-            if ctx._global.configuration["general"]["autoflops"]
+            if Configuration.CONFIG["general"]["autoflops"]
                 quote
                     using CountFlops
                 end
@@ -33,7 +33,7 @@ function perftestprefix(ctx :: Context)::Expr
 
         if _PRFT_GLOBAL[:is_main_rank]
             # Used to save data about this test suite if needed
-            path = $("./$(ctx._global.configuration["general"]["save_folder"])/$(suite_name).JLD2")
+            path = $("./$(Configuration.CONFIG["general"]["save_folder"])/$(suite_name).JLD2")
 
             nofile = true
             if isfile(path)
@@ -50,7 +50,7 @@ function perftestprefix(ctx :: Context)::Expr
 
         # Do machine specs
         # Will compute peak flops and peak bandwidth and populate
-        $(machineBenchmarks(ctx))
+        $(machineBenchmarks())
 
         # Methodology prefixes
         #$(regressionPrefix(ctx))

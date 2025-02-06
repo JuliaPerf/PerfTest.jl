@@ -15,7 +15,7 @@ using UnicodePlots
 
 
 function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
-    if !(ctx._global.configuration["roofline"]["enabled"])
+    if !(Configuration.CONFIG["roofline"]["enabled"])
         return
     end
 
@@ -32,7 +32,7 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
             $(info[:actual_flops]) / :median_time
         end, ctx)
         # Can we put the autoflops or shall we construct a partial model?
-    elseif ctx._global.configuration["autoflops"]
+    elseif Configuration.CONFIG["autoflops"]
         local form = transformFormula(quote
 	          :autoflop / :median_time
         end, ctx)
@@ -46,7 +46,7 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
     #Is there a defined ratio as the test threshold?
     if haskey(info, :target_ratio)
     else
-        info[:target_ratio] = ctx._global.configuration["roofline"]["default_threshold"]
+        info[:target_ratio] = Configuration.CONFIG["roofline"]["default_threshold"]
     end
     push!(ctx._local.custom_metrics[end], CustomMetric(
         name="Attained Flops",
@@ -146,8 +146,8 @@ function buildRoofline(context::Context)::Expr
                 methodology_res.custom_elements[:plot] = PerfTest.printFullRoofline
 
                 # Printing
-                if $(context._global.configuration["general"]["verbose"]) || !(flop_test.succeeded)
-                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(context._global.configuration["general"]["plotting"]))
+                if $(Configuration.CONFIG["general"]["verbose"]) || !(flop_test.succeeded)
+                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 
                 # Saving TODO

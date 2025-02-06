@@ -131,12 +131,12 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
         _PRFT_LOCAL_ADDITIONAL[$name] = Dict()
         _PRFT_LOCAL_ADDITIONAL[$name][:exported] = _PRFT_LOCAL_ADDITIONAL[:exported]
         _PRFT_LOCAL_ADDITIONAL[$name][:iterator] = $(iterator)
-        $(if context._global.configuration["general"]["suppress_output"]
+        $(if Configuration.CONFIG["general"]["suppress_output"]
               quote
               @PRFTSuppress begin
                         _PRFT_LOCAL_SUITE[$name] = @PRFTBenchmark($parsed_target ,$(prop...))
                   _PRFT_LOCAL_ADDITIONAL[$name][:autoflop] = $(
-                      if context._global.configuration["general"]["autoflops"]
+                      if Configuration.CONFIG["general"]["autoflops"]
                           quote PRFTflop(@PRFTCount_ops ($parsed_target)) end
                       else
                           quote 0 end
@@ -148,7 +148,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
               quote
                   _PRFT_LOCAL_SUITE[$name] = @PRFTBenchmark($(prop...), ($parsed_target));
                   _PRFT_LOCAL_ADDITIONAL[$name][:autoflop] = $(
-                        if context._global.configuration["general"]["autoflops"]
+                        if Configuration.CONFIG["general"]["autoflops"]
                           quote PRFTflop(@PRFTCount_ops ($parsed_target)) end
                       else
                           quote 0 end

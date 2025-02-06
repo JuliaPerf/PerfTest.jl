@@ -2,12 +2,12 @@
 
 function onMemoryThroughputDefinition(formula :: ExtendedExpr, ctx :: Context, info)
 
-    if !(ctx._global.configuration["memory_bandwidth"]["enabled"])
+    if !(Configuration.CONFIG["memory_bandwidth"]["enabled"])
         return
     end
     if haskey(info, :ratio)
     else
-        info[:ratio] = ctx._global.configuration["memory_bandwidth"]["default_threshold"]
+        info[:ratio] = Configuration.CONFIG["memory_bandwidth"]["default_threshold"]
     end
     # Adds to the inner scope the request to build the methodology and its needed metric
     push!(ctx._local.custom_metrics[end], CustomMetric(
@@ -36,7 +36,6 @@ function buildMemTRPTMethodology(context :: Context)::Expr
 	          let
                 value = _PRFT_LOCAL[:metrics][:effMemTP].value / _PRFT_GLOBAL[:machine][:empirical][:peakmemBW]
                 success = value >= $(info.params[:ratio])
-
                 result = newMetricResult($mode,
                                        name="Effective Throughput Ratio",
                                        units="%",
@@ -74,8 +73,8 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                 methodology_res.custom_elements[:abs_ref] = magnitudeAdjust(aux_ref_value)
 
                 # Printing
-                if $(context._global.configuration["general"]["verbose"]) || !(flop_test.succeeded)
-                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(context._global.configuration["general"]["plotting"]))
+                if $(Configuration.CONFIG["general"]["verbose"]) || !(flop_test.succeeded)
+                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 
                 # Saving TODO

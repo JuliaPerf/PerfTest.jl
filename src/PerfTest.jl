@@ -20,6 +20,7 @@ struct MPIMode <: NormalMode end
 
 mode = NormalMode
 
+
 ### PARSING TIME
 
 # Data structures used in the parse and transform procedures
@@ -178,7 +179,7 @@ function treeRun(path :: AbstractString)
     # Load original
     input_expr = loadFileAsExpr(path)
 
-    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, config))
+    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols))
     ctx._global.original_file_path = path
 
     # Run through AST and build new expressions

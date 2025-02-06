@@ -68,8 +68,8 @@ function buildRaw(context :: Context) :: Expr
                 $buffer
 
                 # TODO
-                if $(context._global.configuration["general"]["verbose"]) || !(flop_test.succeeded)
-                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(context._global.configuration["general"]["plotting"]))
+                if $(Configuration.CONFIG["general"]["verbose"]) || !(flop_test.succeeded)
+                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 
                 for (r,test) in methodology_res.metrics

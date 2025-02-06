@@ -2,7 +2,7 @@
 function parseSymbol(x, ctx :: Context)
     if x in ctx._local.exported_vars
         return quote _PRFT_LOCAL[:additional][:exported][$(QuoteNode(x))] end
-    elseif !(ctx._global.configuration["general"]["safe_formulas"]) || x in names(Base)
+    elseif !(Configuration.CONFIG["general"]["safe_formulas"]) || x in names(Base)
         return x
     else
         throwParseError!("Variable \"$x\" not exported or undefined, use @export_vars to export", ctx)

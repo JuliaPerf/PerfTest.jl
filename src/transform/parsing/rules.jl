@@ -132,7 +132,7 @@ suffix_macro_rule = ASTRule(
 # CONFIG
 
 config_macro_rule = ASTRule(
-    x -> escCaptureGetblock(x, Symbol("@perftest_config")) !== nothing,
+    x -> (@capture(x, @m_ __); m == Symbol("@perftest_config")),
     config_validation,
     (x, ctx, info) -> (parseConfigurationMacro(x, ctx, info))
 )
@@ -216,15 +216,21 @@ function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pai
 
     input_expr = loadFileAsExpr(path)
 
-    ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, parent_context._global.configuration, :RECURSIVE))
+    # A new context is made for the included file, the configuration is cloned so it can be altered by the included file without affecting the parent file
+    push!(Configuration.PARENT_CONFIGS, deepcopy(Configuration.CONFIG))
+    ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, :RECURSIVE))
     ctx._local = parent_context._local
+
 
     # Run through AST and build new expressions
     middle = _treeRun(input_expr, ctx)
 
     importErrors!(parent_context._global.errors, ctx._global.errors, path)
 
+
+    Configuration.CONFIG = pop!(Configuration.PARENT_CONFIGS)
     addLog("hierarchy", "[RECURSIVE] \"$path\" has been processed, $(num_errors(ctx._global.errors)) errors found")
+
     return Pair(middle, ctx.test_tree_expr_builder[1][1])
 end
 
@@ -233,7 +239,7 @@ recursive_rule = ASTRule(
     x -> @capture(x, include(path_)),
     always_true,
     (x, ctx, info) -> (begin
-        if ctx._global.configuration["general"]["recursive"]
+        if Configuration.CONFIG["general"]["recursive"]
             @capture(x, include(path_))
             measure_expr, test_expr = treeRunRecursive!(joinpath(dirname(ctx._global.original_file_path), path), ctx)
             push!(ctx.test_tree_expr_builder[end], test_expr)

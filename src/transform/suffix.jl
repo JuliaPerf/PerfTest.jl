@@ -7,7 +7,7 @@
 #         # Deal with recorder results
 #         res_num = length(_PRFT_GLOBAL[:datafile].results)
 
-#         if (excess = $(context._global.configuration["max_saved_results"]) - res_num) <= 0
+#         if (excess = $(Configuration.CONFIG["max_saved_results"]) - res_num) <= 0
 #             PerfTest.p_yellow("[ℹ]")
 #             s = " Regression: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed."
 #             println(s)
@@ -21,7 +21,7 @@
 #         $(if true # effective_memory_throughput.enabled || roofline.enabled
 #               setupMemoryBandwidthBenchmark()
 #         end)
-#         $(if context._global.configuration["roofline"]["enabled"]
+#         $(if Configuration.CONFIG["roofline"]["enabled"]
 #               setupCPUPeakFlopBenchmark()
 #           end)
 
@@ -55,7 +55,7 @@
 #         end
 
 #         $(
-#             if context._global.configuration["save_results"]
+#             if Configuration.CONFIG["save_results"]
 #                 quote
 #                     push!(_PRFT_GLOBAL[:datafile].methodologies_history, current_test_results)
 #                 end
@@ -91,7 +91,7 @@ function perftestsuffix(context :: Context)
             let
                 res_num = length(_PRFT_GLOBAL[:datafile].results)
 
-                if (excess = $(context._global.configuration["general"]["max_saved_results"]) - res_num) <= 0
+                if (excess = $(Configuration.CONFIG["general"]["max_saved_results"]) - res_num) <= 0
                     PerfTest.p_yellow("[ℹ]")
                     println(" Regression: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
                     for i in 1:(-1*excess+1)
@@ -134,11 +134,11 @@ function perftestsuffix(context :: Context)
 
         if _PRFT_GLOBAL[:is_main_rank]
             $(
-                if context._global.configuration["general"]["save_results"]
-                    quote
-                        push!(_PRFT_GLOBAL[:datafile].methodologies_history, current_test_results)
-                    end
-                end
+               # if Configuration.CONFIG["general"]["save_results"]
+               #     quote
+               #         push!(_PRFT_GLOBAL[:datafile].methodologies_history, current_test_results)
+               #     end
+               # end
             )
 
             if !failed

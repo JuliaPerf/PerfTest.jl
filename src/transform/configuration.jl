@@ -1,6 +1,7 @@
 module Configuration
 
 
+using Base: DEFAULT_STABLE
 using TOML
 """
 Validate configuration against a predefined schema.
@@ -46,15 +47,23 @@ end
 Recursively merge two dictionaries, with values from override_dict taking precedence.
 """
 function merge_configs(base_config::Dict, override_config::Dict)
-    merged = deepcopy(base_config)
 
-    for (key, value) in override_config
-        if value isa Dict && haskey(merged, key) && merged[key] isa Dict
-            merged[key] = merge_configs(merged[key], value)
-        else
-            merged[key] = value
+    function _mc(bc:: Dict, oc :: Dict) :: Dict
+        local merged = deepcopy(bc)
+
+        for (key, value) in oc
+            if value isa Dict && haskey(merged, key) && merged[key] isa Dict
+                a = _mc(merged[key], value)
+                merged[key] = a
+            else
+                merged[key] = value
+            end
         end
+
+        return merged
     end
+
+    merged = _mc(base_config, override_config)
 
     if validate_config(merged, CONFIG_SHAPE)
         return merged
@@ -112,7 +121,9 @@ function load_config() :: Dict
             return nothing
         end
 
-        return config
+        global CONFIG = config
+
+        return CONFIG
     catch e
         @info "Configuration not found, loading default configuration"
         save_config(DEFAULT)
@@ -191,7 +202,8 @@ DEFAULT = Dict(
     ),
 )
 
-
+PARENT_CONFIGS = Dict[]
+CONFIG = DEFAULT
 
 end # module
 
@@ -205,13 +217,12 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
 
     parsed = TOML.parse(string)
 
-    old = ctx._global.configuration["general"]["verbose"]
+    old = Configuration.CONFIG
 
-    ctx._global.configuration = Configuration.merge_configs(ctx._global.configuration, parsed)
+    Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
 
-    if ctx._global.configuration["general"]["verbose"] != old
+    if Configuration.CONFIG["general"]["verbose"] != old
         addLog("general", "Verbosity level changed")
-        verboseOutput()
     end
 
     return quote

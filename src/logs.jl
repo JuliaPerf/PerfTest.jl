@@ -16,9 +16,14 @@ LOGS = Logger(String[
   Creates and/or appends to a log channel, the message is saved in that channel
   depending on verbosity the message will be also sent to standard output.
 """
-function addLog(channel::AbstractString, message::AbstractString, context :: Context = ctx)
-    if !(context._global.configuration["general"]["logs_enabled"])
+function addLog(channel::AbstractString, message::AbstractString, configuration :: Dict = Configuration.CONFIG)
+    if !(configuration["general"]["logs_enabled"])
         return
+    end
+    if !(configuration["general"]["verbose"]) && !isempty(LOGS.stdout_bindings)
+        empty!(LOGS.stdout_bindings)
+    elseif configuration["general"]["verbose"] && isempty(LOGS.stdout_bindings)
+        verboseOutput()
     end
     if !(channel in LOGS.channels)
         push!(LOGS.channels, channel)
