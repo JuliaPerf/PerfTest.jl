@@ -9,8 +9,7 @@ function getMachineInfo()::Expr
                 CpuId.cachesize()
             catch
                 addLog("machine", "[MACHINE] CpuId failed, using default cache size")
-                # Default assumes 25MB (usually too much)
-                [12 * 1024 * 1024]
+                [1024 * 1024 * 1024]
             end
             global _PRFT_GLOBAL[:machine][:cache_sizes] = size
 
@@ -20,7 +19,7 @@ function getMachineInfo()::Expr
         return quote
             global _PRFT_GLOBAL[:machine][:cache_sizes] = [$(Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])]
 
-            addLog("machine", "[MACHINE] Set by config, benchmark buffer size = $(_PRFT_GLOBAL[:machine][:cache_sizes] * 8 ./ 1024 ./ 1024) [MB]")
+            addLog("machine", "[MACHINE] Set by config, benchmark buffer size = $(_PRFT_GLOBAL[:machine][:cache_sizes] ./ 1024 ./ 1024) [MB]")
         end
     end
 end
