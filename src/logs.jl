@@ -22,8 +22,6 @@ LOG_FOLDER= ""
 """
 function setLogFolder()
     global LOG_FOLDER = LOG_FOLDER_PREFIX * "$(mod(floor(Int,datetime2unix(now())), 2^25))"
-    LOG_FOLDER = mktempdir(prefix=LOG_FOLDER)
-    
     # Initialize IOBuffers for each channel
     for channel in LOGS.channels
         LOGS.io_streams[channel] = IOBuffer()
@@ -40,7 +38,7 @@ function saveLogFolder()
     if !isdir(LOG_FOLDER)
         mkpath(LOG_FOLDER)
     end
-    
+
     # Dump all IOStream buffers to their respective log files
     for (channel, buffer) in LOGS.io_streams
         logfile = "$LOG_FOLDER/logs_$channel.txt"
@@ -48,8 +46,6 @@ function saveLogFolder()
             write(file, String(take!(copy(buffer))))
         end
     end
-    
-    mv(LOG_FOLDER, ".perftest\$LOG_FOLDER")
 end
 
 """
@@ -73,16 +69,16 @@ function addLog(channel::AbstractString, message::AbstractString, configuration 
         # Create a new IOBuffer for this channel
         LOGS.io_streams[channel] = IOBuffer()
     end
-    
+
     # Ensure the channel has an IOBuffer
     if !haskey(LOGS.io_streams, channel)
         LOGS.io_streams[channel] = IOBuffer()
     end
-    
+
     # Write to the IOBuffer
     log_entry = "$(now()) - $message\n"
     write(LOGS.io_streams[channel], log_entry)
-    
+
     # Write to stdout if needed
     if channel in LOGS.stdout_bindings
         write(stdout, log_entry)
