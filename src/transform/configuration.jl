@@ -157,7 +157,9 @@ CONFIG_SHAPE = Dict(
         "enabled" => Bool,
         "default_threshold" => Number,
     ),
-    "raw_test" => Dict(),
+    "perfcompare" => Dict(
+        "enabled" => Bool,
+    ),
     "machine_benchmarking" => Dict(
         "memory_bandwidth_test_buffer_size" => Union{Bool, Int}
     ),
@@ -192,7 +194,9 @@ DEFAULT = Dict(
         "enabled" => true,
         "default_threshold" => 0.5,
     ),
-    "raw_test" => Dict(),
+    "perfcompare" => Dict(
+        "enabled" => true,
+    ),
     "machine_benchmarking" => Dict(
         "memory_bandwidth_test_buffer_size" => false
     ),

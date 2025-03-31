@@ -1,5 +1,9 @@
 
+"""
 
+Called when a regression macro is detected, sets up the regression methodology
+
+"""
 function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
     if !(Configuration.CONFIG["regression"]["enabled"])
         return
@@ -58,6 +62,9 @@ function regression(kind_index :: Symbol, ident_index :: Symbol)
 end
 
 
+"""
+  Returns an expression used to evaluate regression over a test target
+"""
 function buildRegression(context::Context)::Expr
 
 

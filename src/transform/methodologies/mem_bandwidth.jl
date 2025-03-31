@@ -1,6 +1,11 @@
 
 
-function onMemoryThroughputDefinition(formula :: ExtendedExpr, ctx :: Context, info)
+"""
+
+Called when a effective memory throughput macro is detected, sets up the effective memory throughput methodology
+
+"""
+function onMemoryThroughputDefinition(formula::ExtendedExpr, ctx::Context, info)
 
     if !(Configuration.CONFIG["memory_bandwidth"]["enabled"])
         return
@@ -17,14 +22,17 @@ function onMemoryThroughputDefinition(formula :: ExtendedExpr, ctx :: Context, i
         symbol=:effMemTP
     ))
     push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
-        id = :effMemTP,
-        name = "Effective memory throughput",
-        override = true,
-        params = info,
+        id=:effMemTP,
+        name="Effective memory throughput",
+        override=true,
+        params=info,
     ))
 end
 
 
+"""
+  Returns an expression used to evaluate the effective memory throughput over a test target
+"""
 function buildMemTRPTMethodology(context :: Context)::Expr
 
     info = captureMethodologyInfo(:effMemTP, context._local.enabled_methodologies)

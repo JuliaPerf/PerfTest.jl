@@ -1,9 +1,10 @@
 
 function onPerfcmpDefinition(expr :: ExtendedExpr, ctx :: Context, info)
     # Adds to the inner scope the request to build the methodology and its needed metrics
-    if info isa Nothing
+    if info isa Nothing || !(Configuration.CONFIG["perfcompare"]["enabled"])
         return
     end
+
 
     params = Dict{Symbol, Any}(
         gensym("expr") => info[Symbol("")],

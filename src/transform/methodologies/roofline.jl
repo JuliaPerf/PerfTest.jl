@@ -8,7 +8,11 @@ function rooflineCalc(peakCPU :: Float64, peakMem :: Float64)
 end
 
 
+"""
 
+Called when a roofline macro is detected, sets up the roofline methodology
+
+"""
 function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
     if !(Configuration.CONFIG["roofline"]["enabled"])
         return
@@ -60,6 +64,10 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
     addLog("metrics", "[METHODOLOGY] Defined ROOFLINE MODEL on $([i.set_name for i in ctx._local.depth_record])")
 end
 
+
+"""
+  Returns an expression used to generate and evaluate a roofline model over a test target
+"""
 function buildRoofline(context::Context)::Expr
 
     info = captureMethodologyInfo(:roofline, context._local.enabled_methodologies)
