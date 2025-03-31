@@ -19,18 +19,64 @@ struct MacroParameter
     name :: Symbol
     type :: Type
     param_validation_function :: Function  # Default is to always be valid
-
     has_default::Bool
     default_value::Any
     mandatory::Bool
-
-    MacroParameter(name, type) = new(name,type, (_...) -> true, false, nothing, false)
-    MacroParameter(name, type, f :: Function) = new(name, type, f, false, nothing, false)
-    MacroParameter(name, type, mandatory :: Bool) = new(name, type, (_...) -> true, false, nothing, mandatory)
-    MacroParameter(name, type, def_val, mandatory) = new(name, type, (_...) -> true, true, def_val, mandatory)
-    MacroParameter(name, type, f :: Function, def_val) = new(name, type, f, true, def_val, false)
-    MacroParameter(name, type, f :: Function, def_val, mandatory) = new(name, type, f, true, def_val, mandatory)
 end
+
+"""
+    MacroParameter(name::Symbol, type::Type; 
+                  validation_function::Function=(_...) -> true,
+                  default_value=nothing, 
+                  has_default::Bool=false,
+                  mandatory::Bool=false)
+
+Create a MacroParameter with clear, named arguments to avoid confusion.
+
+# Arguments
+- `name`: The parameter name as a symbol
+- `type`: The expected type of the parameter
+- `validation_function`: Optional function to validate parameter values
+- `default_value`: Optional default value for the parameter
+- `has_default`: Whether this parameter has a default value
+- `mandatory`: Whether this parameter is required
+
+# Examples
+```julia
+# Basic parameter without default
+MacroParameter(:count, Int)
+
+# Parameter with validation function
+MacroParameter(:count, Int, validation_function=x -> x > 0)
+
+# Optional parameter with default
+MacroParameter(:count, Int, default_value=1, has_default=true)
+
+# Mandatory parameter
+MacroParameter(:count, Int, mandatory=true)
+
+# Parameter with validation and default
+MacroParameter(:count, Int, 
+               validation_function=x -> x > 0,
+               default_value=1, 
+               has_default=true)
+```
+"""
+function MacroParameter(name::Symbol, type::Type; 
+                       validation_function::Function=(_...) -> true,
+                       default_value=nothing, 
+                       has_default::Bool=false,
+                       mandatory::Bool=false)
+    return MacroParameter(name, type, validation_function, has_default, default_value, mandatory)
+end
+
+# Maintain backward compatibility with old constructors
+MacroParameter(name, type) = MacroParameter(name, type)
+MacroParameter(name, type, f::Function) = MacroParameter(name, type, validation_function=f)
+MacroParameter(name, type, mandatory::Bool) = MacroParameter(name, type, mandatory=mandatory)
+MacroParameter(name, type, def_val, mandatory) = MacroParameter(name, type, default_value=def_val, has_default=true, mandatory=mandatory)
+MacroParameter(name, type, f::Function, def_val) = MacroParameter(name, type, validation_function=f, default_value=def_val, has_default=true)
+MacroParameter(name, type, f::Function, def_val, mandatory) = MacroParameter(name, type, validation_function=f, default_value=def_val, has_default=true, mandatory=mandatory)
 
 # TODO
 
