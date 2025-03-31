@@ -16,7 +16,8 @@ function testsetToBenchGroup!(input_expr :: Expr, context :: Context)
     push!(context._local.depth_record, rec)
     push!(context._local.custom_metrics, CustomMetric[])
     push!(context._local.enabled_methodologies, MethodologyParameters[])
-
+    # Launch regression methodology by default
+    onRegressionDefinition(quote end, context, Dict())
     # Debug info
     addLog("hierarchy", "[BNCH] New Group: $([i.set_name for i in context._local.depth_record])")
 

@@ -67,19 +67,36 @@ This struct is used in the test suite to save a methodology result, which in tur
     custom_auto_print::Bool = true
 end
 
+
+"""
+
+NOTE: SOME METRICS ARE REPEATED IN HERE AND INSIDE A METRIC RESULT, this redundancy is tolerated for now, the copy inside the methodology result might be substituted by a reference in the future.
+"""
+struct Test_Result
+    primitives :: Dict{Symbol, Metric_Result}
+    metrics :: Dict{Symbol,Metric_Result}
+    auxiliar :: Dict{Symbol,Metric_Result}
+    methodology_results :: Vector{Methodology_Result}
+
+    Test_Result() = new(Dict{Symbol,Metric_Result}(),
+                        Dict{Symbol,Metric_Result}(),
+                        Dict{Symbol,Metric_Result}(),
+                        Methodology_Result[])
+end
+
+
 """
 This struct saves a complete test suite result for one execution. It also saves the raw measurements obtained from the targets.
 """
-@kwdef struct Perftest_Result
-    timestamp :: Float64
-    benchmarks :: BenchmarkGroup
-    perftests :: Dict
+@kwdef struct Suite_Execution_Result
+    timestamp::Float64
+    benchmarks::BenchmarkGroup
+    perftests::Dict{String, Union{Dict, Test_Result}}
 end
 
 """
 This struct is the root of the data recording file, it can save several performance test suite execution results.
 """
 @kwdef struct Perftest_Datafile_Root
-    results :: Vector{Perftest_Result}
-    methodologies_history :: Vector{Dict{StrOrSym, Any}}
+    results :: Vector{Suite_Execution_Result}
 end

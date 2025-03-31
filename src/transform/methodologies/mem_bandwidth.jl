@@ -32,17 +32,19 @@ function buildMemTRPTMethodology(context :: Context)::Expr
     if info isa Nothing
         return quote end
     else
+        info = info.params
+        @show info
         return quote
 	          let
-                value = _PRFT_LOCAL[:metrics][:effMemTP].value / _PRFT_GLOBAL[:machine][:empirical][:peakmemBW]
-                success = value >= $(info.params[:ratio])
+                value = _PRFT_LOCAL[:metrics][:effMemTP].value / _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))]
+                success = value >= $(info[:ratio])
                 result = newMetricResult($mode,
                                        name="Effective Throughput Ratio",
                                        units="%",
                                        value=value*100)
                 test = Metric_Test(
                     reference=100,
-                    threshold_min_percent=$(info.params[:ratio]),
+                    threshold_min_percent=$(info[:ratio]),
                     threshold_max_percent=1.0,
                     low_is_bad=true,
                     succeeded=success,
@@ -61,7 +63,7 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                     $mode,
                     name="Peak empirical bandwidth",
                     units="GB/s",
-                    value=_PRFT_GLOBAL[:machine][:empirical][:peakmemBW]
+                    value=_PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))]
                 )
 
                 # Save results and auxiliary measurements
@@ -77,7 +79,8 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                     PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 
-                # Saving TODO
+                # Saving
+                push!(by_index(_PRFT_GLOBAL[:new], _PRFT_LOCAL[:depth]).methodology_results, methodology_res)
 
                 # Testing
                 @test test.succeeded

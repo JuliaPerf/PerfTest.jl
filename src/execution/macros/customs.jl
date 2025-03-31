@@ -103,6 +103,12 @@ define_eff_memory_throughput_validation = defineMacroParams([
                    (x) -> 0.0 <= x <= 1.0,
                    0.7, #default
                    false),
+    MacroParameter(
+        :mem_benchmark,
+        Symbol,
+        (x) -> x in [:COPY,:ADD,:MAX,:MEAN],
+        :COPY, #default
+    ),
     MacroParameter(Symbol(""),
                    ExtendedExpr,
                    true)

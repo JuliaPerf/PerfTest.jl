@@ -1,17 +1,12 @@
 using UnicodePlots: lines!, height
 using MacroTools: blockunify
 using Configurations: ExproniconLite
-
-
-# THIS FILE SAVES THE MAIN COMPONENTS OF THE ROOFLINE
-# METHODOLOGY BEHAVIOUR
-
+using UnicodePlots
 
 function rooflineCalc(peakCPU :: Float64, peakMem :: Float64)
     return (opint) -> min(peakCPU, opint * peakMem)
 end
 
-using UnicodePlots
 
 
 function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
@@ -55,10 +50,10 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
         symbol=:attainedFLOPS
     ))
     push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
-        id = :roofline,
-        name = "Roofline Model",
-        override = true,
-        params = info,
+        id=:roofline,
+        name="Roofline Model",
+        override=true,
+        params=info,
     ))
 
 
@@ -68,15 +63,18 @@ end
 function buildRoofline(context::Context)::Expr
 
     info = captureMethodologyInfo(:roofline, context._local.enabled_methodologies)
+
+    @show info
     if info isa Nothing
         return quote end
     else
+        info = info.params
         return quote
             let
                 opint = _PRFT_LOCAL[:metrics][:opInt].value
                 flop_s = _PRFT_LOCAL[:metrics][:attainedFLOPS].value
 
-                roof = PerfTest.rooflineCalc(_PRFT_GLOBAL[:machine][:empirical][:peakflops], _PRFT_GLOBAL[:machine][:empirical][:peakmemBW])
+                roof = PerfTest.rooflineCalc(_PRFT_GLOBAL[:machine][:empirical][:peakflops], _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))])
 
                 result_flop_ratio = newMetricResult(
                     $mode,
@@ -89,13 +87,13 @@ function buildRoofline(context::Context)::Expr
                     name="Roofline Model"
                 )
 
-                $(if info.params[:test_flop]
+                $(if info[:test_flop]
                       quote
-                          success_flop = result_flop_ratio.value >= $(info.params[:target_ratio])
+                          success_flop = result_flop_ratio.value >= $(info[:target_ratio])
 
                           flop_test = Metric_Test(
                               reference=100,
-                              threshold_min_percent = $(info.params[:target_ratio]),
+                              threshold_min_percent = $(info[:target_ratio]),
                               threshold_max_percent = nothing,
                               low_is_bad = true,
                               succeeded = success_flop,
@@ -112,7 +110,7 @@ function buildRoofline(context::Context)::Expr
 
                 methodology_res.custom_elements[:opint] = _PRFT_LOCAL[:metrics][:opInt]
                 # result_opint = _PRFT_LOCAL[:metrics][:opint]
-                # if info.params[:test_opint]
+                # if info.[:test_opint]
 
                 # else
 
@@ -122,7 +120,7 @@ function buildRoofline(context::Context)::Expr
                     $mode,
                     name="Peak empirical bandwidth",
                     units="B/s",
-                    value=_PRFT_GLOBAL[:machine][:empirical][:peakmemBW]
+                    value=_PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))]
                 )
                 aux_flops = newMetricResult(
                     $mode,
@@ -140,7 +138,7 @@ function buildRoofline(context::Context)::Expr
                 methodology_res.custom_elements[:cpu_peak] = magnitudeAdjust(aux_flops)
                 methodology_res.custom_elements[:roof_corner] = magnitudeAdjust(aux_rcorner)
                 methodology_res.custom_elements[:roof_corner_raw] = aux_rcorner
-                methodology_res.custom_elements[:factor] = $(info.params[:target_ratio])
+                methodology_res.custom_elements[:factor] = $(info[:target_ratio])
 
 
                 methodology_res.custom_elements[:plot] = PerfTest.printFullRoofline
@@ -150,7 +148,8 @@ function buildRoofline(context::Context)::Expr
                     PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 
-                # Saving TODO
+                # Saving
+                push!(by_index(_PRFT_GLOBAL[:new], _PRFT_LOCAL[:depth]).methodology_results, methodology_res)
 
                 # Testing
                 try

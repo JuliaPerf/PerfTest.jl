@@ -98,20 +98,15 @@ function perftestsuffix(context :: Context)
                         popfirst!(_PRFT_GLOBAL[:datafile].results)
                     end
                 end
+
+                if length(_PRFT_GLOBAL[:datafile].results) > 0
+                    _PRFT_GLOBAL[:old] = _PRFT_GLOBAL[:datafile].results[end].perftests
+                else
+                    _PRFT_GLOBAL[:old] = nothing
+                end
+                _PRFT_GLOBAL[:new] = Dict{String,Union{Dict, Test_Result}}()
             end
 
-
-
-
-            # Compose the serializable data structure for this execution
-            let
-                current_result = PerfTest.Perftest_Result(timestamp=time(),
-                                                        benchmarks=_PRFT_GLOBAL[:suite],
-                                                        perftests=Dict())
-
-                push!(_PRFT_GLOBAL[:datafile].results, current_result)
-                PerfTest.p_yellow("[ℹ]")
-            end
         end
         
         #println(" Regression: A perfomance reference has been registered.")
@@ -133,13 +128,13 @@ function perftestsuffix(context :: Context)
         end
 
         if _PRFT_GLOBAL[:is_main_rank]
-            $(
-               # if Configuration.CONFIG["general"]["save_results"]
-               #     quote
-               #         push!(_PRFT_GLOBAL[:datafile].methodologies_history, current_test_results)
-               #     end
-               # end
+            # Save new results
+            newres = Suite_Execution_Result(
+                timestamp= datetime2unix(now()),
+                benchmarks = _PRFT_GLOBAL[:suite],
+                perftests = _PRFT_GLOBAL[:new]
             )
+            push!(_PRFT_GLOBAL[:datafile].results, newres)
 
             if !failed
                 PerfTest.saveDataFile(path, _PRFT_GLOBAL[:datafile])

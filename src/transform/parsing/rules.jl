@@ -172,21 +172,6 @@ auxiliary_metric_rule = ASTRule(
     (x, ctx, info) -> defineCustomMetric(:aux, ctx, info)
 )
 
-function exportVars(symbols :: Set{Symbol}, context :: Context) :: Expr
-
-    export_one(sym) = quote
-	      _PRFT_LOCAL_ADDITIONAL[:exported][$(QuoteNode(sym))] = $sym
-    end
-
-    expr = quote end
-    for symbol in symbols
-        @show symbol
-        expr = :($expr; $(export_one(symbol)))
-        push!(context._local.exported_vars, symbol)
-    end
-
-    return expr
-end
 
 export_vars_rule = ASTRule(
     x -> (@capture(x, @m_ __); m == Symbol("@export_vars")),
@@ -203,10 +188,10 @@ roofline_macro_rule = ASTRule(
 )
 
 # RAW
-raw_macro_rule = ASTRule(
-    x -> escCaptureGetblock(x, Symbol("@define_test_metric")) !== nothing,
-    define_test_metric_validation,
-    (x, ctx, info) -> onRawDefinition(x, ctx, info)
+manual_macro_rule = ASTRule(
+    x -> @capture(x, @perfcompare __),
+    define_perfcmp_validation,
+    (x, ctx, info) -> onPerfcmpDefinition(x, ctx, info)
 )
 
 function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pair{ExtendedExpr,ExtendedExpr}

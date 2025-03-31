@@ -9,8 +9,8 @@ function perftestprefix(ctx :: Context)::Expr
     end
 
     return quote
-        using Test
-        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress
+        using Test, Dates
+        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress,Test_Result,by_index,regression,Suite_Execution_Result,savePrimitives
 
         # Where all needed data for the tests is going to saved
         _PRFT_GLOBAL = Dict{Symbol,Any}()
@@ -19,17 +19,6 @@ function perftestprefix(ctx :: Context)::Expr
         _PRFT_GLOBAL[:comm_size] = 1
         MPISetup($mode, _PRFT_GLOBAL)
 
-        $(
-            if Configuration.CONFIG["general"]["autoflops"]
-                quote
-                    using CountFlops
-                end
-            else
-                quote
-                    begin end
-                end
-            end
-        )
 
         if _PRFT_GLOBAL[:is_main_rank]
             # Used to save data about this test suite if needed
@@ -40,12 +29,12 @@ function perftestprefix(ctx :: Context)::Expr
                 nofile = false
                 _PRFT_GLOBAL[:datafile] = PerfTest.openDataFile(path)
             else
-                _PRFT_GLOBAL[:datafile] = PerfTest.Perftest_Datafile_Root(PerfTest.Perftest_Result[],
-                    PerfTest.Dict{PerfTest.StrOrSym,Any}[])
+                _PRFT_GLOBAL[:datafile] = PerfTest.Perftest_Datafile_Root(PerfTest.Suite_Execution_Result[])
 
                 PerfTest.p_yellow("[!]")
                 println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
             end
+
         end
 
         # Do machine specs

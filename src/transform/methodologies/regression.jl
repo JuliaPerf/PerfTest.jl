@@ -1,111 +1,134 @@
-# TODO REFACTOR
 
-# THIS FILE SAVES THE MAIN COMPONENTS OF THE REGRESSION METHODOLOGY BEHAVIOUR
 
-# TODO IMPORTANT TRANSCRIBE LATER:
-# Generated space variables relevant in any methodology
-# Have to be defined in each generic methodology:
-# x_reference
-# x_ratio
-
-function regressionPrefix(ctx::Context)::Expr
-    a = CONFIG.regression.enabled
-    return (a ?
-           quote
-        # Get reference trials given the specified calculation policy
-        $(
-            if true
-                quote
-                    try
-                        global reference = last(data.results).benchmarks
-                    catch e
-                    end
-                end
-            # elseif false # TODO
-            #     quote
-            #         reference_components::Vector{BenchmarkGroup} = []
-            #         for result in data.results
-            #             push!(reference_components, result.benchmarks)
-            #             # TODO Extra information needed??
-            #         end
-            #         global reference = reference_components[1]
-            #     end
-            # else
-            #     error("Invalid: regression.regression_calculation")
-            end
-        )
-    end : quote
-        nothing
-    end)
-end
-
-function regressionSuffix(ctx::Context)::Expr
-    if CONFIG.regression.enabled
-        return quote
-            if res_num > 0
-
-                # Estimates
-                median_reference = median(reference)
-                min_reference = minimum(reference)
-                # Ratios
-                median_ratio = ratio(median_suite, median_reference)
-                min_ratio = ratio(min_suite, min_reference)
-            else
-                PerfTest.p_yellow("[ℹ]")
-                println(" Regression: No previous results.")
-            end
-        end
-    else
-        return quote nothing end
+function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
+    if !(Configuration.CONFIG["regression"]["enabled"])
+        return
     end
+
+    if haskey(info, :threshold)
+    else
+        info[:threshold] = Configuration.CONFIG["regression"]["default_threshold"]
+    end
+    push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
+        id=:regression,
+        name="Metric regression tracking",
+        override=true,
+        params=info,
+    ))
+
+    addLog("metrics", "[METHODOLOGY] Defined REGRESSION on $([i.set_name for i in ctx._local.depth_record])")
 end
 
-# Predefined elements to have:
-# depth
-# dictionaries defined in the function above
-# metric_reference has to be cleared out in the function
-function regressionEvaluation(context :: Context)::Expr
-    return CONFIG.regression.enabled ? quote
-        if res_num > 0
-            # Setup result collecting struct
-            methodology_result = PerfTest.Methodology_Result(
-                name = "REGRESSION TESTING",
-                metrics = Pair{PerfTest.Metric_Result, PerfTest.Metric_Constraint}[]
-            )
 
-            metric_references = Dict{Symbol, Any}()
 
-            # Metric data generation
-            # MEDIAN TIME
-            reference_value = PerfTest.by_index(median_reference, depth).time
-            metric_references[:median_time] = reference_value
-            # $(checkMedianTime(
-            #     configFallBack(metrics.median_time.regression_threshold,
-            #         :regression)))
-            # MIN TIME
-            reference_value = PerfTest.by_index(min_reference, depth).time
-            metric_references[:minimum_time] = reference_value
-            # $(checkMinTime(
-            #     configFallBack(metrics.median_time.regression_threshold,
-            #                    :regression)))
-            
-            #$(testMeanMemory())
-            #$(testMinMemory())
-            #$(testMeanAllocs())
-            #$(testMinAllocs())
+"""
+  Syntax sugar
 
-            # TODO COMMENTED
-            #$(checkCustomMetrics(context))
+  Returns an expression that returns the percentage difference of the new value vs the old value
 
-            # Metric print
-            PerfTest.printMethodology(methodology_result, length(depth))
+  If there is no old value 0 will be returned
+"""
+function regression(kind_index :: Symbol, ident_index :: Symbol)
 
-            # Metric actual test
-            for pair in methodology_result.metrics
-                @test pair.second.succeeded
+    expr_old = quote
+        (by_index(_PRFT_GLOBAL[:old], _PRFT_LOCAL[:depth]))
+    end
+    expr_new = quote
+        _PRFT_LOCAL
+    end
+
+    # Kind indexation must be primitives, metrics or auxiliar
+    expr_old = Expr(:., expr_old, QuoteNode(kind_index))
+    expr_new = Expr(:ref, expr_new, QuoteNode(kind_index))
+    # Identifier indexation (in the old, the result is saved in a struct so we get the value property)
+    expr_old = Expr(:., Expr(:ref, expr_old, QuoteNode(ident_index)), QuoteNode(:value))
+    expr_new = Expr(:ref, expr_new, QuoteNode(ident_index))
+
+    expr = quote
+        try
+            $expr_new / $expr_old - 1
+        catch e
+            @show $expr_new
+            @show $expr_old
+            addLog("regression", "Failed to compare new to old at $([d.name for d in _PRFT_LOCAL[:depth]])")
+            0.0
+        end
+    end
+    return expr
+end
+
+
+function buildRegression(context::Context)::Expr
+
+
+    info = captureMethodologyInfo(:regression, context._local.enabled_methodologies)
+    if info isa Nothing
+        return quote end
+    else
+        return quote
+            let
+                # For all metrics if new worse than old by given threshold fail the test
+                # TODO: Find the reference to OLD VALUES
+                # TODO: Plug enable and disable
+                # Make config for parsing which primitives and metrics to use
+                # Primitives
+                success = $(regression(:primitives,:median_time)) < $(info.params[:threshold])
+
+                result = newMetricResult($mode,
+                                       name="Median Time Difference",
+                                       units="%",
+                                       value=$(regression(:primitives, :median_time))*100)
+                test = Metric_Test(
+                    reference=0,
+                    threshold_min_percent=$(info.params[:threshold]),
+                    threshold_max_percent=nothing,
+                    low_is_bad=false,
+                    succeeded=success,
+                    custom_plotting=Symbol[],
+                    full_print=true
+                )
+
+                # Custom metrics
+                $(
+                #     for metric in context._local.custom_metrics
+                #         success = -$(info.params[:threshold]) < $(@regression :metrics metric.symbol) < $(info.params[:threshold])
+
+                # result = newMetricResult($mode,
+                #                        name=metric.name * " Difference",
+                #                        units="%",
+                #                        value=value*100)
+                # test = Metric_Test(
+                #     reference=0,
+                #     threshold_min_percent=-$(info.params[:threshold]),
+                #     threshold_max_percent=$(info.params[:threshold]),
+                #     low_is_bad=false,
+                #     succeeded=success,
+                #     custom_plotting=Symbol[],
+                #     full_print=true
+                # )
+                #    end
+                )
+
+                methodology_res = Methodology_Result(
+                    name="Regression"
+                )
+
+                push!(methodology_res.metrics, (result => test))
+
+
+                # Printing
+                if $(Configuration.CONFIG["general"]["verbose"]) || !(test.succeeded)
+                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
+                end
+
+                # Saving
+                push!(by_index(_PRFT_GLOBAL[:new], _PRFT_LOCAL[:depth]).methodology_results, methodology_res)
+
+                # Testing
+                try
+                    @test test.succeeded
+                catch end
             end
         end
-    end : quote
-        begin end
     end
 end

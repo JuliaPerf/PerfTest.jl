@@ -17,17 +17,36 @@ function saveDataFile(path :: AbstractString, contents:: Perftest_Datafile_Root)
 end
 
 """
-This method expects a hierarchy tree (`dict`) in the form of nested dictionaries and a vector of dictionary keys `idx`. The function will recursively apply the keys to get to a final element.
+This method expects a hierarchy tree (`dict`) in the form of nested dictionaries and a vector of dictionary keys `idx`. The function will recursively index by the keys to get to a final element.
 
-It is usually put to work with the `DepthRecord` struct.
+The `DepthRecord` struct represents an index.
 """
 function by_index(dict::Union{Dict,BenchmarkGroup}, idx::Vector{DepthRecord})
     e = dict
     for idx_elem in idx
-        e = Expr(:ref, e, idx_elem.depth_name)
+        e = Expr(:ref, e, idx_elem.name)
     end
 
     return eval(e)
+end
+
+
+function pushElementToTestResult!(result::Dict{String, Union{Test_Result, Dict}}, test_path::Vector{DepthRecord}, class::Symbol, id::Symbol, element::Any)
+    # Navigate to the required Test_Result
+    for i in 1:length(test_path)-1
+        result = result[test_path[i].name]
+    end
+
+    test_result = result[test_path[end].name]
+
+    # Add element to the appropriate field
+    if class in (:primitives, :metrics, :auxiliar, :methodology_results)
+        getfield(test_result, class)[id] = element
+    else
+        error("Invalid class: $class. Must be one of :primitives, :metrics, :auxiliar, or :methodology_results")
+    end
+
+    return nothing
 end
 
 """
@@ -42,9 +61,9 @@ This method will return a flattened array of all of the results for all the meth
      -> "Test 1"
          -> Methodology A result
 Returns:
- M. A result (Test 1)
- M. B result (Test 1)
- M. A result (Test 2)
+ M. A result (Test Set 1)
+ M. B result (Test Set 1)
+ M. A result (Test Set 2)
 """
 function extractMethodologyResultArray(methodology_dict :: Dict, methodology :: Symbol) :: Vector{Methodology_Result}
     retval = []

@@ -1,6 +1,6 @@
 
 function printError(e :: ParsingErrorInfo, l :: String)
-    p_red("[PARSING ERROR $(e.num)] ")
+    p_red("[PARSING ERROR] ")
     print(e.name)
     println("")
     print("↪ At testset: $(l)")
@@ -14,6 +14,7 @@ end
 function pushError!(error :: ParsingErrorInfo, collection :: VecErrorCollection, depth :: AbstractArray{DepthEntry})
     push!(collection.errors, error)
     push!(collection.loc, "| " * foldl(*, [e.set_name * " > " for e in depth]))
+    addLog("general", error.name)
 end
 
 # Abbreviations for ASTRule

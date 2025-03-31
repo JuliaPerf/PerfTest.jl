@@ -16,11 +16,8 @@ end
 @testset "FIRST LEVEL" begin
 	  @testset "SECOND LEVEL" begin
 
-        @auxiliary_metric name="Time elapsed median" units="s" begin
-            :median_time
-        end
-        @roofline actual_flops=:autoflop target_ratio=0.05 begin
-	          :autoflop / 1
+        @roofline actual_flops=:autoflop target_ratio=0.5 begin
+	          :autoflop / 4
         end
         x = @perftest testfun(10)
 

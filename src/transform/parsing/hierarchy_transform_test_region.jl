@@ -121,22 +121,24 @@ function updateTestTreeSideways!(context::Context, name::String)
 
     # Get depth level
     depth = length(context.test_tree_expr_builder)
-    # Add the expression to de tree builder
+    # Add the expression to the tree builder
     push!(context.test_tree_expr_builder[depth],
           newLocalScope(name,
                         quote
-                            #TODO ?
                             PerfTest.printDepth!(_PRFT_LOCAL[:depth])
                             # Metric calc
                             buildPrimitiveMetrics!($mode, _PRFT_LOCAL, _PRFT_GLOBAL) # See primitives.jl
                             # Only one rank does the testing
                             if _PRFT_GLOBAL[:is_main_rank]
-                                # Custom metric calc TODO Regulating
+                                d = by_index(_PRFT_GLOBAL[:new], _PRFT_LOCAL[:depth][1:(end-1)])
+                                d[_PRFT_LOCAL[:depth][end].name] = Test_Result()
+                                savePrimitives(_PRFT_LOCAL,_PRFT_GLOBAL)
                                 $(buildCustomMetrics(context._local.custom_metrics))
                                 # Methodology evaluation
                                 $(buildMemTRPTMethodology(context))
                                 $(buildRoofline(context))
-                                $(buildRaw(context))
+                                $(buildPerfcmp(context))
+                                $(buildRegression(context))
 
                                 PerfTest.printAuxiliaries(_PRFT_LOCAL[:metrics], length(_PRFT_LOCAL[:depth]))
                             end

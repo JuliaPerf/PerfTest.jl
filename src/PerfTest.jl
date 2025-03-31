@@ -56,9 +56,12 @@ include("transform/methodologies/roofline.jl")
 include("transform/prefix.jl")
 include("transform/suffix.jl")
 
+@info "DEV"
+
 
 # TODO: Separate Macro definitions
 include("execution/macros/perftest.jl")
+include("execution/macros/perfcompare.jl")
 include("execution/macros/roofline.jl")
 include("execution/macros/exec_ignore.jl")
 include("execution/macros/customs.jl")
@@ -101,7 +104,7 @@ rules = ASTRule[testset_macro_rule,
     define_metric_rule,
     export_vars_rule,
     auxiliary_metric_rule, roofline_macro_rule,
-    raw_macro_rule,
+    manual_macro_rule,
     recursive_rule
 ]
 
@@ -157,6 +160,12 @@ function _treeRun(input_expr::Expr, context::Context, args...)
 end
 
 
+ctx = nothing
+function setupContext(path :: AbstractString)
+
+    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols))
+    ctx._global.original_file_path = path
+end
 
 """
 This method implements the transformation that converts a recipe script into a fully-fledged testing suite.
@@ -165,8 +174,10 @@ The function will return a Julia expression with the resulting performance testi
  - `path` the path of the script to be transformed.
 
 """
-function treeRun(path :: AbstractString)
+function treeRun(path::AbstractString)
 
+    # Set log directory
+    setLogFolder()
     # Clear logs
     clearLogs()
     # Load configuration
@@ -179,8 +190,7 @@ function treeRun(path :: AbstractString)
     # Load original
     input_expr = loadFileAsExpr(path)
 
-    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols))
-    ctx._global.original_file_path = path
+    setupContext(path)
 
     # Run through AST and build new expressions
     full = _treeRun(input_expr, ctx)
@@ -196,6 +206,11 @@ function treeRun(path :: AbstractString)
     if num_errors(ctx._global.errors) > 0
         printErrors(ctx._global.errors)
         return quote @warn "Parsing failed" end
+    end
+
+
+    if config["general"]["verbose"]
+        saveLogFolder()
     end
 
     return MacroTools.prettify(module_full)

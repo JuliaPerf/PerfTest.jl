@@ -22,14 +22,34 @@ formula_rules = ASTRule[
     ),
     ASTRule(
         checkType(QuoteNode),
-        (x, ctx) -> (x.value in ctx._global.valid_symbols) ? true :  (@info "$(x.value) has been parsed on a formula, its availability is not checked automatically"),
-        (x, ctx, info) -> info == true ? (quote _PRFT_LOCAL[:primitives][$x] end) : x),
+        (x, ctx) -> (x.value in ctx._global.valid_symbols) ? true : (@info "$(x.value) has been parsed on a formula, its availability is not checked automatically"),
+        (x, ctx, info) -> info == true ? (
+            quote
+                _PRFT_LOCAL[:primitives][$x]
+            end
+        ) : x),
 ]
 
 
+function exportVars(symbols::Set{Symbol}, context::Context)::Expr
+
+    export_one(sym) = quote
+	      _PRFT_LOCAL_ADDITIONAL[:exported][$(QuoteNode(sym))] = $sym
+    end
+
+    expr = quote end
+    for symbol in symbols
+        @show symbol
+        expr = :($expr; $(export_one(symbol)))
+        push!(context._local.exported_vars, symbol)
+    end
+
+    return expr
+end
+
 function transformFormula(form_expr :: ExtendedExpr, context :: Context) :: ExtendedExpr
     x = MacroTools.prettify(MacroTools.postwalk(ruleSet(context, formula_rules), form_expr))
-    # There is the edge case of having just a basic type, this condition deals with it
+    # There is the edge case of having just a basic type, the else branch deals with it
     if x isa ExtendedExpr
         return x
     else

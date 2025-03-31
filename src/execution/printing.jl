@@ -96,7 +96,7 @@ function printIntervalLanding(bot, top, landing, down_is_bad::Bool = true)
 end
 
 function printThresholdLanding(threshold, landing, down_is_bad::Bool = true)
-    if (threshold > landing)
+    if (threshold >= landing)
         print("--[Result: ")
         down_is_bad ? p_red(@sprintf("%.3f", landing)) : p_blue(@sprintf("%.3f", landing))
         print("]---(Threshold: ")
@@ -175,6 +175,7 @@ end
 This function is used to print the information relative to a methodology, relative to a a specific test execution result. This will usually print a series of metrics and might also print plots.
 """
 function printMethodology(methodology :: Methodology_Result, tab :: Int, printplots :: Bool)
+
 
     println(@lpad(tab) * "═"^72)
     print(@lpad(tab) * "METHODOLOGY: ")

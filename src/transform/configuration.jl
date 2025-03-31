@@ -147,7 +147,7 @@ CONFIG_SHAPE = Dict(
         "suppress_output" => Bool),
     "regression" => Dict(
         "enabled" => Bool,
-        "regression_threshold" => Number
+        "default_threshold" => Number
     ),
     "roofline" => Dict(
         "enabled" => Bool,
@@ -182,7 +182,7 @@ DEFAULT = Dict(
     ),
     "regression" => Dict(
         "enabled" => false,
-        "regression_threshold" => 0.05
+        "default_threshold" => 0.05
     ),
     "roofline" => Dict(
         "enabled" => true,
@@ -225,8 +225,25 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
         addLog("general", "Verbosity level changed")
     end
 
+    io = IOBuffer()
+    TOML.print(nothing,io, Configuration.CONFIG)
+    serialized_config = String(take!(io))
+
     return quote
         begin
+            PerfTest._perftest_config($(serialized_config))
         end
     end
 end
+
+
+"""
+  Used on a generated test suite to import the configuration set during generation
+"""
+function _perftest_config(config_string :: String)
+    # Parse, and merge
+    parsed = TOML.parse(config_string)
+
+    Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
+end
+

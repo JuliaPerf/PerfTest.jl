@@ -1,74 +1,69 @@
 
-function onRawDefinition(expr :: ExtendedExpr, ctx :: Context, info)
+function onPerfcmpDefinition(expr :: ExtendedExpr, ctx :: Context, info)
     # Adds to the inner scope the request to build the methodology and its needed metrics
     if info isa Nothing
         return
     end
 
-    push!(ctx._local.custom_metrics[end], CustomMetric(
-        name=info[:name],
-        units=info[:units],
-        formula=transformFormula(info[Symbol("")], ctx),
-        symbol=Symbol(info[:name])
-    ))
-    push!(ctx._local.custom_metrics[end], CustomMetric(
-        name=info[:name],
-        units=info[:units],
-        formula=transformFormula(info[:reference], ctx),
-        symbol=Symbol("ref",info[:name])
-    ))
     params = Dict{Symbol, Any}(
-        Symbol(info[:name]) => Pair(Symbol("ref", info[:name]), info[:low_is_bad]),
+        gensym("expr") => info[Symbol("")],
     )
     push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
-        id = :raw,
-        name = "Raw Metric Testing",
+        id = :perfcmp,
+        name = "@perfcompare Testing",
         override = false,
         params = params,
     ))
 end
 
 
-function buildRaw(context :: Context) :: Expr
+function buildPerfcmp(context :: Context) :: Expr
 
-    info = captureMethodologyInfo(:raw, context._local.enabled_methodologies)
+    info = captureMethodologyInfo(:perfcmp, context._local.enabled_methodologies)
     if info isa Nothing
         return quote end
     else
         buffer = quote
+            all_succeeded = true
         end
-        # Get all metrics in the info TODO
-        for (metric_id, (reference_id, low_is_bad)) in info.params
+        # Get all metrics in the info
+        for (_,expr) in info.params
             buffer = quote
                 $buffer
-                metric = _PRFT_LOCAL[:metrics][$(QuoteNode(metric_id))]
-                reference = _PRFT_LOCAL[:metrics][$(QuoteNode(reference_id))]
-                success = $(low_is_bad ? :(>=) : :(<=))(metric.value,reference.value)
+                metric = newMetricResult(
+                    $mode,
+                    name=$(repr(expr)),
+                    units="bool",
+                    value=$(transformFormula(expr, context))
+                )
+
+                success = metric.value
 
                 # Create result and test structures
                 test = Metric_Test(
-                    reference=reference.value,
+                    reference=0,
                     threshold_min_percent=1.,
                     threshold_max_percent=nothing,
-                    low_is_bad=$low_is_bad,
+                    low_is_bad=true,
                     succeeded=success,
                     custom_plotting=Symbol[],
                     full_print=false
                 )
 
                 push!(methodology_res.metrics, (metric => test))
+
+                all_succeeded &= success
             end
         end
         return quote
             let
                 methodology_res = Methodology_Result(
-                    name="Simple Metric Testing"
+                    name="Performance Assertion"
                 )
 
                 $buffer
 
-                # TODO
-                if $(Configuration.CONFIG["general"]["verbose"]) || !(flop_test.succeeded)
+                if $(Configuration.CONFIG["general"]["verbose"]) || !(all_succeeded)
                     PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 

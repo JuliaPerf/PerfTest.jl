@@ -1,4 +1,5 @@
 using Dates
+using Base: Filesystem
 
 struct Logger
     channels :: Vector{AbstractString}
@@ -12,11 +13,31 @@ LOGS = Logger(String[
     "general"
 ], Set{AbstractString}())
 
+LOG_FOLDER_PREFIX = ".perftest/perftest_logs_"
+LOG_FOLDER= ""
+
+"""
+  Creates temporal a directory for the logs of a specific execution
+"""
+function setLogFolder()
+    global LOG_FOLDER = LOG_FOLDER_PREFIX * "$(mod(floor(Int,datetime2unix(now())), 2^25))"
+    LOG_FOLDER = mktempdir(prefix=LOG_FOLDER)
+end
+
+
+"""
+  Moves the temporal log directory to the persistent directory where results are saved
+"""
+function saveLogFolder()
+    mv(LOG_FOLDER, ".perftest\$LOG_FOLDER")
+end
+
 """
   Creates and/or appends to a log channel, the message is saved in that channel
   depending on verbosity the message will be also sent to standard output.
 """
 function addLog(channel::AbstractString, message::AbstractString, configuration :: Dict = Configuration.CONFIG)
+
     if !(configuration["general"]["logs_enabled"])
         return
     end
@@ -25,10 +46,15 @@ function addLog(channel::AbstractString, message::AbstractString, configuration 
     elseif configuration["general"]["verbose"] && isempty(LOGS.stdout_bindings)
         verboseOutput()
     end
+
+    # If not added before the channel is pushed into the active channel set
     if !(channel in LOGS.channels)
         push!(LOGS.channels, channel)
     end
-    logfile = "logs_$channel.txt"
+    logfile = "$LOG_FOLDER/logs_$channel.txt"
+    if !isfile(logfile)
+        mktemp(logfile)
+    end
     open(logfile, "a") do file
         log_entry = "$(now()) - $message\n"
         write(file, log_entry)
@@ -46,16 +72,40 @@ function dumpLogs(channel::Int=0)
     if channel == 0
         for ch in LOGS.channels
             println("=== Channel: $ch ===")
-            logfile = "logs_$ch.txt"
+            logfile = "$LOG_FOLDER/logs_$ch.txt"
             if isfile(logfile)
                 print(read(logfile, String))
             end
         end
     elseif 1 <= channel <= length(LOGS.channels)
         ch = LOGS.channels[channel]
-        logfile = "logs_$ch.txt"
+        logfile = "$LOG_FOLDER/logs_$ch.txt"
         if isfile(logfile)
             print(read(logfile, String))
+        end
+    end
+end
+
+
+"""
+  Prints the selected channel number on a string
+"""
+function dumpLogsString(channel::Int=0)
+    if channel == 0
+        all = ""
+        for ch in LOGS.channels
+            println("=== Channel: $ch ===")
+            logfile = "$LOG_FOLDER/logs_$ch.txt"
+            if isfile(logfile)
+                all *= read(logfile, String)
+            end
+        end
+        return all
+    elseif 1 <= channel <= length(LOGS.channels)
+        ch = LOGS.channels[channel]
+        logfile = "$LOG_FOLDER/logs_$ch.txt"
+        if isfile(logfile)
+            return read(logfile, String)
         end
     end
 end
@@ -69,13 +119,13 @@ end
 function clearLogs(channel::Int=0)
     if channel == 0
         for ch in LOGS.channels
-            logfile = "logs_$ch.txt"
+            logfile = "$LOG_FOLDER.logdir/logs_$ch.txt"
             isfile(logfile) && rm(logfile)
         end
         empty!(LOGS.stdout_bindings)
     elseif 1 <= channel <= length(LOGS.channels)
         ch = LOGS.channels[channel]
-        logfile = "logs_$ch.txt"
+        logfile = "$LOG_FOLDER.logdir/logs_$ch.txt"
         isfile(logfile) && rm(logfile)
         delete!(LOGS.stdout_bindings, ch)
     end

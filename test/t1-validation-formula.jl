@@ -8,13 +8,13 @@ using MacroTools
     # VALID
     form = quote
         a = 54
-        :autoflops / :min_time * a
+        :autoflop / :min_time * a
     end
 
     r = PerfTest.transformFormula(form, ctx)
     @test r == MacroTools.prettify(quote
 	      a = 54
-        _PRFT_LOCAL[:primitives][:autoflops] / _PRFT_LOCAL[:primitives][:min_time] * a
+        _PRFT_LOCAL[:primitives][:autoflop] / _PRFT_LOCAL[:primitives][:min_time] * a
     end)
 
     # illegal symbol
@@ -27,7 +27,7 @@ using MacroTools
     # For now admitted, may be restricted in the future
     form = quote
         const a = 54
-        :autoflops
+        :autoflop
     end
     PerfTest.transformFormula(form, ctx)
     @test PerfTest.num_errors(ctx._global.errors) == 1

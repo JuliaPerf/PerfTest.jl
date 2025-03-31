@@ -35,6 +35,12 @@ roofline_validation = defineMacroParams([
         Bool,
         always_true,
         true
+    ), # TODO
+    MacroParameter(
+        :mem_benchmark,
+        Symbol,
+        (x) -> x in [:COPY,:ADD,:MAX,:MEAN],
+        :COPY,
     ),
     MacroParameter(
         Symbol(""),

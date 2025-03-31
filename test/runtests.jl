@@ -1,5 +1,8 @@
 using Test
 using PerfTest
 
-include("validation_macro.jl")
-include("validation_formula.jl")
+PerfTest.Configuration.load_config()
+
+include("t1-validation-formula.jl")
+include("t2-validation-macro.jl")
+include("t3-transforms.jl")
