@@ -4,6 +4,7 @@ using Base: Filesystem
 struct Logger
     channels :: Vector{AbstractString}
     stdout_bindings :: Set{AbstractString}
+    io_streams :: Dict{AbstractString, IOBuffer}
 end
 
 LOGS = Logger(String[
@@ -11,7 +12,7 @@ LOGS = Logger(String[
     "metrics",
     "machine",
     "general"
-], Set{AbstractString}())
+], Set{AbstractString}(), Dict{AbstractString, IOBuffer}())
 
 LOG_FOLDER_PREFIX = ".perftest/perftest_logs_"
 LOG_FOLDER= ""
@@ -22,13 +23,32 @@ LOG_FOLDER= ""
 function setLogFolder()
     global LOG_FOLDER = LOG_FOLDER_PREFIX * "$(mod(floor(Int,datetime2unix(now())), 2^25))"
     LOG_FOLDER = mktempdir(prefix=LOG_FOLDER)
+    
+    # Initialize IOBuffers for each channel
+    for channel in LOGS.channels
+        LOGS.io_streams[channel] = IOBuffer()
+    end
 end
 
 
 """
   Moves the temporal log directory to the persistent directory where results are saved
+  and dumps all IOStream buffers to their respective log files
 """
 function saveLogFolder()
+    # Create the directory if it doesn't exist
+    if !isdir(LOG_FOLDER)
+        mkpath(LOG_FOLDER)
+    end
+    
+    # Dump all IOStream buffers to their respective log files
+    for (channel, buffer) in LOGS.io_streams
+        logfile = "$LOG_FOLDER/logs_$channel.txt"
+        open(logfile, "w") do file
+            write(file, String(take!(copy(buffer))))
+        end
+    end
+    
     mv(LOG_FOLDER, ".perftest\$LOG_FOLDER")
 end
 
@@ -50,18 +70,23 @@ function addLog(channel::AbstractString, message::AbstractString, configuration 
     # If not added before the channel is pushed into the active channel set
     if !(channel in LOGS.channels)
         push!(LOGS.channels, channel)
+        # Create a new IOBuffer for this channel
+        LOGS.io_streams[channel] = IOBuffer()
     end
-    logfile = "$LOG_FOLDER/logs_$channel.txt"
-    if !isfile(logfile)
-        mktemp(logfile)
+    
+    # Ensure the channel has an IOBuffer
+    if !haskey(LOGS.io_streams, channel)
+        LOGS.io_streams[channel] = IOBuffer()
     end
-    open(logfile, "a") do file
-        log_entry = "$(now()) - $message\n"
-        write(file, log_entry)
-        if channel in LOGS.stdout_bindings
-            write(stdout, log_entry)
-            flush(stdout)
-        end
+    
+    # Write to the IOBuffer
+    log_entry = "$(now()) - $message\n"
+    write(LOGS.io_streams[channel], log_entry)
+    
+    # Write to stdout if needed
+    if channel in LOGS.stdout_bindings
+        write(stdout, log_entry)
+        flush(stdout)
     end
 end
 
@@ -72,16 +97,14 @@ function dumpLogs(channel::Int=0)
     if channel == 0
         for ch in LOGS.channels
             println("=== Channel: $ch ===")
-            logfile = "$LOG_FOLDER/logs_$ch.txt"
-            if isfile(logfile)
-                print(read(logfile, String))
+            if haskey(LOGS.io_streams, ch)
+                print(String(copy(LOGS.io_streams[ch].data)))
             end
         end
     elseif 1 <= channel <= length(LOGS.channels)
         ch = LOGS.channels[channel]
-        logfile = "$LOG_FOLDER/logs_$ch.txt"
-        if isfile(logfile)
-            print(read(logfile, String))
+        if haskey(LOGS.io_streams, ch)
+            print(String(copy(LOGS.io_streams[ch].data)))
         end
     end
 end
@@ -94,39 +117,40 @@ function dumpLogsString(channel::Int=0)
     if channel == 0
         all = ""
         for ch in LOGS.channels
-            println("=== Channel: $ch ===")
-            logfile = "$LOG_FOLDER/logs_$ch.txt"
-            if isfile(logfile)
-                all *= read(logfile, String)
+            all *= "=== Channel: $ch ===\n"
+            if haskey(LOGS.io_streams, ch)
+                all *= String(copy(LOGS.io_streams[ch].data))
             end
         end
         return all
     elseif 1 <= channel <= length(LOGS.channels)
         ch = LOGS.channels[channel]
-        logfile = "$LOG_FOLDER/logs_$ch.txt"
-        if isfile(logfile)
-            return read(logfile, String)
+        if haskey(LOGS.io_streams, ch)
+            return String(copy(LOGS.io_streams[ch].data))
         end
     end
+    return ""
 end
 
 """
-  Removes the logfile of the specified channel and the channel itself
-  if 0 all channels will be prone.
+  Clears the IOBuffer of the specified channel
+  if 0 all channels will be cleared.
 
   Unbinds the channels to stdout as well.
 """
 function clearLogs(channel::Int=0)
     if channel == 0
         for ch in LOGS.channels
-            logfile = "$LOG_FOLDER.logdir/logs_$ch.txt"
-            isfile(logfile) && rm(logfile)
+            if haskey(LOGS.io_streams, ch)
+                LOGS.io_streams[ch] = IOBuffer()
+            end
         end
         empty!(LOGS.stdout_bindings)
     elseif 1 <= channel <= length(LOGS.channels)
         ch = LOGS.channels[channel]
-        logfile = "$LOG_FOLDER.logdir/logs_$ch.txt"
-        isfile(logfile) && rm(logfile)
+        if haskey(LOGS.io_streams, ch)
+            LOGS.io_streams[ch] = IOBuffer()
+        end
         delete!(LOGS.stdout_bindings, ch)
     end
 end
