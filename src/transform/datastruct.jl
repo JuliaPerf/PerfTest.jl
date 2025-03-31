@@ -25,52 +25,32 @@ struct MacroParameter
 end
 
 """
-    MacroParameter(name::Symbol, type::Type; 
+    MacroParameter(name::Symbol, type::Type;
                   validation_function::Function=(_...) -> true,
-                  default_value=nothing, 
+                  default_value=nothing,
                   has_default::Bool=false,
                   mandatory::Bool=false)
 
-Create a MacroParameter with clear, named arguments to avoid confusion.
+Define a parameter that can appear in a macro along with properties to validate values when the macro is parsed.
 
 # Arguments
 - `name`: The parameter name as a symbol
 - `type`: The expected type of the parameter
-- `validation_function`: Optional function to validate parameter values
+- `validation_function`: Optional function (returns Bool) to validate parameter values
 - `default_value`: Optional default value for the parameter
 - `has_default`: Whether this parameter has a default value
 - `mandatory`: Whether this parameter is required
 
-# Examples
-```julia
-# Basic parameter without default
-MacroParameter(:count, Int)
-
-# Parameter with validation function
-MacroParameter(:count, Int, validation_function=x -> x > 0)
-
-# Optional parameter with default
-MacroParameter(:count, Int, default_value=1, has_default=true)
-
-# Mandatory parameter
-MacroParameter(:count, Int, mandatory=true)
-
-# Parameter with validation and default
-MacroParameter(:count, Int, 
-               validation_function=x -> x > 0,
-               default_value=1, 
-               has_default=true)
-```
 """
-function MacroParameter(name::Symbol, type::Type; 
+function MacroParameter(name::Symbol, type::Type;
                        validation_function::Function=(_...) -> true,
-                       default_value=nothing, 
+                       default_value=nothing,
                        has_default::Bool=false,
                        mandatory::Bool=false)
     return MacroParameter(name, type, validation_function, has_default, default_value, mandatory)
 end
 
-# Maintain backward compatibility with old constructors
+# Old constructors (Backward compatibility)
 MacroParameter(name, type) = MacroParameter(name, type)
 MacroParameter(name, type, f::Function) = MacroParameter(name, type, validation_function=f)
 MacroParameter(name, type, mandatory::Bool) = MacroParameter(name, type, mandatory=mandatory)
@@ -78,7 +58,6 @@ MacroParameter(name, type, def_val, mandatory) = MacroParameter(name, type, defa
 MacroParameter(name, type, f::Function, def_val) = MacroParameter(name, type, validation_function=f, default_value=def_val, has_default=true)
 MacroParameter(name, type, f::Function, def_val, mandatory) = MacroParameter(name, type, validation_function=f, default_value=def_val, has_default=true, mandatory=mandatory)
 
-# TODO
 
 struct FloatRange
     left::Float64
