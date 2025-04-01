@@ -1,34 +1,86 @@
 module PerfTest
 
-__precompile__(false) # Temporary workaround to avoid error
-
-export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config,
-    @define_eff_memory_throughput, @define_metric, @roofline
+export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars,
+    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust
 
 using MacroTools
-include("structs.jl")
-include("auxiliar.jl")
-include("macros.jl")
+using MLStyle.Modules.AST
+using Configurations
+using Printf
 
-include("config.jl")
+using BenchmarkTools
+using STREAMBenchmark
+using LinearAlgebra
+using CpuId
 
-include("perftest/structs.jl")
-include("perftest/data_handling.jl")
+var"@capture" = MacroTools.var"@capture"
 
-include("benchmarking.jl")
+abstract type NormalMode end
+struct MPIMode <: NormalMode end
 
-include("prints.jl")
+mode = NormalMode
 
-include("metrics.jl")
 
-include("methodologies/regression.jl")
-include("methodologies/effective_memory_throughput.jl")
-include("methodologies/roofline.jl")
+### PARSING TIME
 
-include("prefix.jl")
-include("suffix.jl")
-include("rules.jl")
+# Data structures used in the parse and transform procedures
+include("transform/datastruct.jl")
 
+# Structures and defaults of the package configuration
+include("transform/configuration.jl")     # NOTE
+
+# Formatting
+include("printing.jl")
+include("logs.jl")
+
+# General validation
+include("transform/validation/errors.jl")
+include("transform/validation/formula.jl")
+include("transform/validation/macro.jl")
+include("transform/validation/export_vars.jl")
+
+# Machine features extraction
+include("execution/machine_benchmarking.jl")
+
+# Metric transformation
+include("transform/metrics/primitives.jl")
+include("transform/metrics/custom.jl")
+
+# Methodology transformation
+include("transform/methodologies/common.jl")
+include("transform/methodologies/regression.jl")
+include("transform/methodologies/manual.jl")
+include("transform/methodologies/mem_bandwidth.jl")
+include("transform/methodologies/roofline.jl")
+
+include("transform/prefix.jl")
+include("transform/suffix.jl")
+
+
+# TODO: Separate Macro definitions
+include("execution/macros/perftest.jl")
+include("execution/macros/perfcompare.jl")
+include("execution/macros/roofline.jl")
+include("execution/macros/exec_ignore.jl")
+include("execution/macros/customs.jl")
+include("execution/macros/configuration.jl")
+
+# Rules of the ruleset
+include("transform/parsing/hierarchy_transform_test_region.jl")
+include("transform/parsing/hierarchy_transform_benchmark_region.jl")
+include("transform/parsing/target_transform.jl")
+include("transform/parsing/formula_transform.jl")
+include("transform/parsing/rules.jl")
+
+# Additional
+include("transform/auxiliar.jl")
+
+# Functions used by the generated suites
+include("execution/structs.jl")
+include("execution/printing.jl")
+include("execution/data_handling.jl")
+include("execution/units.jl")
+include("execution/misc.jl")
 
 # Base active rules
 rules = ASTRule[testset_macro_rule,
@@ -39,34 +91,34 @@ rules = ASTRule[testset_macro_rule,
                 test_deprecated_macro_rule,
                 test_warn_macro_rule,
                 test_nowarn_macro_rule,
-                test_broken_macro_rule,
-                test_skip_macro_rule,
-
-                perftest_macro_rule,
-                #perftest_scope_assignment_macro_rule,
-                #perftest_dot_interpolation_rule,
-                #perftest_scope_arg_macro_rule,
-                #perftest_scope_vecf_arg_macro_rule,
-                #perftest_begin_macro_rule,
-                #perftest_end_macro_rule,
-
-                back_macro_rule,
-                prefix_macro_rule,
-
-                config_macro_rule,
-
-                on_perftest_exec_rule,
-                on_perftest_ignore_rule,
-
-                define_memory_throughput_rule,
-                define_metric_rule,
-                auxiliary_metric_rule,
-
-                roofline_macro_rule,
-                ]
+    test_broken_macro_rule,
+    test_skip_macro_rule, perftest_macro_rule, back_macro_rule,
+    prefix_macro_rule,
+#    suffix_macro_rule,
+    config_macro_rule,
+    on_perftest_exec_rule,
+    on_perftest_ignore_rule,
+    define_memory_throughput_rule,
+    define_metric_rule,
+    export_vars_rule,
+    auxiliary_metric_rule, roofline_macro_rule,
+    manual_macro_rule,
+    recursive_rule
+]
 
 
-# Main transform routine
+# Transform routines in target_transform.jl
+perftest_expression_ruleset = [
+    perftest_scope_assignment_macro_rule,
+    perftest_scope_arg_macro_rule,
+    perftest_scope_vecf_arg_macro_rule,
+    perftest_dot_interpolation_rule,
+]
+
+function parseTarget(expr :: Expr, context::Context)::Expr
+    return MacroTools.prewalk(ruleSet(context, perftest_expression_ruleset), expr)
+end
+
 
 """
 This method builds what is known as a rule set. Which is a function that will evaluate if an expression triggers a rule in a set and if that is the case apply the rule modifier. See the ASTRule documentation for more information.
@@ -80,8 +132,9 @@ WARNING: the rule set will apply the FIRST rule that matches with the expression
 function ruleSet(context::Context, rules :: Vector{ASTRule})
     function _ruleSet(x)
         for rule in rules
-            if rule.condition(x)
-                return rule.modifier(x, context)
+            if rule.match(x)
+                info = rule.validation(x, context)
+                return rule.transformation(x, context, info)
             end
         end
         return x
@@ -105,44 +158,76 @@ function _treeRun(input_expr::Expr, context::Context, args...)
 end
 
 
+ctx = nothing
+function setupContext(path :: AbstractString)
+
+    global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols))
+    ctx._global.original_file_path = path
+end
+
 """
 This method implements the transformation that converts a recipe script into a fully-fledged testing suite.
 The function will return a Julia expression with the resulting performance testing suite. This can be then executed or saved in a file for later usage.
-
 # Arguments
  - `path` the path of the script to be transformed.
 
 """
-function treeRun(path :: AbstractString)
+function treeRun(path::AbstractString)
+
+    # Set log directory
+    setLogFolder()
+    # Clear logs
+    #clearLogs()
+    # Load configuration
+    config = Configuration.load_config()
+
+    if config["general"]["verbose"]
+        verboseOutput()
+    end
 
     # Load original
     input_expr = loadFileAsExpr(path)
 
-    global ctx = Context()
-    ctx.original_file_path = path
+    setupContext(path)
 
     # Run through AST and build new expressions
-    middle = _treeRun(input_expr, ctx)
+    full = _treeRun(input_expr, ctx)
 
-    # Assemble
-    full = quote
-            a
-            b
-    end
-
-    full = flattenedInterpolation(full, middle, :a)
-    full = flattenedInterpolation(full, perftextsuffix(ctx), :b)
+    # Insert suffix
+    full = MacroTools.postwalk(ruleSet(ctx, [suffix_macro_rule]), full)
 
     # Mount inside a module environment
-
     module_full = Expr(:toplevel,
                        Expr(:module, true, :__PERFTEST__,
                             Expr(:block, full.args...)))
 
+    if num_errors(ctx._global.errors) > 0
+        printErrors(ctx._global.errors)
+        return quote @warn "Parsing failed" end
+    end
+
+
+    if config["general"]["verbose"]
+        saveLogFolder()
+    end
+
     return MacroTools.prettify(module_full)
+end
+
+"""
+  In order for the suite to be MPI aware, this function has to be called. Calling it again will disable this feature.
+"""
+function toggleMPI()
+    if mode == NormalMode
+        global mode = MPIMode
+    else
+        global mode = NormalMode
+    end
 end
 
 transform = treeRun
 
+MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
-end # module perftest
+
+end
