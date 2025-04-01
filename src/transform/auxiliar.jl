@@ -216,7 +216,6 @@ end
 function metaGetString(expr_array::AbstractVector)
 
     for expr in expr_array
-        print(typeof(expr))
         if typeof(expr) == String
             return expr
         end

@@ -72,7 +72,6 @@ function buildRoofline(context::Context)::Expr
 
     info = captureMethodologyInfo(:roofline, context._local.enabled_methodologies)
 
-    @show info
     if info isa Nothing
         return quote end
     else

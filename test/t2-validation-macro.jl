@@ -6,7 +6,7 @@
     params = Dict{Symbol,PerfTest.MacroParameter}(
         :aparam => PerfTest.MacroParameter(:aparam, Float64, (x) -> true),
         :bparam => PerfTest.MacroParameter(:bparam, Float64, (x) -> (x > 0)),
-        Symbol("") => PerfTest.MacroParameter(Symbol(""), Expr, (x) -> (x.args[1] == :+), true)
+        Symbol("") => PerfTest.MacroParameter(Symbol(""), Expr, (x) -> (x.args[1] == :+), true, true)
     )
 
     f = PerfTest.validateMacro(params)
@@ -78,6 +78,17 @@
     end
 
     f(expr, ctx)
-    @test PerfTest.num_errors(ctx._global.errors)== 5
-    PerfTest.printErrors(ctx._global.errors)
+    @test PerfTest.num_errors(ctx._global.errors) == 5
+
+    # non-existent parameter
+    expr = quote
+        @macro zparam = 5.45 4 + 5
+    end
+
+    f(expr, ctx)
+    @test PerfTest.num_errors(ctx._global.errors) == 6
+
+    # Uncomment to see error messages
+    #PerfTest.printErrors(ctx._global.errors)
+
 end

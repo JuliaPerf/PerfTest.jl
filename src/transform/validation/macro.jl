@@ -18,8 +18,6 @@ function validateMacro(macro_param :: Dict{Symbol, MacroParameter})
             return nothing
         end
 
-        @show args, mandatory
-
         # 0 Arg macro
         if length(macro_param) == 0
             return nothing

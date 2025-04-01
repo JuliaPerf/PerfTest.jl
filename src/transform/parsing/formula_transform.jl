@@ -39,7 +39,6 @@ function exportVars(symbols::Set{Symbol}, context::Context)::Expr
 
     expr = quote end
     for symbol in symbols
-        @show symbol
         expr = :($expr; $(export_one(symbol)))
         push!(context._local.exported_vars, symbol)
     end

@@ -41,7 +41,6 @@ function buildMemTRPTMethodology(context :: Context)::Expr
         return quote end
     else
         info = info.params
-        @show info
         return quote
 	          let
                 value = _PRFT_LOCAL[:metrics][:effMemTP].value / _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))]

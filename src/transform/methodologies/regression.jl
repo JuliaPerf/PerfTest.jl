@@ -52,8 +52,6 @@ function regression(kind_index :: Symbol, ident_index :: Symbol)
         try
             $expr_new / $expr_old - 1
         catch e
-            @show $expr_new
-            @show $expr_old
             addLog("regression", "Failed to compare new to old at $([d.name for d in _PRFT_LOCAL[:depth]])")
             0.0
         end

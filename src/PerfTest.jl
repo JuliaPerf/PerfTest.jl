@@ -56,8 +56,6 @@ include("transform/methodologies/roofline.jl")
 include("transform/prefix.jl")
 include("transform/suffix.jl")
 
-@info "DEV"
-
 
 # TODO: Separate Macro definitions
 include("execution/macros/perftest.jl")
@@ -179,7 +177,7 @@ function treeRun(path::AbstractString)
     # Set log directory
     setLogFolder()
     # Clear logs
-    clearLogs()
+    #clearLogs()
     # Load configuration
     config = Configuration.load_config()
 

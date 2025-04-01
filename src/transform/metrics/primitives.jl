@@ -69,6 +69,5 @@ function savePrimitives(_PRFT_LOCAL::Dict, _PRFT_GLOBAL :: Dict)
         units="s",
         value=_PRFT_LOCAL[:primitives][:median_time]
     ))
-    @show _PRFT_GLOBAL[:new]
 end
 
