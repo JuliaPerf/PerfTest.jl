@@ -21,7 +21,7 @@ Order = [:type]
 
 #### Documentation
 ```@autodocs
-Modules = [PerfTest]
+Modules = [PerfTest, PerfTest.Configuration]
 Order   = [:type]
 ```
 
@@ -33,6 +33,6 @@ Order = [:function, :macro]
 ```
 #### Documentation
 ```@autodocs
-Modules = [PerfTest]
+Modules = [PerfTest, PerfTest.Configuration]
 Order   = [:function, :macro]
 ```
