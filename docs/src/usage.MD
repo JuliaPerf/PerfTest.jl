@@ -6,7 +6,7 @@ The underlying idea of declaring performance tests can be boiled down the follow
 
 1. Have a @testset that groups tests for a software unit
 2. Tell PerfTest what is the target to be tested by using the macro @perftest
-3. Tell PerfTest how the target shall be tested, which metrics are interesting, which of those metrics values would be considered a failure, this can be declared using the metric and methodology macros (see [Macros](@ref))
+3. Tell PerfTest how the target shall be tested, which metrics are interesting, which of those metrics values would be considered a failure, this can be declared using the metric and methodology macros (see Macros)
 
 The following dummy example embodies the paradigm of the package:
 
