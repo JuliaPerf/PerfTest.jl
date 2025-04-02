@@ -1,5 +1,4 @@
 
-using BenchmarkTools: _run
 # Memory and CPU benchmarks used by different methodologies
 
 function getMachineInfo()::Expr
@@ -36,6 +35,7 @@ using Base.Threads
 copy_kernel(C,A;kwargs...) = STREAMBenchmark.copy_nthreads(C,A;kwargs...)
 add_kernel(C,A,B;kwargs...) = STREAMBenchmark.add_nthreads(C,A,B;kwargs...)
 
+# This function is heavily based on the respective from STREAMBenchmark
 function _run_kernels(copy, add;
                       verbose = true,
                       N,
@@ -77,13 +77,11 @@ function _run_kernels(copy, add;
     # COPY
     t_copy = @belapsed $copy($C, $A; nthreads = $nthreads, thread_indices = $thread_indices) samples=10 evals=evals_per_sample
     bw_copy = f(t_copy)
-    verbose && println("╟─  COPY:  ", round(bw_copy; digits = 1), "B/s")
 
     # ADD
     t_add = @belapsed $add($C, $A, $B; nthreads = $nthreads,
         thread_indices=$thread_indices) samples = 10 evals = evals_per_sample
     bw_add = g(t_add)
-    verbose && println("╟─  ADD:   ", round(bw_add; digits=1), "B/s")
 
     return (bw_copy,bw_add)
 end
@@ -91,8 +89,8 @@ end
 
 function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBAL::Dict{Symbol,Any})
     bench_data = _run_kernels(copy_kernel, add_kernel; N=div(_PRFT_GLOBAL[:machine][:cache_sizes][end], 2))
-    # In B/s
-    peakbandwidth = bench_data .* 1e6
+    # in Bytes/sec
+    peakbandwidth = bench_data
     _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = Dict{Symbol, Number}()
     _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:COPY] = peakbandwidth[1]
     _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:ADD] = peakbandwidth[2]

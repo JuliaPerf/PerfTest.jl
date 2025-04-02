@@ -63,13 +63,13 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                 aux_abs_value = newMetricResult(
                     $mode,
                     name="Attained Bandwidth",
-                    units="GB/s",
+                    units="B/s",
                     value=_PRFT_LOCAL[:metrics][:effMemTP].value
                 )
                 aux_ref_value = newMetricResult(
                     $mode,
                     name="Peak empirical bandwidth",
-                    units="GB/s",
+                    units="B/s",
                     value=_PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))]
                 )
 
@@ -81,8 +81,11 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                 methodology_res.custom_elements[:abs] = magnitudeAdjust(aux_abs_value)
                 methodology_res.custom_elements[:abs_ref] = magnitudeAdjust(aux_ref_value)
 
+                @show _PRFT_LOCAL[:metrics][:effMemTP].value, _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))]
+                @show test,value,result
+
                 # Printing
-                if $(Configuration.CONFIG["general"]["verbose"]) || !(flop_test.succeeded)
+                if $(Configuration.CONFIG["general"]["verbose"]) || !(test.succeeded)
                     PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 

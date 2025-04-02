@@ -38,10 +38,13 @@ makedocs(;
     pages   = [
         "Introduction"  => "index.md",
         "Usage"         => "usage.md",
+        "Macros"        => "macros.md",
         "Examples"      => [hide("..." => "examples.md"),
-                            "examples/memcopyCellArray3D.md",
-                            "examples/memcopyCellArray3D_ParallelStencil.md",
+                            "examples/mock2-memorythroughput.md",
+                            "examples/mock3-roofline.md",
+                            "examples/mock4-recursive.md",
                            ],
+        "Limitations"   => "limitations.md",
         "API reference" => "api.md",
     ],
 )
