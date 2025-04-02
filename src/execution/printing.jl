@@ -124,7 +124,7 @@ function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
     end
     print(@lpad(tab) *"METRIC ")
     p_blue("$(metric.name)")
-    print(" ["* metric.units *"]:")
+    print(" ["* metric.magnitude_prefix * metric.units *"]:")
     # MPI info
     if !(metric.mpi isa Nothing)
         print(" "^10)
@@ -166,7 +166,7 @@ end
 This function is used to dump metric information regading auxiliar metrics, which are not used in testing.
 """
 function auxiliarMetricPrint(metric :: Metric_Result, tab::Int)
-    println(" " ^ tab * "Metric: " * metric.name * " [" * metric.units * "]")
+    println(" "^tab * "Metric: " * metric.name * " [" * metric.magnitude_prefix * metric.units * "]")
     println(" " ^ tab * "  = ", metric.value)
     println("")
 end
