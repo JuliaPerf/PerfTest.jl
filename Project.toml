@@ -27,3 +27,6 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 
 [extensions]
 PerfTest_MPIExt = "MPI"
+
+[compat]
+CpuId = "0.3"
