@@ -1,6 +1,6 @@
 
 
-define_eff_memory_throughput_validation = defineMacroParams([
+define_regression_validation = defineMacroParams([
     MacroParameter(:threshold,
                    Float64,
                    (x) -> 0.0 <= x <= 1.0,

@@ -112,6 +112,7 @@ end
     params::Dict{Symbol, Any}
 end
 
+abstract type AbstractMethodology end
 
 mutable struct DepthEntry
     set_name::AbstractString
@@ -136,9 +137,10 @@ mutable struct GlobalContext
     in_recursion::Bool
     errors::ErrorCollection
     valid_symbols::Set{Symbol}
+    custom_benchmarks::Set{Symbol}
 
-    GlobalContext(path, errors, valid) = new(path, false, errors, valid)
-    GlobalContext(path, errors, valid, _) = new(path, true, errors, valid)
+    GlobalContext(path, errors, valid) = new(path, false, errors, valid, Set{Symbol}())
+    GlobalContext(path, errors, valid, _) = new(path, true, errors, valid, Set{Symbol}())
 end
 
 """

@@ -36,7 +36,7 @@ function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}})::Exp
         end
         buffer = quote
             $buffer
-            _PRFT_LOCAL[:metrics][$(QuoteNode(symbol))] = newMetricResult(
+            test_res.metrics[$(QuoteNode(symbol))] = newMetricResult(
                 $mode,
                 name=$(metric_def.name),
                 units=$(metric_def.units),
@@ -47,4 +47,27 @@ function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}})::Exp
         addLog("metrics", "[METRIC] Building $(metric_def.name)")
     end
     return buffer
+end
+
+
+function defineCustomBenchmark(ctx::Context, info) :: Expr
+
+    addLog("metrics", "[BENCHMARK] Defining $(info[:name]) [$(info[:units])] on $([i.set_name for i in ctx._local.depth_record])")
+
+    # Cannot be called inside a testset
+    if length(ctx._local.depth_record) > 0
+        throwParseError!("Cannot define benchmark $(info[:name]) inside a testset", ctx)
+    else
+        # Transform
+        return quote
+            _PRFT_GLOBALS.benchmarks[$(QuoteNode(Symbol(info[:name])))] = newMetricResult(
+                $mode,
+                name=$(info[:name]),
+                units=$(info[:units]),
+                value=transformFormula(info[Symbol("")], ctx),
+                auxiliary=false
+            )
+        end
+    end
+
 end

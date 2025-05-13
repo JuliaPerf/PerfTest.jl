@@ -155,12 +155,10 @@ function buildRoofline(context::Context)::Expr
                     PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
                 end
 
-                # Saving
-                push!(by_index(_PRFT_GLOBAL[:new], _PRFT_LOCAL[:depth]).methodology_results, methodology_res)
-
                 # Testing
                 try
-                    @test flop_test.succeeded
+                    @test flop_test.succeeded #TODO TODO TODO
+                    saveMethodologyData(test)
                 catch end
             end
         end

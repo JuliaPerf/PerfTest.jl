@@ -5,7 +5,7 @@
 testset_macro_rule = ASTRule(
     x -> @capture(x, @testset __),
     no_validation,
-    (x, ctx, info) -> testsetToBenchGroup!(x, ctx)
+    (x, ctx, info) -> transformTestset(x, ctx)
 )
 
 # TESTS
@@ -68,8 +68,8 @@ test_skip_macro_rule = ASTRule(
 
 perftest_macro_rule = ASTRule(
     x -> @capture(x, @perftest __),
-    perftest_validation,
-    (x, ctx, info) -> perftestToBenchmark!(x, ctx)
+    no_validation,
+    (x, ctx, info) -> (@show (s = transformPerftest(x, ctx)); s)
 )
 
 perftest_begin_macro_rule = ASTRule(

@@ -1,6 +1,13 @@
 using Test
 using PerfTest
 
+@perftest_config "
+[regression]
+enabled = false
+[general]
+verbose = true
+"
+
 function testfun(a :: Int)
 
     c = 1
@@ -19,7 +26,7 @@ end
         @define_eff_memory_throughput ratio=0.01 begin
 	          2.0 + 5.0
         end
-        x = @perftest testfun(10)
+        @perftest x = testfun(10)
 
         @test x == 29.299107353275982
     end
