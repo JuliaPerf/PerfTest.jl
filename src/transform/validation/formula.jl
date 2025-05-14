@@ -9,6 +9,6 @@ formula_symbols = Set([
     :return,
     :iterator,
     :peak_flops,
-    :peak_bandwidth
+    :peak_bandwidth,
 ])
 

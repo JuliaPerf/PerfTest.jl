@@ -22,7 +22,9 @@ formula_rules = ASTRule[
     ),
     ASTRule(
         checkType(QuoteNode),
-        (x, ctx) -> (x.value in ctx._global.valid_symbols) ? true : (@info "$(x.value) has been parsed on a formula, its availability is not checked automatically"; throwParseError!("Variable \"$x\" not exported or undefined, use @export_vars to export", ctx)),
+        (x, ctx) -> (x.value in ctx._global.valid_symbols) ? true : (@info "$(x.value) has been parsed on a formula, its availability is not checked automatically";
+                                                                     #throwParseError!("Variable \"$x\" not exported or undefined, use @export_vars to export", ctx)
+                                                                     ),
         (x, ctx, info) -> info == true ? (
             quote
                 _PRFT_LOCAL[:primitives][$x]
