@@ -15,10 +15,10 @@ function getMachineInfo()::Expr
             addLog("machine", "[MACHINE] Memory buffer size for benchmarking = $(size ./ 1024 ./ 1024) [MB]")
         end
     else
-        return quote
-            global _PRFT_GLOBAL.builtins[:MEM_CACHE_SIZES] = [$(Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])]
+	return quote
+            global _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES] = [$(Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])]
 
-            addLog("machine", "[MACHINE] Set by config, benchmark buffer size = $(_PRFT_GLOBAL[:machine][:cache_sizes] ./ 1024 ./ 1024) [MB]")
+	    addLog("machine", "[MACHINE] Set by config, benchmark buffer size = $(_PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES][1] ./ 1024 ./ 1024) [MB]")
         end
     end
 end

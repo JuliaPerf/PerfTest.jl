@@ -172,7 +172,13 @@ auxiliary_metric_rule = ASTRule(
     (x, ctx, info) -> defineCustomMetric(:aux, ctx, info)
 )
 
+define_benchmark_rule = ASTRule(
+    x -> escCaptureGetblock(x, Symbol("@define_benchmark")) !== nothing,
+    define_metric_validation,
+    (x, ctx, info) -> defineCustomBenchmark(ctx, info)
+)
 
+# DEPRECATED
 export_vars_rule = ASTRule(
     x -> (@capture(x, @m_ __); m == Symbol("@export_vars")),
     export_vars_validation,

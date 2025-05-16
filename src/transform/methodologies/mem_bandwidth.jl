@@ -18,6 +18,7 @@ function onMemoryThroughputDefinition(formula::ExtendedExpr, ctx::Context, info)
     # Check if the user wants to use a custom benchmark
     if haskey(info, :custom_benchmark)
         info[:custom] = true
+	@show ctx._global.custom_benchmarks
         # Check TODO if custom b. has been defined
         if !( info[:custom_benchmark] in ctx._global.custom_benchmarks)
             throwParseError!("Undefined custom benchmark $(info[:custom_benchmark])", ctx)
@@ -80,7 +81,7 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                     $mode,
                     name="Attained Bandwidth",
                     units="B/s",
-                    value=value
+		    value=test_res.metrics[:effMemTP].value
                 )
                 aux_ref_value = newMetricResult(
                     $mode,

@@ -27,7 +27,7 @@ formula_rules = ASTRule[
                                                                      ),
         (x, ctx, info) -> info == true ? (
             quote
-                _PRFT_LOCAL[:primitives][$x]
+                test_res.primitives[$x]
             end
         ) : x),
 ]
