@@ -69,7 +69,7 @@ test_skip_macro_rule = ASTRule(
 perftest_macro_rule = ASTRule(
     x -> @capture(x, @perftest __),
     no_validation,
-    (x, ctx, info) -> (@show (s = transformPerftest(x, ctx)); s)
+    (x, ctx, info) -> (transformPerftest(x, ctx))
 )
 
 perftest_begin_macro_rule = ASTRule(

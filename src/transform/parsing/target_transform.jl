@@ -1,17 +1,17 @@
 
 function scopeAssignment(input_expr::Expr, context::Context)::Expr
-    # If inside a benchmark target, assignments are removed since they become useless
-
+ 
         @capture(input_expr, a_ = b_)
 
         return quote
-            $b
+            a = $b
         end
 end
 
 function scopeArg(input_expr::Expr, context::Context)::Expr
 
-        @capture(input_expr, f_(args__))
+        # Get both functions and macros since macro args need to be interpolated as well
+        @capture(input_expr, f_(args__)) || @capture(input_expr, @f_(args__))
 
         processed_args = [isa(arg, Symbol) ?
             :($(Expr(:$,arg))) :

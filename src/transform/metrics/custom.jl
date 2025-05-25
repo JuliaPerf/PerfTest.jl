@@ -58,13 +58,15 @@ function defineCustomBenchmark(ctx::Context, info) :: Expr
     if length(ctx._local.depth_record) > 0
         throwParseError!("Cannot define benchmark $(info[:name]) inside a testset", ctx)
     else
+        # Add benchmark name to recognized custom benchmarks
+        push!(ctx._global.custom_benchmarks, Symbol(info[:name]))
         # Transform
         return quote
             _PRFT_GLOBALS.benchmarks[$(QuoteNode(Symbol(info[:name])))] = newMetricResult(
                 $mode,
                 name=$(info[:name]),
                 units=$(info[:units]),
-                value=transformFormula(info[Symbol("")], ctx),
+                value=$(info[Symbol("")]),
                 auxiliary=false
             )
         end
