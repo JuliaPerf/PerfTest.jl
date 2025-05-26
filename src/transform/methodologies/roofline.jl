@@ -114,9 +114,9 @@ function buildRoofline(context::Context)::Expr
                       quote
                       end
                 end)
-                methodology_res.custom_elements[:realf] = magnitudeAdjust(test_res\.[:metrics][:attainedFLOPS])
+                methodology_res.custom_elements[:realf] = magnitudeAdjust(test_res.metrics[:attainedFLOPS])
 
-                methodology_res.custom_elements[:opint] = test_res\.[:metrics][:opInt]
+                methodology_res.custom_elements[:opint] = test_res.metrics[:opInt]
         
 
                 aux_mem = newMetricResult(
