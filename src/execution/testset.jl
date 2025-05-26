@@ -16,6 +16,7 @@ mutable struct PerfTestSet <: AbstractTestSet
     # Holds the current iteration
     iterator::Any
 
+    # Holds BenchmarkTools.jl benchmarks
     benchmarks::BenchmarkGroup
     # The following includes test results and snapshots of the metrics at test time
     test_results::Dict{String, Test_Result}
@@ -42,19 +43,19 @@ function Test.record(ts::PerfTestSet, child::AbstractTestSet)
     return push!(ts.results, child)
 end
 
-
-function PerfTestBenchmark(expr; kwargs...)
-end
-
-function recordMetric()
-end
-
-function defineMethodology()
-end
-
 function Test.finish(ts::PerfTestSet)
 
-    # just record and attach to parent if we're not the top-level parent
+    # Print failed tests on the current level (or everything if verbose)
+    print(" " ^ get_testset_depth() * "AT: $ts.description")
+    for test_target :: Test_Result in ts.test_results
+        for methodology in test_target.methodology_results
+            printMethodology(methodology, get_testset_depth(), Configuration.CONFIG["general"]["plotting"])
+        end
+
+        # Print auxiliary metrics
+        printAuxiliaries(test_target.auxiliar)
+    end
+
     if get_testset_depth() > 0
         record(get_testset(), ts)
         return ts
@@ -89,6 +90,9 @@ function Test.get_test_counts(ts::PerfTestSet)
     return passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, duration
 end
 
+"""
+   Will print the overall result of the test suite execution 
+"""
 function Test.print_test_results(ts::PerfTestSet)
     passes, fails, errors, _, cp,cf,ce,_ = get_test_counts(ts)
     print("Temporary print: $(passes + cp) PASSED, $(fails + cf) FAILED, $(errors+ce) ERRORS\n")

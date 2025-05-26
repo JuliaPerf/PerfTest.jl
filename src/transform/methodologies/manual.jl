@@ -71,6 +71,8 @@ function buildPerfcmp(context :: Context) :: Expr
                 for (r,test) in methodology_res.metrics
                     @test test.succeeded
                 end
+
+                saveMethodologyData(test_res.name, methodology_res)
             end
         end
     end

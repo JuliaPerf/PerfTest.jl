@@ -5,7 +5,7 @@ function defineCustomMetric(type :: Symbol, ctx :: Context, info)
         return
     end
 
-    push!(ctx._local.custom_metrics[end], CustomMetric(
+   push!(ctx._local.custom_metrics[end], CustomMetric(
         name=info[:name],
         units=info[:units],
         formula=transformFormula(info[Symbol("")], ctx),
@@ -54,15 +54,15 @@ function defineCustomBenchmark(ctx::Context, info) :: Expr
 
     addLog("metrics", "[BENCHMARK] Defining $(info[:name]) [$(info[:units])] on $([i.set_name for i in ctx._local.depth_record])")
 
-    # Cannot be called inside a testset
-    if length(ctx._local.depth_record) > 0
+    # Cannot be called inside a testset TODO
+    if length(ctx._local.depth_record) < 0
         throwParseError!("Cannot define benchmark $(info[:name]) inside a testset", ctx)
     else
         # Add benchmark name to recognized custom benchmarks
         push!(ctx._global.custom_benchmarks, Symbol(info[:name]))
         # Transform
         return quote
-            _PRFT_GLOBALS.benchmarks[$(QuoteNode(Symbol(info[:name])))] = newMetricResult(
+            _PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(Symbol(info[:name])))] = newMetricResult(
                 $mode,
                 name=$(info[:name]),
                 units=$(info[:units]),

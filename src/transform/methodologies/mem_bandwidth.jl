@@ -57,7 +57,7 @@ function buildMemTRPTMethodology(context :: Context)::Expr
 	          let
                 reference_benchmark = $(!info[:custom]
                                         ? :(_PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))])
-                                        : :(_PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(info[:custom_benchmark]))]))
+                                        : :(_PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(info[:custom_benchmark]))].value))
 
                 value = test_res.metrics[:effMemTP].value / reference_benchmark
                 success = value >= $(info[:ratio])
@@ -96,12 +96,6 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                 push!(methodology_res.metrics, (result => test))
                 methodology_res.custom_elements[:abs] = magnitudeAdjust(aux_abs_value)
                 methodology_res.custom_elements[:abs_ref] = magnitudeAdjust(aux_ref_value)
-
-                # Printing
-                if $(Configuration.CONFIG["general"]["verbose"]) || !(test.succeeded)
-                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
-                end
-
 
                 # Testing
                 @test test.succeeded

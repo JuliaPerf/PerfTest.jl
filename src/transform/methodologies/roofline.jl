@@ -62,6 +62,7 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
 
 
     addLog("metrics", "[METHODOLOGY] Defined ROOFLINE MODEL on $([i.set_name for i in ctx._local.depth_record])")
+    return quote end
 end
 
 
@@ -78,10 +79,10 @@ function buildRoofline(context::Context)::Expr
         info = info.params
         return quote
             let
-                opint = _PRFT_LOCAL[:metrics][:opInt].value
-                flop_s = _PRFT_LOCAL[:metrics][:attainedFLOPS].value
+                opint = test_res.metrics[:opInt].value
+                flop_s = test_res.metrics[:attainedFLOPS].value
 
-                roof = PerfTest.rooflineCalc(_PRFT_GLOBAL[:machine][:empirical][:peakflops], _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))])
+                roof = PerfTest.rooflineCalc(_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK], _PRFT_GLOBALS.builtins[:MEM_STREAM_COPY])
 
                 result_flop_ratio = newMetricResult(
                     $mode,
@@ -113,15 +114,10 @@ function buildRoofline(context::Context)::Expr
                       quote
                       end
                 end)
-                methodology_res.custom_elements[:realf] = magnitudeAdjust(_PRFT_LOCAL[:metrics][:attainedFLOPS])
+                methodology_res.custom_elements[:realf] = magnitudeAdjust(test_res\.[:metrics][:attainedFLOPS])
 
-                methodology_res.custom_elements[:opint] = _PRFT_LOCAL[:metrics][:opInt]
-                # result_opint = _PRFT_LOCAL[:metrics][:opint]
-                # if info.[:test_opint]
-
-                # else
-
-                # end
+                methodology_res.custom_elements[:opint] = test_res\.[:metrics][:opInt]
+        
 
                 aux_mem = newMetricResult(
                     $mode,
@@ -158,7 +154,7 @@ function buildRoofline(context::Context)::Expr
                 # Testing
                 try
                     @test flop_test.succeeded #TODO TODO TODO
-                    saveMethodologyData(test)
+                    saveMethodologyData(test_res.name, methodology_res)
                 catch end
             end
         end
