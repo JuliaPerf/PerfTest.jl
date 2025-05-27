@@ -53,7 +53,7 @@ function Test.finish(ts::PerfTestSet)
         end
 
         # Print auxiliary metrics
-        printAuxiliaries(test_result.auxiliar)
+        printAuxiliaries(test_result.auxiliar, get_testset_depth())
     end
 
     if get_testset_depth() > 0
