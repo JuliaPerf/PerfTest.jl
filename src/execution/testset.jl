@@ -47,13 +47,13 @@ function Test.finish(ts::PerfTestSet)
 
     # Print failed tests on the current level (or everything if verbose)
     print(" " ^ get_testset_depth() * "AT: $ts.description")
-    for test_target :: Test_Result in ts.test_results
-        for methodology in test_target.methodology_results
+    for test_name,test_result in ts.test_results
+        for methodology in test_result.methodology_results
             printMethodology(methodology, get_testset_depth(), Configuration.CONFIG["general"]["plotting"])
         end
 
         # Print auxiliary metrics
-        printAuxiliaries(test_target.auxiliar)
+        printAuxiliaries(test_result.auxiliar)
     end
 
     if get_testset_depth() > 0
