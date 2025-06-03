@@ -13,8 +13,13 @@ import ImplicitGlobalGrid: @require, longnameof
 using ThreadPinning
 pinthreads(:compact)
 threadinfo()
-NTHREADS = 8
+NTHREADS = 16
 
+# 256M Elements on STREAM Benchmark (2GB)
+@perftest_config "
+[machine_benchmarking]
+memory_bandwidth_test_buffer_size = 536870912
+"
 
 array_types          = ["CPU"]
 gpu_array_types      = []
@@ -31,7 +36,8 @@ MPI.Init();
 nprocs = MPI.Comm_size(MPI.COMM_WORLD); # NOTE: these tests can run with any number of processes.
 ndims_mpi = GG.NDIMS_MPI;
 nneighbors_per_dim = GG.NNEIGHBORS_PER_DIM; # Should be 2 (one left and one right neighbor).
-nx = Int(round(sqrt(1024^3/4/16*NTHREADS/nprocs)));
+# 256M Elements (2GB)
+nx = Int(round(sqrt(536870912/16*NTHREADS/nprocs)));
 ny = nx;
 nz = 5;
 dx = 1.0
@@ -56,7 +62,6 @@ dz = 1.0
 		ranges = [1:size(P,1), 1:size(P,2), 1:1];
 
 		i = 0
-               	@export_vars i nx ny MPI
 		@define_eff_memory_throughput begin
                     (nx * ny * 8) * 3 * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
                 end
@@ -69,7 +74,7 @@ dz = 1.0
                 for i in 1:1
                     GG.write_h2h!(buf, P, ranges, 3);
                 end
-                @perftest samples=100 begin
+                @perftest begin
              	   GG.read_h2h!(buf, P2, ranges, 3);
                 end
                 finalize_global_grid(finalize_MPI=false);
