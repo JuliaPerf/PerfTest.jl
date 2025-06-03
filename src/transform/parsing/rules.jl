@@ -5,7 +5,7 @@
 testset_macro_rule = ASTRule(
     x -> @capture(x, @testset __),
     no_validation,
-    (x, ctx, info) -> testsetToBenchGroup!(x, ctx)
+    (x, ctx, info) -> transformTestset(x, ctx)
 )
 
 # TESTS
@@ -68,8 +68,8 @@ test_skip_macro_rule = ASTRule(
 
 perftest_macro_rule = ASTRule(
     x -> @capture(x, @perftest __),
-    perftest_validation,
-    (x, ctx, info) -> perftestToBenchmark!(x, ctx)
+    no_validation,
+    (x, ctx, info) -> (transformPerftest(x, ctx))
 )
 
 perftest_begin_macro_rule = ASTRule(
@@ -172,7 +172,13 @@ auxiliary_metric_rule = ASTRule(
     (x, ctx, info) -> defineCustomMetric(:aux, ctx, info)
 )
 
+define_benchmark_rule = ASTRule(
+    x -> escCaptureGetblock(x, Symbol("@define_benchmark")) !== nothing,
+    define_metric_validation,
+    (x, ctx, info) -> defineCustomBenchmark(ctx, info)
+)
 
+# DEPRECATED
 export_vars_rule = ASTRule(
     x -> (@capture(x, @m_ __); m == Symbol("@export_vars")),
     export_vars_validation,
@@ -194,8 +200,7 @@ manual_macro_rule = ASTRule(
     (x, ctx, info) -> onPerfcmpDefinition(x, ctx, info)
 )
 
-function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pair{ExtendedExpr,ExtendedExpr}
-
+function treeRunRecursive!(path::AbstractString, parent_context :: Context)::ExtendedExpr
     addLog("hierarchy", "[RECURSIVE] Recursivity is enabled, entering \"$path\"")
     # The transformation treats child files as if it were into the main one plugging their testsets into the global hierarchy
 
@@ -206,7 +211,6 @@ function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pai
     ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, :RECURSIVE))
     ctx._local = parent_context._local
 
-
     # Run through AST and build new expressions
     middle = _treeRun(input_expr, ctx)
 
@@ -216,7 +220,7 @@ function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Pai
     Configuration.CONFIG = pop!(Configuration.PARENT_CONFIGS)
     addLog("hierarchy", "[RECURSIVE] \"$path\" has been processed, $(num_errors(ctx._global.errors)) errors found")
 
-    return Pair(middle, ctx.test_tree_expr_builder[1][1])
+    return middle
 end
 
 # RECURSIVE
@@ -226,8 +230,7 @@ recursive_rule = ASTRule(
     (x, ctx, info) -> (begin
         if Configuration.CONFIG["general"]["recursive"]
             @capture(x, include(path_))
-            measure_expr, test_expr = treeRunRecursive!(joinpath(dirname(ctx._global.original_file_path), path), ctx)
-            push!(ctx.test_tree_expr_builder[end], test_expr)
+            measure_expr = treeRunRecursive!(joinpath(dirname(ctx._global.original_file_path), path), ctx)
             measure_expr
         else
             quote end

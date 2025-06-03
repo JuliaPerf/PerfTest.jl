@@ -39,9 +39,6 @@ include("transform/validation/formula.jl")
 include("transform/validation/macro.jl")
 include("transform/validation/export_vars.jl")
 
-# Machine features extraction
-include("execution/machine_benchmarking.jl")
-
 # Metric transformation
 include("transform/metrics/primitives.jl")
 include("transform/metrics/custom.jl")
@@ -65,9 +62,18 @@ include("execution/macros/exec_ignore.jl")
 include("execution/macros/customs.jl")
 include("execution/macros/configuration.jl")
 
+include("execution/structs.jl")
+include("execution/testset.jl")
+
+
+# Machine features extraction
+include("execution/machine_benchmarking.jl")
+
+
 # Rules of the ruleset
 include("transform/parsing/hierarchy_transform_test_region.jl")
 include("transform/parsing/hierarchy_transform_benchmark_region.jl")
+include("transform/parsing/hierarchy_transform.jl")
 include("transform/parsing/target_transform.jl")
 include("transform/parsing/formula_transform.jl")
 include("transform/parsing/rules.jl")
@@ -76,11 +82,13 @@ include("transform/parsing/rules.jl")
 include("transform/auxiliar.jl")
 
 # Functions used by the generated suites
-include("execution/structs.jl")
 include("execution/printing.jl")
 include("execution/data_handling.jl")
 include("execution/units.jl")
 include("execution/misc.jl")
+
+# Bencher Interface
+include("bencher/BencherInterface.jl")
 
 # Base active rules
 rules = ASTRule[testset_macro_rule,
@@ -92,14 +100,17 @@ rules = ASTRule[testset_macro_rule,
                 test_warn_macro_rule,
                 test_nowarn_macro_rule,
     test_broken_macro_rule,
-    test_skip_macro_rule, perftest_macro_rule, back_macro_rule,
+    test_skip_macro_rule,
+    perftest_macro_rule,
+    back_macro_rule,
     prefix_macro_rule,
-#    suffix_macro_rule,
+    suffix_macro_rule,
     config_macro_rule,
     on_perftest_exec_rule,
     on_perftest_ignore_rule,
     define_memory_throughput_rule,
     define_metric_rule,
+    define_benchmark_rule,
     export_vars_rule,
     auxiliary_metric_rule, roofline_macro_rule,
     manual_macro_rule,
@@ -194,7 +205,7 @@ function treeRun(path::AbstractString)
     full = _treeRun(input_expr, ctx)
 
     # Insert suffix
-    full = MacroTools.postwalk(ruleSet(ctx, [suffix_macro_rule]), full)
+    #full = MacroTools.postwalk(ruleSet(ctx, [suffix_macro_rule]), full)
 
     # Mount inside a module environment
     module_full = Expr(:toplevel,

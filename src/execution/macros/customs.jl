@@ -106,9 +106,12 @@ define_eff_memory_throughput_validation = defineMacroParams([
     MacroParameter(
         :mem_benchmark,
         Symbol,
-        (x) -> x in [:COPY,:ADD,:MAX,:MEAN],
-        :COPY, #default
+        (x) -> x in [:MEM_STREAM_COPY,:MEM_STREAM_ADD],
+        :MEM_STREAM_COPY, #default
     ),
+    MacroParameter(
+        :custom_benchmark,
+        Symbol,),
     MacroParameter(Symbol(""),
                    ExtendedExpr,
                    true)
@@ -151,6 +154,32 @@ end
 Exports the specified symbols --along with the values they hold at the moment of the calling-- to the scope of metric definitions. In order to use any variable on the definition of a metric such variable needs to be exported with this macro.
 """
 macro export_vars(symbols...)
+    return :(
+        begin end
+    )
+end
+
+
+define_benchmark_validation = defineMacroParams([
+    MacroParameter(
+        :name,
+        String,
+        true
+    ),
+    MacroParameter(
+        :units,
+        String,
+        true
+    ),
+    MacroParameter(
+        Symbol(""),
+        ExtendedExpr,
+        true
+    )
+])
+"""
+"""
+macro define_benchmark(args...)
     return :(
         begin end
     )

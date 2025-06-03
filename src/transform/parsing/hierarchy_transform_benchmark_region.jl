@@ -93,14 +93,15 @@ function backTokenToContextUpdate!(input_expr::QuoteNode, context::Context)
     #end
 
     # Check if inside a for loop
-    if last(context._local.depth_record).for_loop !== nothing
+    #if last(context._local.depth_record).for_loop !== nothing
         # Update context: consolidate tree level
-        updateTestTreeUpwardsFor!(context.test_tree_expr_builder,
-                           context._local.depth_record[end].set_name, context)
-    else
-        updateTestTreeUpwards!(context.test_tree_expr_builder,
-                           context._local.depth_record[end].set_name, context._global.in_recursion)
-    end
+
+    #updateTestTreeUpwardsFor!(context.test_tree_expr_builder,
+    #                       context._local.depth_record[end].set_name, context)
+    #else
+    #    updateTestTreeUpwards!(context.test_tree_expr_builder,
+    #                       context._local.depth_record[end].set_name, context._global.in_recursion)
+    #end
     # Update context: delete depth level
     pop!(context._local.depth_record)
     pop!(context._local.custom_metrics)

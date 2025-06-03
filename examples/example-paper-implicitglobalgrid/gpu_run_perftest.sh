@@ -15,6 +15,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Example of modules to load for this experiment in case of running with slurm
+module load cuda
 module load julia
 
 
@@ -23,7 +24,8 @@ export OMP_NUM_THREADS=$1
 export JULIA_PROJECT="."
 
 # Use the provided argument for number of processes
-srun -n 1 $HOME/.juliaup/bin/julia -t $1 --optimize=3 --check-bounds=no transform.jl EXP_test_halo_thr.jl
+srun -n 1 julia -t $1 --optimize=3 --check-bounds=no transform.jl EXP_test_halo_thr_GPU.jl
+#srun -n 1 $HOME/.juliaup/bin/julia -t $1 --optimize=3 --check-bounds=no transform.jl EXP_test_halo_thr_GPU.jl
 
 
 

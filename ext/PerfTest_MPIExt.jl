@@ -22,8 +22,6 @@ function PerfTest.MPISetup(::Type{PerfTest.MPIMode},global_ctx :: Dict{Symbol,An
     MPI.Init()
     global_ctx[:is_main_rank] = ((global_ctx[:mpi_rank] = MPI.Comm_rank(MPI.COMM_WORLD)) == 0)
     global_ctx[:comm_size] = MPI.Comm_size(MPI.COMM_WORLD)
-    mpi_rank = 0
-    mpi_size = 1
     @info "MPI PerfTest is enabled"
 end
 

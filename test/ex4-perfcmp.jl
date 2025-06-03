@@ -13,6 +13,6 @@ end
         @perfcompare :median_time < 3
         @perfcompare :median_time < 5
         # @perfcompare :median_time < 1
-        x = @perftest samples=5 testfun(10)
+        x = @perftest testfun(10)
     end
 end

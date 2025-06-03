@@ -137,10 +137,16 @@ function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
     end
     println(@lpad(tab) * "."^72)
     print(@lpad(tab))
-    if test.threshold_max_percent isa Nothing
-        printThresholdLanding(test.threshold_min_percent * test.reference, metric.value, test.low_is_bad)
-    else
-        printIntervalLanding(test.threshold_min_percent * test.reference, test.threshold_max_percent * test.reference, metric.value, test.low_is_bad)
+    if metric.units == "bool"
+        print(test.succeeded ? "TRUE" : "FALSE")
+    else 
+        begin    
+        if test.threshold_max_percent isa Nothing
+            printThresholdLanding(test.threshold_min_percent * test.reference, metric.value, test.low_is_bad)
+        else    
+            printIntervalLanding(test.threshold_min_percent * test.reference, test.threshold_max_percent * test.reference, metric.value, test.low_is_bad)
+        end
+        end
     end
     println("")
     if test.full_print

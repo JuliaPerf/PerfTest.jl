@@ -73,12 +73,14 @@ end
 NOTE: SOME METRICS ARE REPEATED IN HERE AND INSIDE A METRIC RESULT, this redundancy is tolerated for now, the copy inside the methodology result might be substituted by a reference in the future.
 """
 struct Test_Result
-    primitives :: Dict{Symbol, Metric_Result}
+    name :: AbstractString
+    primitives :: Dict{Symbol, Any}
     metrics :: Dict{Symbol,Metric_Result}
     auxiliar :: Dict{Symbol,Metric_Result}
     methodology_results :: Vector{Methodology_Result}
 
-    Test_Result() = new(Dict{Symbol,Metric_Result}(),
+    Test_Result(name) = new(name,
+                        Dict{Symbol,Metric_Result}(),
                         Dict{Symbol,Metric_Result}(),
                         Dict{Symbol,Metric_Result}(),
                         Methodology_Result[])
@@ -99,4 +101,27 @@ This struct is the root of the data recording file, it can save several performa
 """
 @kwdef struct Perftest_Datafile_Root
     results :: Vector{Suite_Execution_Result}
+end
+
+
+
+mutable struct GlobalSuiteData
+    datafile :: Perftest_Datafile_Root
+    datafile_path :: AbstractString
+    origin_file :: AbstractString
+    builtins :: Dict{Symbol,Any}
+    custom_benchmarks::Dict{Symbol,Metric_Result}
+    # TODO Migrate to testsets eventually, the following variables are used to do regression checks
+    old::Union{Nothing, Dict{String,Union{Dict,Test_Result}}}
+    new::Dict{String,Union{Dict,Test_Result}}
+
+    GlobalSuiteData(datafile, path, origin) = new(datafile, path, origin, Dict{Symbol,Metric_Result}(), Dict{Symbol,Metric_Result}(), Dict{String,Union{Dict,Test_Result}}(), Dict{String,Union{Dict,Test_Result}}())
+end
+
+function main_rank() :: Bool
+    return true
+end
+
+function ranks() :: Int
+    return 1
 end

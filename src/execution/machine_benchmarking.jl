@@ -10,24 +10,24 @@ function getMachineInfo()::Expr
                 addLog("machine", "[MACHINE] CpuId failed, using default cache size")
                 [1024 * 1024 * 16]
             end
-            global _PRFT_GLOBAL[:machine][:cache_sizes] = size
+            global _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES] = size
 
             addLog("machine", "[MACHINE] Memory buffer size for benchmarking = $(size ./ 1024 ./ 1024) [MB]")
         end
     else
-        return quote
-            global _PRFT_GLOBAL[:machine][:cache_sizes] = [$(Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])]
+	return quote
+            global _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES] = [$(Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])]
 
-            addLog("machine", "[MACHINE] Set by config, benchmark buffer size = $(_PRFT_GLOBAL[:machine][:cache_sizes] ./ 1024 ./ 1024) [MB]")
+	    addLog("machine", "[MACHINE] Set by config, benchmark buffer size = $(_PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES][1] ./ 1024 ./ 1024) [MB]")
         end
     end
 end
 
-function measureCPUPeakFlops!(::Type{<:NormalMode}, _PRFT_GLOBAL::Dict{Symbol,Any})
+function measureCPUPeakFlops!(::Type{<:NormalMode}, _PRFT_GLOBALS::GlobalSuiteData)
     LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
     # In Flop/s
-    _PRFT_GLOBAL[:machine][:empirical][:peakflops] = LinearAlgebra.peakflops(; parallel=true)
-    addLog("machine", "[MACHINE] CPU max attainable flops = $(_PRFT_GLOBAL[:machine][:empirical][:peakflops]) [FLOP]")
+    _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK] = LinearAlgebra.peakflops(; parallel=true)
+    addLog("machine", "[MACHINE] CPU max attainable flops = $(_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]) [FLOP/S]")
 end
 
 using Base.Threads
@@ -87,14 +87,14 @@ function _run_kernels(copy, add;
 end
 
 
-function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBAL::Dict{Symbol,Any})
-    bench_data = _run_kernels(copy_kernel, add_kernel; N=div(_PRFT_GLOBAL[:machine][:cache_sizes][end], 2))
+function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBALS::GlobalSuiteData)
+    bench_data = _run_kernels(copy_kernel, add_kernel; N=div(_PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES][end], 2))
     # in Bytes/sec
     peakbandwidth = bench_data
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = Dict{Symbol, Number}()
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:COPY] = peakbandwidth[1]
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:ADD] = peakbandwidth[2]
-    addLog("machine", "[MACHINE] CPU max attainable bandwidth = $(_PRFT_GLOBAL[:machine][:empirical][:peakmemBW]) [Byte/s]")
+    _PRFT_GLOBALS.builtins[:MEM_STREAM] = peakbandwidth
+    _PRFT_GLOBALS.builtins[:MEM_STREAM_COPY] = peakbandwidth[1]
+    _PRFT_GLOBALS.builtins[:MEM_STREAM_ADD] = peakbandwidth[2]
+    addLog("machine", "[MACHINE] CPU max attainable bandwidth = $(_PRFT_GLOBALS.builtins[:MEM_STREAM]) [Byte/s]")
 end
 
 
@@ -102,11 +102,9 @@ function machineBenchmarks()::Expr
     quote
 	      # Block to create a separated scope
         let
-            _PRFT_GLOBAL[:machine] = Dict{Symbol,Any}()
-            _PRFT_GLOBAL[:machine][:empirical] = Dict{Symbol,Any}()
             $(getMachineInfo())
-            measureCPUPeakFlops!($mode, _PRFT_GLOBAL)
-            measureMemBandwidth!($mode, _PRFT_GLOBAL)
+            measureCPUPeakFlops!($mode, _PRFT_GLOBALS)
+            measureMemBandwidth!($mode, _PRFT_GLOBALS)
         end
     end
 end
