@@ -4,7 +4,7 @@ function scopeAssignment(input_expr::Expr, context::Context)::Expr
         @capture(input_expr, a_ = b_)
 
         return quote
-            a = $b
+            $b
         end
 end
 

@@ -21,12 +21,18 @@ mutable struct PerfTestSet <: AbstractTestSet
     # The following includes test results and snapshots of the metrics at test time
     test_results::Dict{String, Test_Result}
 
+    # To print the whole levels
+    parent_chain::Vector{AbstractString}
+
     # Constructor
     PerfTestSet(desc::String) = begin
         # Check if there is a parent
-        if !isa(Test.get_testset(), Test.FallbackTestSet)
+        if isa(Test.get_testset(), PerfTestSet)
+            parents = [Test.get_testset().parent_chain; Test.get_testset().description]
+        else
+            parents = AbstractString[]
         end
-        return new(desc, [], 0, 0, nothing, BenchmarkGroup(), Dict{String, Test_Result}())
+        return new(desc, [], 0, 0, nothing, BenchmarkGroup(), Dict{String, Test_Result}(), parents)
     end
 end
 
@@ -46,8 +52,14 @@ end
 function Test.finish(ts::PerfTestSet)
 
     # Print failed tests on the current level (or everything if verbose)
-    print(" " ^ get_testset_depth() * "AT: $ts.description")
     for (test_name,test_result) in ts.test_results
+        for parent in ts.parent_chain
+            print("IN: $(parent) ")
+        end
+        print(
+            "\n"
+        )
+        print(" " ^ get_testset_depth() * "AT: $(ts.description)\n")
         for methodology in test_result.methodology_results
             printMethodology(methodology, get_testset_depth(), Configuration.CONFIG["general"]["plotting"])
         end
@@ -74,6 +86,8 @@ function Test.get_test_counts(ts::PerfTestSet)
     passes, fails, errors, broken = ts.n_passed, 0, 0, 0
     c_passes, c_fails, c_errors, c_broken = 0, 0, 0, 0
     for t in ts.results
+        @show typeof(t) == PerfTestSet && t.description
+        isa(t, Pass)   && (passes  += 1)
         isa(t, Fail)   && (fails  += 1)
         isa(t, Error)  && (errors += 1)
         isa(t, Broken) && (broken += 1)
@@ -95,6 +109,7 @@ end
 """
 function Test.print_test_results(ts::PerfTestSet)
     passes, fails, errors, _, cp,cf,ce,_ = get_test_counts(ts)
+    @show get_test_counts(ts)
     print("Temporary print: $(passes + cp) PASSED, $(fails + cf) FAILED, $(errors+ce) ERRORS\n")
 end
 
@@ -111,7 +126,6 @@ var"@perftestset" = Test.var"@testset"
 function extractTestResults(ts :: PerfTestSet) :: Dict{String,Union{Dict,Test_Result}}
     dict = Dict{String,Union{Dict,Test_Result}}()
 
-    @show ts.results
     for t in ts.results
         if isa(t, Test.Result)
         else

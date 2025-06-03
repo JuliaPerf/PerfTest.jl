@@ -87,6 +87,9 @@ include("execution/data_handling.jl")
 include("execution/units.jl")
 include("execution/misc.jl")
 
+# Bencher Interface
+include("bencher/BencherInterface.jl")
+
 # Base active rules
 rules = ASTRule[testset_macro_rule,
                 test_macro_rule,

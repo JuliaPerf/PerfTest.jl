@@ -64,9 +64,9 @@ function buildPerfcmp(context :: Context) :: Expr
 
                 $buffer
 
-                if $(Configuration.CONFIG["general"]["verbose"]) || !(all_succeeded)
-                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
-                end
+                #if $(Configuration.CONFIG["general"]["verbose"]) || !(all_succeeded)
+                #    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
+                #end
 
                 for (r,test) in methodology_res.metrics
                     @test test.succeeded

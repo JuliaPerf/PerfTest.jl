@@ -123,13 +123,13 @@ function buildRoofline(context::Context)::Expr
                     $mode,
                     name="Peak empirical bandwidth",
                     units="B/s",
-                    value=_PRFT_GLOBAL[:machine][:empirical][:peakmemBW][$(QuoteNode(info[:mem_benchmark]))]
+                    value=_PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))]
                 )
                 aux_flops = newMetricResult(
                     $mode,
                     name="Peak empirical flops",
                     units="FLOP/s",
-                    value=_PRFT_GLOBAL[:machine][:empirical][:peakflops]
+                    value=_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]
                 )
                 aux_rcorner = newMetricResult(
                     $mode,
@@ -147,9 +147,9 @@ function buildRoofline(context::Context)::Expr
                 methodology_res.custom_elements[:plot] = PerfTest.printFullRoofline
 
                 # Printing
-                if $(Configuration.CONFIG["general"]["verbose"]) || !(flop_test.succeeded)
-                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
-                end
+                #if $(Configuration.CONFIG["general"]["verbose"]) || !(flop_test.succeeded)
+                #    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
+                #end
 
                 # Testing
                 try
