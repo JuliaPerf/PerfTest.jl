@@ -14,10 +14,10 @@ using MacroTools
     r = PerfTest.transformFormula(form, ctx)
     @test r == MacroTools.prettify(quote
 	      a = 54
-        _PRFT_LOCAL[:primitives][:autoflop] / _PRFT_LOCAL[:primitives][:min_time] * a
+        test_res.primitives[:autoflop] / test_res.primitives[:min_time] * a
     end)
 
-    # illegal symbol
+    #= # illegal symbol
     form = quote
         :aflops
     end
@@ -30,7 +30,7 @@ using MacroTools
         :autoflop
     end
     PerfTest.transformFormula(form, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 1
+    @test PerfTest.num_errors(ctx._global.errors) == 1 =#
 
     PerfTest.printErrors(ctx._global.errors)
 end

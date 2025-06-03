@@ -121,7 +121,7 @@ MPI.Init();
 nprocs = MPI.Comm_size(MPI.COMM_WORLD); # NOTE: these tests can run with any number of processes.
 ndims_mpi = GG.NDIMS_MPI;
 nneighbors_per_dim = GG.NNEIGHBORS_PER_DIM; # Should be 2 (one left and one right neighbor).
-nx = Int(round(sqrt(1024^3/8/16*NTHREADS/nprocs)));
+nx = Int(round(sqrt(1024^3/4/16*NTHREADS/nprocs)));
 ny = nx;
 nz = 5;
 dx = 1.0
@@ -133,7 +133,7 @@ dz = 1.0
 
     # Benchmark result multiplied by two to account for a write + read of the same bytes
     @define_benchmark name="GPUBandwidthCUDA" units="B/s" begin
-        if AMDGPU.functional()
+        if CUDA.functional()
             size_mb = 1000
             # Convert size from MB to bytes
             size_bytes = size_mb * 1024 * 1024
@@ -143,7 +143,7 @@ dz = 1.0
             device_data = CUDA.zeros(Float32, length(host_data))
             # Benchmark
             b = @benchmark begin CUDA.@sync(copyto!($device_data, $host_data))end;
-            size_mb * 2. / (median(b.times) / 1e9)
+            size_bytes * 2. / (median(b.times) / 1e9)
         else 
             0
         end
@@ -193,7 +193,7 @@ dz = 1.0
                     for i in 1:1
                         GG.write_h2h!(buf, P, ranges, 3);
                     end
-                    @perftest samples=100 begin
+                    @perftest begin
                     GG.read_h2h!(buf, P2, ranges, 3);
                     end
                     finalize_global_grid(finalize_MPI=false);
@@ -218,7 +218,6 @@ dz = 1.0
                         nthreads = (1, 1, 1)
                         halosize = [(r[end] - r[1]) + 1 for r = ranges]
                         nblocks = Tuple(ceil.(Int, halosize ./ nthreads))
-                        host_data .= 0.0;
                         custream = stream();
             	        @define_eff_memory_throughput custom_benchmark=GPUBandwidthCUDA begin
                 	        (nx * ny * 8) * 2 * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
