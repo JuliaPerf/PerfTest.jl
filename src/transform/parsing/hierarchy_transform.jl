@@ -46,7 +46,7 @@ function transformTestset(input_expr::Expr, context::Context)
             TS = @perftestset PerfTestSet $name  for $a in $b
                 local ts = Test.get_testset()
                 ts.iterator = $a
-
+                $(outerset ? :(ts.old_test_results = _PRFT_GLOBALS.old) : begin end)
                 # The code inside the testset
                 $inner_block
                 :__BACK_CONTEXT__
@@ -59,6 +59,7 @@ function transformTestset(input_expr::Expr, context::Context)
             TS = @perftestset PerfTestSet $name  begin
                 local ts = Test.get_testset()
 
+                $(outerset ? :(ts.old_test_results = _PRFT_GLOBALS.old) : begin end)
                 # The code inside the testset
                 $test_block
                 :__BACK_CONTEXT__
@@ -92,7 +93,18 @@ function transformPerftest(input_expr::Expr, context::Context)
         # Create Test_Result struct to save test data
         test_res = Test_Result($name)
         ts.test_results[$name] = test_res
-
+        # Regression logic
+        keys = $([i.set_name for i in context._local.depth_record])
+        append!(keys, [$name])
+        old_test_res = _PRFT_GLOBALS.old
+        for key in keys
+            if !(old_test_res isa Nothing) && haskey(old_test_res, key)
+                old_test_res = old_test_res[key]
+            else
+                old_test_res = nothing
+                break
+            end
+        end
         # Store additional data
         test_res.primitives[:autoflop] = $(
             if Configuration.CONFIG["general"]["autoflops"]

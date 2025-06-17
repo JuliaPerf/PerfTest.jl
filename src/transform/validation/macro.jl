@@ -1,6 +1,7 @@
 # Macro validation
 function defineMacroParams(params :: AbstractArray{MacroParameter})
-    return Dict{Symbol, MacroParameter}([(p.name, p) for p in params])
+    a = Dict{Symbol, MacroParameter}([(p.name, p) for p in params])
+    return a
 end
 
 function validateMacro(macro_param :: Dict{Symbol, MacroParameter})

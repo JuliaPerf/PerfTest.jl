@@ -98,7 +98,7 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                 methodology_res.custom_elements[:abs_ref] = magnitudeAdjust(aux_ref_value)
 
                 # Testing
-                @test test.succeeded
+                PerfTest.@_prftest test.succeeded
                 saveMethodologyData(test_res.name, methodology_res)
             end
         end

@@ -13,6 +13,10 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
     else
         info[:threshold] = Configuration.CONFIG["regression"]["default_threshold"]
     end
+    if haskey(info, :metrics)
+    else
+        info[:metrics] = :median_time
+    end
     push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
         id=:regression,
         name="Metric regression tracking",
@@ -24,41 +28,59 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
 end
 
 
-
 """
-  Syntax sugar
-
-  Returns an expression that returns the percentage difference of the new value vs the old value
-
-  If there is no old value 0 will be returned
+ Executes regression for one single metric
 """
-function regression(kind_index :: Symbol, ident_index :: Symbol)
+function regression(metric :: Symbol, info)
+    metric = QuoteNode(metric)
+    return quote
+        if haskey(test_res.metrics, $metric) && !(old_test_res isa Nothing) && haskey(old_test_res.metrics, $metric)
+            ratio = test_res.metrics[$metric] / test_res.metrics[$metric]
+            success = ratio > $(info[:threshold])
 
-    expr_old = quote
-        (by_index(_PRFT_GLOBAL[:old], _PRFT_LOCAL[:depth]))
-    end
-    expr_new = quote
-        _PRFT_LOCAL
-    end
+            result = newMetricResult($mode,
+                                    name=$("$metric Difference"),
+                                    units="%",
+                                    value=ratio * 100
+            )
+            test = Metric_Test(
+                reference=100.0,
+                threshold_min_percent=$(info[:threshold]) * 100,
+                threshold_max_percent=nothing,
+                low_is_bad=false,
+                succeeded=success,
+                custom_plotting=Symbol[],
+                full_print=true
+            )
 
-    # Kind indexation must be primitives, metrics or auxiliar
-    expr_old = Expr(:., expr_old, QuoteNode(kind_index))
-    expr_new = Expr(:ref, expr_new, QuoteNode(kind_index))
-    # Identifier indexation (in the old, the result is saved in a struct so we get the value property)
-    expr_old = Expr(:., Expr(:ref, expr_old, QuoteNode(ident_index)), QuoteNode(:value))
-    expr_new = Expr(:ref, expr_new, QuoteNode(ident_index))
+            push!(methodology_res.metrics, (result => test))
 
-    expr = quote
-        try
-            $expr_new / $expr_old - 1
-        catch e
-            addLog("regression", "Failed to compare new to old at $([d.name for d in _PRFT_LOCAL[:depth]])")
-            0.0
+            all_succeeded &= success
+        elseif !(old_test_res isa Nothing) && !haskey(test_res.metrics, $metric) && haskey(test_res.primitives, $metric) && haskey(old_test_res.primitives, $metric)
+            ratio = test_res.primitives[$metric] / old_test_res.primitives[$metric]
+            success = ratio > $(info[:threshold])
+
+            result = newMetricResult($mode,
+                                    name=$("$metric Difference"),
+                                    units="%",
+                                    value=ratio * 100
+            )
+            test = Metric_Test(
+                reference=0,
+                threshold_min_percent=$(info[:threshold]),
+                threshold_max_percent=nothing,
+                low_is_bad=false,
+                succeeded=success,
+                custom_plotting=Symbol[],
+                full_print=true
+            )
+
+            push!(methodology_res.metrics, (result => test))
+
+            all_succeeded &= success
         end
     end
-    return expr
 end
-
 
 """
   Returns an expression used to evaluate regression over a test target
@@ -70,69 +92,30 @@ function buildRegression(context::Context)::Expr
     if info isa Nothing
         return quote end
     else
+        info = info.params
         return quote
             let
-                # For all metrics if new worse than old by given threshold fail the test
-                # TODO: Find the reference to OLD VALUES
-                # TODO: Plug enable and disable
-                # Make config for parsing which primitives and metrics to use
-                # Primitives
-                success = $(regression(:primitives,:median_time)) < $(info.params[:threshold])
-
-                result = newMetricResult($mode,
-                                       name="Median Time Difference",
-                                       units="%",
-                                       value=$(regression(:primitives, :median_time))*100)
-                test = Metric_Test(
-                    reference=0,
-                    threshold_min_percent=$(info.params[:threshold]),
-                    threshold_max_percent=nothing,
-                    low_is_bad=false,
-                    succeeded=success,
-                    custom_plotting=Symbol[],
-                    full_print=true
-                )
-
-                # Custom metrics
-                $(
-                #     for metric in context._local.custom_metrics
-                #         success = -$(info.params[:threshold]) < $(@regression :metrics metric.symbol) < $(info.params[:threshold])
-
-                # result = newMetricResult($mode,
-                #                        name=metric.name * " Difference",
-                #                        units="%",
-                #                        value=value*100)
-                # test = Metric_Test(
-                #     reference=0,
-                #     threshold_min_percent=-$(info.params[:threshold]),
-                #     threshold_max_percent=$(info.params[:threshold]),
-                #     low_is_bad=false,
-                #     succeeded=success,
-                #     custom_plotting=Symbol[],
-                #     full_print=true
-                # )
-                #    end
-                )
-
                 methodology_res = Methodology_Result(
-                    name="Regression"
+                    name="Performance Regression Testing"
                 )
 
-                push!(methodology_res.metrics, (result => test))
-
-
-                # Printing
-                if $(Configuration.CONFIG["general"]["verbose"]) || !(test.succeeded)
-                    PerfTest.printMethodology(methodology_res, $(length(context._local.depth_record)), $(Configuration.CONFIG["general"]["plotting"]))
+                all_succeeded = true
+                $(
+                if info[:metrics] isa Symbol
+                    regression(info[:metrics], info)
+                else
+                    for i in info[:metrics]
+                        regression(i, info)
+                    end
+                end
+                )
+                
+                
+                for (r,test) in methodology_res.metrics
+                    PerfTest.@_prftest test.succeeded
                 end
 
-                # Saving
-                push!(by_index(_PRFT_GLOBAL[:new], _PRFT_LOCAL[:depth]).methodology_results, methodology_res)
-
-                # Testing
-                try
-                    @test test.succeeded
-                catch end
+                saveMethodologyData(test_res.name, methodology_res)
             end
         end
     end

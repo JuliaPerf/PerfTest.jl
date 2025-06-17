@@ -1,8 +1,9 @@
 module PerfTest
 
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars,
-    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust
+    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp
 
+using Test
 using MacroTools
 using MLStyle.Modules.AST
 using Configurations
@@ -65,6 +66,8 @@ include("execution/macros/configuration.jl")
 include("execution/structs.jl")
 include("execution/testset.jl")
 
+# Bencher Interface
+include("bencher/BencherInterface.jl")
 
 # Machine features extraction
 include("execution/machine_benchmarking.jl")
@@ -87,8 +90,6 @@ include("execution/data_handling.jl")
 include("execution/units.jl")
 include("execution/misc.jl")
 
-# Bencher Interface
-include("bencher/BencherInterface.jl")
 
 # Base active rules
 rules = ASTRule[testset_macro_rule,

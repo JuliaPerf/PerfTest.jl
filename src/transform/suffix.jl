@@ -160,24 +160,24 @@ function perftestsuffix(context :: Context)
                     end
                 end
 
-                if length(_PRFT_GLOBALS.datafile.results) > 0
-                    _PRFT_GLOBALS.old = _PRFT_GLOBALS.datafile.results[end].perftests
-                else
-                    _PRFT_GLOBALS.old = nothing
-                end
             end
+
+            testresdict = Dict{String,Union{Dict,Test_Result}}()
+            testresdict[TS.description] = extractTestResults(TS)
             # Save new results
             newres = Suite_Execution_Result(
                 timestamp=datetime2unix(now()),
                 benchmarks=TS.benchmarks,
                 # Populate new with results of current execution
-                perftests = extractTestResults(TS)
+                perftests = testresdict
             )
             push!(_PRFT_GLOBALS.datafile.results, newres)
 
             # No fails no errors
             if sum(Test.get_test_counts(TS)[2:3]) == 0
                 PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
+                # Export as json
+                BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
             end
             println("[✓] $path Performance tests have been finished")
         end

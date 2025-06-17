@@ -10,7 +10,7 @@ define_perfcmp_validation = defineMacroParams([
 
 """
 macro perfcompare(args...)
-    return  :(
+    return :(
         begin end
     )
 end

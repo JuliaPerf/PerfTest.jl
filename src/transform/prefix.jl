@@ -10,7 +10,7 @@ function perftestprefix(ctx :: Context)::Expr
 
     return quote
         using Test, Dates
-        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress,Test_Result,by_index,regression,Suite_Execution_Result,savePrimitives,main_rank,GlobalSuiteData,@perftestset,PerfTestSet,extractTestResults,saveMethodologyData
+        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress,Test_Result,by_index,regression,Suite_Execution_Result,savePrimitives,main_rank,GlobalSuiteData,@perftestset,PerfTestSet,extractTestResults,saveMethodologyData,BencherInterface
 
 
 
@@ -32,6 +32,12 @@ function perftestprefix(ctx :: Context)::Expr
 
             _PRFT_GLOBALS = GlobalSuiteData(datafile,path,$(ctx._global.original_file_path))
             MPISetup($mode, _PRFT_GLOBALS)
+
+            if length(_PRFT_GLOBALS.datafile.results) > 0
+                _PRFT_GLOBALS.old = _PRFT_GLOBALS.datafile.results[end].perftests
+            else
+                _PRFT_GLOBALS.old = nothing
+            end
         end
 
         # Do machine specs
