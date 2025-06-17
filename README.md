@@ -29,7 +29,7 @@ end
 end
 ```
 
-In this example, we are implementing a inner product function as part of a bigger vector operation packages. We are interested in evaluating the performance of that product, the following test file is a recipe to do so:
+In this basic example, we are implementing a inner product function as part of a bigger vector operation package. We are interested in evaluating the performance of that product, the following test file is a recipe to do so:
 
 
 ```julia
@@ -64,7 +64,6 @@ Where:
 
 
 PertTest.jl relies on a configuration file written in TOML to refer for settings that are not specified anywhere else. In case no file is present, it will be made with the default configuration enabled. Please see the documentation for more information.
-
 
 ## Dependencies
 
