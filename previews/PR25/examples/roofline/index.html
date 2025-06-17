@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Roofline example: option pricing · PerfTest.jl</title><meta name="title" content="Roofline example: option pricing · PerfTest.jl"/><meta property="og:title" content="Roofline example: option pricing · PerfTest.jl"/><meta property="twitter:title" content="Roofline example: option pricing · PerfTest.jl"/><meta name="description" content="Documentation for PerfTest.jl."/><meta property="og:description" content="Documentation for PerfTest.jl."/><meta property="twitter:description" content="Documentation for PerfTest.jl."/><meta property="og:url" content="https://JuliaPerf.github.io/PerfTest.jl/examples/roofline/"/><meta property="twitter:url" content="https://JuliaPerf.github.io/PerfTest.jl/examples/roofline/"/><link rel="canonical" href="https://JuliaPerf.github.io/PerfTest.jl/examples/roofline/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">PerfTest.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Introduction</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../macros/">Macros</a></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../mock2-memorythroughput/">Effective memory throughput</a></li><li><a class="tocitem" href="../mock3-roofline/">Roofline</a></li><li><a class="tocitem" href="../mock4-recursive/">Recursive Suite Generation</a></li></ul></li><li><a class="tocitem" href="../../limitations/">Limitations</a></li><li><a class="tocitem" href="../../api/">API reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Roofline example: option pricing</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Roofline example: option pricing</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/JuliaPerf/PerfTest.jl/blob/master/docs/src/examples/roofline.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Roofline-example:-option-pricing"><a class="docs-heading-anchor" href="#Roofline-example:-option-pricing">Roofline example: option pricing</a><a id="Roofline-example:-option-pricing-1"></a><a class="docs-heading-anchor-permalink" href="#Roofline-example:-option-pricing" title="Permalink"></a></h1><p>In this example we setup a roofline model methodology to test the resolution of a binomial tree using a slow implementation.</p><pre><code class="language-julia hljs">rfd_rt(r,t_per_p) = rfd(t) = exp(-r * t * t_per_p)
+up_st(sigma, t_per_p) = exp(sigma * sqrt(t_per_p))
+
+struct _Parameters
+    sigma   :: Float64
+    periods :: Int
+    t_per_p :: Float64
+    rfd     :: Function
+    up      :: Float64
+    K       :: Float64
+    S0      :: Float64
+    p       :: Float64
+end
+
+function setupProblem(sigma, t, periods_per_t, risk_free_rate, strike, price, p) :: _Parameters
+    return _Parameters(
+        sigma,
+        t * periods_per_t,
+        1 / periods_per_t,
+        rfd_rt(risk_free_rate, 1 / periods_per_t),
+        up_st(sigma, 1 / periods_per_t),
+        strike,
+        price,
+        p
+    )
+end
+
+function createBinomialTree(p :: _Parameters)::Tuple{Matrix,Array}
+
+    nodes = (p.periods + 1) * p.periods ÷ 2
+    # A and b
+    Tree = zeros(Float64, nodes, nodes)
+    B = zeros(Float64, nodes)
+
+    # Fill the body of the tree with the discounted expectations
+    for period in 1:(p.periods-1)
+        _nodes = ((period-1)*period÷2+1):((period+1)*(period+0)÷2)
+        for node in _nodes
+            Tree[node, node] = -1
+            Tree[node, node+period] = p.p * p.rfd(p.periods - period)
+            Tree[node, node+period+1] = 1 - p.p * p.rfd(p.periods - period)
+        end
+    end
+
+    # Fill the last level of the tree with the prices at maturity
+    xa = ((p.periods - 1) * p.periods ÷ 2 + 1)
+    xb = ((p.periods + 1) * (p.periods + 0) ÷ 2)
+    down = 1 / p.up
+
+    for node in xa:xb
+        Tree[node, node] = 1
+        B[node] = max((p.S0 * p.up^(xb - node) * down^(node - xa)) - p.K, 0.0)
+    end
+    return Tree, B
+end
+
+
+function solveTree(A::Matrix, b::Array, periods::Int)::Array
+
+    nodes = (periods + 1) * periods ÷ 2
+    X = zeros(Float64, nodes)
+    # Last level nodes from a to b
+    xa = ((periods - 1) * periods ÷ 2 + 1)
+    xb = ((periods + 1) * (periods + 0) ÷ 2)
+    for node in xa:xb
+        X[node] = b[node]
+    end
+    # Tree core nodes
+    for period in (periods-1):-1:1
+        _nodes = ((period-1)*period÷2+1):((period+1)*(period+0)÷2)
+        for node in _nodes
+            X[node] = A[node, node+period] * b[node+period] + A[node, node+period+1] * b[node+period+1]
+            b[node] = X[node]
+        end
+    end
+
+    return X
+end
+
+option_price(solution :: Array) = solution[1]
+</code></pre><p>The following is the recipe file that sets up the performance test suite:</p><pre><code class="language-julia hljs">using Test
+using PerfTest
+
+include(&quot;main3.jl&quot;)
+
+# CONFIG
+@perftest_config begin
+    regression.enabled = false
+    roofline.autoflops = true
+    roofline.tolerance.min_percentage = 1.0
+end
+
+
+@testset &quot;Performance Tests&quot; begin
+
+    @testset &quot;Tree construction&quot; begin
+
+        @testset &quot;Periods&quot; for n_periods in [16, 64, 128]
+
+            param = setupProblem(0.04, 1, n_periods, 0.04, 100, 100, 0.5)
+
+            @roofline actual_flops=:autoflop target_ratio=0.05 begin
+                mem = ((:iterator + 1) * :iterator)
+                :autoflop / mem
+            end
+            A, b = createBinomialTree(param)
+
+
+            @perftest solveTree(A, b, param.periods)
+        end
+    end
+end</code></pre><p>The recipe file specifies the following:</p><ul><li>The target will be evaluated using a roofline model</li><li>The basic regression methodology is disabled</li><li>The tolerance below the threshold will be zero</li><li>The autoflops feature is enabled</li><li>The roofline macro additionally receives how to calculate the flop count (actual_lops=:autoflop) and the threshold of the actual performance vs model performance is 5%</li></ul></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.12.0 on <span class="colophon-date" title="Tuesday 17 June 2025 11:46">Tuesday 17 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
