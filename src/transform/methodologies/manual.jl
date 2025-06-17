@@ -69,7 +69,7 @@ function buildPerfcmp(context :: Context) :: Expr
                 #end
 
                 for (r,test) in methodology_res.metrics
-                    @test test.succeeded
+                    PerfTest.@_prftest test.succeeded
                 end
 
                 saveMethodologyData(test_res.name, methodology_res)

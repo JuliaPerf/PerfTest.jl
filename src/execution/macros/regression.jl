@@ -6,15 +6,10 @@ define_regression_validation = defineMacroParams([
                    (x) -> 0.0 <= x <= 1.0,
                    0.05, #default
         false),
-    MacroParameter(:disable,
-        Union{String, Vector{String}},
+    MacroParameter(:metrics,
+        Union{Symbol,Vector{Symbol}},
         always_true,
-        [], #default
-        false),
-    MacroParameter(:enable,
-        Union{String,Vector{String}},
-        always_true,
-        [], #default
+        [:median_time], #default
         false),
 ])
 """
@@ -22,8 +17,7 @@ This macro is used to define the memory bandwidth of a target in order to execut
 
 # Arguments
  - threshold : the allowed minimum percentage over the maximum attainable that is allowed to pass the test
- - disable: do not track regression in the metric whose names are passed as argunment, it accepts a single string or a vector of strings. Non-existent metrics are ignored. Has priority over "enable" below
- - enable: do not track regression in the metric whose names are passed as argunment, it accepts a single string or a vector of strings. Non-existent metrics are ignored.
+ - enable: track regression in the metrics whose names are passed as argument, it accepts a single string or a vector of strings. Non-existent metrics are ignored.
 # Example:
 
 The following definition assumes that each execution of the target expression involves transacting 1000 bytes. Therefore the bandwith is 1000 / execution time.

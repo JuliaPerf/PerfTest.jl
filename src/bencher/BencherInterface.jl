@@ -142,4 +142,4 @@ function exportToJSON(filepath::String, suite::Suite_Execution_Result, include_a
 
 end
 
-end  # module
+end

@@ -39,8 +39,8 @@ roofline_validation = defineMacroParams([
     MacroParameter(
         :mem_benchmark,
         Symbol,
-        (x) -> x in [:COPY,:ADD,:MAX,:MEAN],
-        :COPY,
+        (x) -> x in [:MEM_STREAM_COPY,:MEM_STREAM_ADD],
+        :MEM_STREAM_COPY, #default
     ),
     MacroParameter(
         Symbol(""),

@@ -172,4 +172,5 @@ var"@PRFTSuppress" = Suppressor.var"@suppress"
 var"@PRFTCapture_out" = Suppressor.var"@capture_out"
 using CountFlops
 var"@PRFTCount_ops" = CountFlops.var"@count_ops"
+var"@_prftest" = Test.var"@test"
 PRFTflop = CountFlops.flop

@@ -59,7 +59,7 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
         override=true,
         params=info,
     ))
-
+    @show info
 
     addLog("metrics", "[METHODOLOGY] Defined ROOFLINE MODEL on $([i.set_name for i in ctx._local.depth_record])")
     return quote end
@@ -153,7 +153,7 @@ function buildRoofline(context::Context)::Expr
 
                 # Testing
                 try
-                    @test flop_test.succeeded #TODO TODO TODO
+                    PerfTest.@_prftest flop_test.succeeded
                     saveMethodologyData(test_res.name, methodology_res)
                 catch end
             end

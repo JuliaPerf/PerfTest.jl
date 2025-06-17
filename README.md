@@ -34,11 +34,15 @@ In this example, we are implementing a inner product function as part of a bigge
 
 ```julia
 using Test, PerfTest
+include("VecOps.jl") # Either that or using/import 
 
 # Disable regression enable verbosity to see successful tests
 @perftest_config "
 [general]
 verbose = true
+
+[regression]
+enabled = false
 "
 
 @testset "Simple test" begin

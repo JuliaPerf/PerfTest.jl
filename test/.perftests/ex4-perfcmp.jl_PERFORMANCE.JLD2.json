@@ -1,0 +1,12 @@
+{
+    "FIRST LEVEL::SECOND LEVEL::Test 1::Performance Assertion": {
+        ":(:median_time < 5)": {
+            "lower_value": 0.0,
+            "value": true
+        },
+        ":(:median_time < 3)": {
+            "lower_value": 0.0,
+            "value": true
+        }
+    }
+}
