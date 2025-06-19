@@ -13,13 +13,13 @@ suppress_output = true
 plotting = true
 save_folder = ".perftests"
 max_saved_results = 20
-verbose = false
+verbose = true
 logs_enabled = true
 safe_formulas = false
 
 [regression]
-enabled = false
-default_threshold = 0.05
+enabled = true
+default_threshold = 0.9
 
 [roofline]
 enabled = true

@@ -142,16 +142,16 @@ function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
     else 
         begin    
         if test.threshold_max_percent isa Nothing
-            printThresholdLanding(test.threshold_min_percent * test.reference, metric.value, test.low_is_bad)
+            printThresholdLanding(test.threshold_min_percent/100 * test.reference, metric.value, test.low_is_bad)
         else    
-            printIntervalLanding(test.threshold_min_percent * test.reference, test.threshold_max_percent * test.reference, metric.value, test.low_is_bad)
+            printIntervalLanding(test.threshold_min_percent/100 * test.reference, test.threshold_max_percent/100 * test.reference, metric.value, test.low_is_bad)
         end
         end
     end
     println("")
     if test.full_print
         println(@lpad(tab) * "."^72)
-        println(@lpad(tab) * "| Reference: " * @sprintf("%.3f", test.reference) * " [" * metric.units * "]" * " "^20 * "Threshold: " * @sprintf("%.3f", metric.value < test.reference || (test.threshold_max_percent isa Nothing) ? test.threshold_min_percent * test.reference : test.threshold_max_percent * test.reference) * " [" * metric.units * "]")
+        println(@lpad(tab) * "| Reference: " * @sprintf("%.3f", test.reference) * " [" * metric.units * "]" * " "^20 * "Threshold: " * @sprintf("%.3f", metric.value < test.reference || (test.threshold_max_percent isa Nothing) ? test.threshold_min_percent /100 * test.reference : test.threshold_max_percent /100 * test.reference) * " [" * metric.units * "]")
         print(@lpad(tab) * "| Got: ")
         if !(test.succeeded)
             p_red(@sprintf("%.3f", metric.value))

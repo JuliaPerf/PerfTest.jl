@@ -59,7 +59,6 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
         override=true,
         params=info,
     ))
-    @show info
 
     addLog("metrics", "[METHODOLOGY] Defined ROOFLINE MODEL on $([i.set_name for i in ctx._local.depth_record])")
     return quote end
@@ -97,11 +96,11 @@ function buildRoofline(context::Context)::Expr
 
                 $(if info[:test_flop]
                       quote
-                          success_flop = result_flop_ratio.value >= $(info[:target_ratio])
+                          success_flop = result_flop_ratio.value >= $(info[:target_ratio]) * 100
 
                           flop_test = Metric_Test(
                               reference=100,
-                              threshold_min_percent = $(info[:target_ratio]),
+                              threshold_min_percent = $(info[:target_ratio]) * 100,
                               threshold_max_percent = nothing,
                               low_is_bad = true,
                               succeeded = success_flop,

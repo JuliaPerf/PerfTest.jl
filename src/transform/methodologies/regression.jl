@@ -35,7 +35,7 @@ function regression(metric :: Symbol, info)
     metric = QuoteNode(metric)
     return quote
         if haskey(test_res.metrics, $metric) && !(old_test_res isa Nothing) && haskey(old_test_res.metrics, $metric)
-            ratio = test_res.metrics[$metric] / test_res.metrics[$metric]
+            ratio = test_res.metrics[$metric] / old_test_res.metrics[$metric]
             success = ratio > $(info[:threshold])
 
             result = newMetricResult($mode,
@@ -47,7 +47,7 @@ function regression(metric :: Symbol, info)
                 reference=100.0,
                 threshold_min_percent=$(info[:threshold]) * 100,
                 threshold_max_percent=nothing,
-                low_is_bad=false,
+                low_is_bad=true,
                 succeeded=success,
                 custom_plotting=Symbol[],
                 full_print=true
@@ -66,10 +66,10 @@ function regression(metric :: Symbol, info)
                                     value=ratio * 100
             )
             test = Metric_Test(
-                reference=0,
-                threshold_min_percent=$(info[:threshold]),
+                reference=100.0,
+                threshold_min_percent=$(info[:threshold]) * 100,
                 threshold_max_percent=nothing,
-                low_is_bad=false,
+                low_is_bad=true,
                 succeeded=success,
                 custom_plotting=Symbol[],
                 full_print=true

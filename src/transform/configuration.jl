@@ -183,8 +183,8 @@ DEFAULT = Dict(
         "safe_formulas" => false,
     ),
     "regression" => Dict(
-        "enabled" => false,
-        "default_threshold" => 0.05
+        "enabled" => true,
+        "default_threshold" => 0.9
     ),
     "roofline" => Dict(
         "enabled" => true,
