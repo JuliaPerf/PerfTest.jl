@@ -2,7 +2,7 @@
 # Memory and CPU benchmarks used by different methodologies
 
 function getMachineInfo()::Expr
-    if Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == false
+    if Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == 0
         return quote
             size = try
                 CpuId.cachesize()

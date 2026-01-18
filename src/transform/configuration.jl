@@ -163,7 +163,7 @@ CONFIG_SHAPE = Dict(
         "enabled" => Bool,
     ),
     "machine_benchmarking" => Dict(
-        "memory_bandwidth_test_buffer_size" => Union{Bool, Int}
+        "memory_bandwidth_test_buffer_size" => Int
     ),
     "MPI" => Dict(
         "enabled" => Bool,
@@ -209,7 +209,7 @@ DEFAULT = Dict(
         "enabled" => true,
     ),
     "machine_benchmarking" => Dict(
-        "memory_bandwidth_test_buffer_size" => false
+        "memory_bandwidth_test_buffer_size" => 0
     ),
     "MPI" => Dict(
         "enabled" => false,
