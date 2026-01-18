@@ -61,7 +61,6 @@ function MPIShareAndReduce!(value::Union{Number,Dict{Int64,Number}}, reduction_o
             acc = reduction_op(acc, local_value[i], size)
         end
 
-        @show acc
         return acc
     end
     return value
@@ -139,7 +138,6 @@ function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBAL::D
     _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:COPY] = _run_kernels(copy_kernel, add_kernel; N=N)[1] * _PRFT_GLOBAL[:comm_size]
     _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:ADD] = _run_kernels(copy_kernel, add_kernel; N=N)[2] * _PRFT_GLOBAL[:comm_size]
     sleep(_PRFT_GLOBAL[:mpi_rank] * 0.5)
-    @show _PRFT_GLOBAL[:machine][:empirical][:peakmemBW]
 end
 
 # MEM BW MPI END

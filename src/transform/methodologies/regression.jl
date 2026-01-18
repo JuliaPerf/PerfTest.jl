@@ -35,7 +35,7 @@ function regression(metric :: Symbol, info)
     metric = QuoteNode(metric)
     return quote
         if haskey(test_res.metrics, $metric) && !(old_test_res isa Nothing) && haskey(old_test_res.metrics, $metric)
-            ratio = test_res.metrics[$metric] / old_test_res.metrics[$metric]
+            ratio = test_res.metrics[$metric].value / old_test_res.metrics[$metric].value
             success = ratio > $(info[:threshold])
 
             result = newMetricResult($mode,
@@ -54,6 +54,14 @@ function regression(metric :: Symbol, info)
             )
 
             push!(methodology_res.metrics, (result => test))
+            
+            # Register tracked metric in auxiliar group for later usage in Bencher
+            methodology_res.custom_elements[$metric] =  (newMetricResult(
+                $mode,
+                name=test_res.metrics[$metric].name,
+                units=test_res.metrics[$metric].units,
+                value=test_res.metrics[$metric].value) => test
+            )
 
             all_succeeded &= success
         elseif !(old_test_res isa Nothing) && !haskey(test_res.metrics, $metric) && haskey(test_res.primitives, $metric) && haskey(old_test_res.primitives, $metric)
@@ -77,8 +85,17 @@ function regression(metric :: Symbol, info)
 
             push!(methodology_res.metrics, (result => test))
 
+            # Register tracked metric in auxiliar group for later usage in Bencher
+            methodology_res.custom_elements[$metric] = (newMetricResult(
+                $mode,
+                name=$("$metric"),
+                units="s",
+                value=test_res.primitives[$metric]) => test
+            )
+
             all_succeeded &= success
         end
+
     end
 end
 

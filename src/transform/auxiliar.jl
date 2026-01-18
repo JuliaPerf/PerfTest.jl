@@ -260,13 +260,3 @@ function grepOutputXGetNumber(output :: String, string ::String)::Float64
 
     return getNumber(String(grepOutput(output, string)[1]))
 end
-
-using Pkg
-
-function install_deps()
-    Pkg.add("BenchmarkTools")
-    Pkg.add("CountFlops")
-    Pkg.add("HDF5")
-    Pkg.add("STREAMBenchmark")
-    Pkg.add("Suppressor")
-end

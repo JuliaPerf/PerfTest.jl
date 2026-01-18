@@ -109,12 +109,29 @@ function Test.get_test_counts(ts::PerfTestSet)
     return passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, duration
 end
 
+function get_test_errors(ts::PerfTestSet)
+    errors = Error[]
+    for t in ts.results
+        isa(t, Error)  && (push!(errors, t))
+        if isa(t, AbstractTestSet)
+            append!(errors, get_test_errors(t))
+        end
+    end
+    return errors
+end
+
 """
    Will print the overall result of the test suite execution 
 """
 function Test.print_test_results(ts::PerfTestSet)
     passes, fails, errors, _, cp,cf,ce,_ = get_test_counts(ts)
     print("Aggregate Results: $(passes + cp) PASSED, $(fails + cf) FAILED, $(errors+ce) ERRORS\n")
+    err = get_test_errors(ts)
+    for _error in err    
+        println("ERROR:")
+        println(_error.value)
+        print(_error.backtrace)
+    end 
 end
 
 
@@ -148,7 +165,7 @@ end
 TODO
 """
 function saveMethodologyData(testname :: AbstractString, data :: Methodology_Result)
-	  ts = Test.get_testset()
+	ts = Test.get_testset()
     res :: Test_Result = ts.test_results[testname]
     push!(res.methodology_results, data)
 end

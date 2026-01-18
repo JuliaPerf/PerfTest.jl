@@ -147,7 +147,9 @@ CONFIG_SHAPE = Dict(
         "suppress_output" => Bool),
     "regression" => Dict(
         "enabled" => Bool,
-        "default_threshold" => Number
+        "custom_file" => String,
+        "default_threshold" => Number,
+        "use_bencher" => Bool,
     ),
     "roofline" => Dict(
         "enabled" => Bool,
@@ -167,6 +169,13 @@ CONFIG_SHAPE = Dict(
         "enabled" => Bool,
         "mode" => String
     ),
+    "bencher" => Dict(
+        "api_key" => String,
+        "api_url" => String,
+        "project_name" => String,
+        "organization" => String,
+        "custom_testbed_name" => String
+    )
 )
 
 DEFAULT = Dict(
@@ -184,7 +193,9 @@ DEFAULT = Dict(
     ),
     "regression" => Dict(
         "enabled" => true,
-        "default_threshold" => 0.9
+        "custom_file" => "",
+        "default_threshold" => 0.9,
+        "use_bencher" => false,
     ),
     "roofline" => Dict(
         "enabled" => true,
@@ -204,6 +215,13 @@ DEFAULT = Dict(
         "enabled" => false,
         "mode" => "reduce"
     ),
+    "bencher" => Dict(
+        "api_key" => "",
+        "api_url" => "https://api.bencher.dev",
+        "project_name" => "",
+        "organization" => "",
+        "custom_testbed_name" => ""
+    )
 )
 
 PARENT_CONFIGS = Dict[]

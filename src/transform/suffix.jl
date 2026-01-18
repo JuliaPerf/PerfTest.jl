@@ -177,9 +177,13 @@ function perftestsuffix(context :: Context)
             if sum(Test.get_test_counts(TS)[2:3]) == 0
                 PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
                 # Export as json
-                BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
+                #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
             end
             println("[✓] $path Performance tests have been finished")
+
+            # Bencher export using the REST API
+            bencher_config = Configuration.CONFIG["bencher"]
+            PerfTest.BencherREST.exportSuiteToBencher(_PRFT_GLOBALS.datafile, bencher_config)
         end
     end
 end

@@ -54,7 +54,7 @@ end
 
 
 # A custom methodology element is used to save informational metrics, other special values and custom functions to be executed after testing.
-Custom_Methodology_Elements = Union{Metric_Result,Float64,Function}
+Custom_Methodology_Elements = Union{Metric_Result,Float64,Function, Pair}
 
 
 """

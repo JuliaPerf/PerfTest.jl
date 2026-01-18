@@ -5,6 +5,7 @@ using PerfTest
 @perftest_config "
 [regression]
 enabled = true
+use_bencher = true
 "
 
 function testfun()
@@ -15,6 +16,6 @@ end
 
 @testset "FIRST LEVEL" begin
 	  @testset "SECOND LEVEL" begin
-	      x = @perftest samples=2 testfun()
+	      x = @perftest testfun()
     end
 end

@@ -20,6 +20,8 @@ safe_formulas = false
 [regression]
 enabled = true
 default_threshold = 0.9
+use_bencher = false
+custom_file = ""
 
 [roofline]
 enabled = true
@@ -31,3 +33,10 @@ default_threshold = 0.5
 
 [machine_benchmarking]
 memory_bandwidth_test_buffer_size = false
+
+[bencher]
+api_key = "FILL THIS IF IN USE"
+organization = "FILL THIS IF IN USE"
+api_url = "https://api.bencher.dev"
+project_name = "FILL THIS IF IN USE"
+custom_testbed_name = ""

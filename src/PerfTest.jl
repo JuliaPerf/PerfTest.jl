@@ -66,8 +66,6 @@ include("execution/macros/configuration.jl")
 include("execution/structs.jl")
 include("execution/testset.jl")
 
-# Bencher Interface
-include("bencher/BencherInterface.jl")
 
 # Machine features extraction
 include("execution/machine_benchmarking.jl")
@@ -90,6 +88,8 @@ include("execution/data_handling.jl")
 include("execution/units.jl")
 include("execution/misc.jl")
 
+# Bencher Interface
+include("bencher/BencherREST.jl")
 
 # Base active rules
 rules = ASTRule[testset_macro_rule,

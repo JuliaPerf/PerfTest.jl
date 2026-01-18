@@ -55,67 +55,6 @@ function processMethodology(methodology :: Methodology_Result) :: Dict{String, D
 end
 
 
-"""
-    flatten_test_hierarchy(results::Dict{String, Union{Dict, Test_Result}}, prefix::String="") -> Dict{String, Test_Result}
-
-Recursively flatten a nested dictionary of test results into a single-level dictionary.
-The hierarchy levels are incorporated into the keys using "::" as a separator.
-
-Example:
-    {
-        "level1": {
-            "level2": {
-                "benchmark_name": Test_Result
-            }
-        }
-    }
-
-    becomes:
-
-    {
-        "level1::level2::benchmark_name": Test_Result
-    }
-"""
-function processTestHierarchy(results::Dict{String, Union{Dict, Test_Result}}; prefix::String="", auxiliaries = false :: Bool) :: Dict{String, Dict}
-
-    flattened = Dict{String, Dict}()
-
-    for (key, value) in results
-        # Create the current path
-        current_path = isempty(prefix) ? key : "$prefix::$key"
-
-        if value isa Test_Result
-            # We found a Test_Result, add it to our flattened dictionary
-            for methodology in value.methodology_results
-                flattened[current_path * "::" * methodology.name] = processMethodology(methodology)
-            end
-            if auxiliaries
-                for (key,aux) in value.auxiliar
-                    flattened[current_path * "::" * "AUX::" * aux.name] = convertValueWithMagnitude(aux.value, aux.magnitude_mult)
-                end
-                for (key,aux) in value.primitives
-                    flattened[current_path * "::" * "AUX::"] = Dict()
-                    flattened[current_path * "::" * "AUX::"][String(key)] = aux
-                end
-                for (key,aux) in value.metrics
-                    flattened[current_path * "::" * "AUX::" * aux.name] = convertValueWithMagnitude(aux.value, aux.magnitude_mult)
-                end
-            end
-        elseif value isa Dict
-            # Recursively process nested dictionary
-            nested_results = processTestHierarchy(
-                value;
-                prefix=current_path,
-                auxiliaries=auxiliaries
-            )
-            merge!(flattened, nested_results)
-        else
-            @warn "Unexpected type encountered at $current_path: $(typeof(value))"
-        end
-    end
-
-    return flattened
-end
 
 """
     write_results_to_file(filepath::String, json_data::Dict)
