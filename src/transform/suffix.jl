@@ -182,8 +182,10 @@ function perftestsuffix(context :: Context)
             println("[✓] $path Performance tests have been finished")
 
             # Bencher export using the REST API
-            bencher_config = Configuration.CONFIG["bencher"]
-            PerfTest.BencherREST.exportSuiteToBencher(_PRFT_GLOBALS.datafile, bencher_config)
+            if Configuration.CONFIG["regression"]["use_bencher"]
+                bencher_config = Configuration.CONFIG["bencher"]
+                PerfTest.BencherREST.exportSuiteToBencher(_PRFT_GLOBALS.datafile, bencher_config)
+            end
         end
     end
 end
