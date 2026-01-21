@@ -148,7 +148,7 @@ function perftestToBenchmark!(input_expr::Expr, context::Context)
               end
           else
               quote
-                  _PRFT_LOCAL_SUITE[$name] = @PRFTBenchmark($(prop...), ($parsed_target));
+                  _PRFT_LOCAL_SUITE[$name] = @PRFTBenchmark($parsed_target, $(prop...));
                   _PRFT_LOCAL_ADDITIONAL[$name][:autoflop] = $(
                         if Configuration.CONFIG["general"]["autoflops"]
                           quote PRFTflop(@PRFTCount_ops ($parsed_target)) end
