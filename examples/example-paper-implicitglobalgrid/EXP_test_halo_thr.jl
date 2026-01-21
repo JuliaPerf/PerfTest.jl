@@ -17,6 +17,13 @@ NTHREADS = 16
 
 # 256M Elements on STREAM Benchmark (2GB)
 @perftest_config "
+[general]
+verbose = true
+autoflops = false
+
+[regression]
+enabled = false
+
 [machine_benchmarking]
 memory_bandwidth_test_buffer_size = 536870912
 "
@@ -58,29 +65,27 @@ dz = 1.0
                 P2 = zeros(size(P));
                 halowidths = (1,1,1)
                 # (dim=3)
-		buf = zeros(size(P ,1), size(P,2), halowidths[3]);
-		ranges = [1:size(P,1), 1:size(P,2), 1:1];
+		    buf = zeros(size(P ,1), size(P,2), halowidths[3]);
+		    ranges = [1:size(P,1), 1:size(P,2), 1:1];
 
-		i = 0
-		@define_eff_memory_throughput begin
-                    (nx * ny * 8) * 3 * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
-                end
-                @auxiliary_metric name="Time" units="s" begin
-                    :median_time
-                end
-                @auxiliary_metric name="MPI" units="size" begin
-                    MPI.Comm_size(MPI.COMM_WORLD);
-                end
-                for i in 1:1
-                    GG.write_h2h!(buf, P, ranges, 3);
-                end
-                @perftest begin
-             	   GG.read_h2h!(buf, P2, ranges, 3);
-                end
+            i = 0
+            @define_eff_memory_throughput ratio=0.9 begin
+                (nx * ny * 8) * 3 * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
+            end
+            @auxiliary_metric name="Time" units="s" begin
+                :median_time
+            end
+            @auxiliary_metric name="MPI" units="size" begin
+                MPI.Comm_size(MPI.COMM_WORLD);
+            end
+            for i in 1:1
+                GG.write_h2h!(buf, P, ranges, 3);
+            end
+            @perftest begin
+                GG.read_h2h!(buf, P2, ranges, 3);
+            end
                 finalize_global_grid(finalize_MPI=false);
             end;
-
-
         end;
     end;
 end;
