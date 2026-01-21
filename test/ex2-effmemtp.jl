@@ -24,7 +24,7 @@ end
 	  @testset "SECOND LEVEL" begin
 
         @define_eff_memory_throughput ratio=0.01 begin
-	          2.0 + 5.0
+	          2.0 + 5.0 * 1_000_000_000
         end
         @perftest x = testfun(10)
 
