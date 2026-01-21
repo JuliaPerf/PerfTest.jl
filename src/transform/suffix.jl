@@ -191,10 +191,6 @@ function perftestsuffix(context :: Context)
                 bencher_config = Configuration.CONFIG["bencher"]
                 PerfTest.BencherREST.exportSuiteToBencher(_PRFT_GLOBALS.datafile, bencher_config)
             end
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
         end
     end
 end
