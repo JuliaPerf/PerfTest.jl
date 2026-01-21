@@ -44,7 +44,7 @@ nprocs = MPI.Comm_size(MPI.COMM_WORLD); # NOTE: these tests can run with any num
 ndims_mpi = GG.NDIMS_MPI;
 nneighbors_per_dim = GG.NNEIGHBORS_PER_DIM; # Should be 2 (one left and one right neighbor).
 # 256M Elements (2GB)
-nx = Int(round(sqrt(536870912/16*NTHREADS/nprocs)));
+nx = Int(round(sqrt(1024^3/4/16*NTHREADS/nprocs)));
 ny = nx;
 nz = 5;
 dx = 1.0
@@ -81,7 +81,7 @@ dz = 1.0
             for i in 1:1
                 GG.write_h2h!(buf, P, ranges, 3);
             end
-            @perftest begin
+            @perftest samples=100 begin
                 GG.read_h2h!(buf, P2, ranges, 3);
             end
                 finalize_global_grid(finalize_MPI=false);
