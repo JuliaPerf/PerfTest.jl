@@ -172,6 +172,7 @@ function perftestsuffix(context :: Context)
             # Save new results
             newres = Suite_Execution_Result(
                 timestamp=datetime2unix(now()),
+                elapsed=time() - _t_begin,
                 benchmarks=TS.benchmarks,
                 # Populate new with results of current execution
                 perftests = testresdict
@@ -184,7 +185,7 @@ function perftestsuffix(context :: Context)
                 # Export as json
                 #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
             end
-            println("[✓] $path Performance tests have been finished")
+            println("[✓] $path Performance tests have been finished (elapsed $(newres.elapsed) s)")
 
             # Bencher export using the REST API
             if Configuration.CONFIG["regression"]["use_bencher"]

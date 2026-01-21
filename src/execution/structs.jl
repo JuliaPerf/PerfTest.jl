@@ -92,6 +92,7 @@ This struct saves a complete test suite result for one execution. It also saves 
 """
 @kwdef struct Suite_Execution_Result
     timestamp::Float64
+    elapsed :: Float64
     benchmarks::BenchmarkGroup
     perftests::Dict{String, Union{Dict, Test_Result}}
 end

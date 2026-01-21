@@ -12,7 +12,7 @@ function perftestprefix(ctx :: Context)::Expr
         using Test, Dates
         using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress,Test_Result,by_index,regression,Suite_Execution_Result,savePrimitives,main_rank,GlobalSuiteData,@perftestset,PerfTestSet,extractTestResults,saveMethodologyData,Configuration
 
-
+        _t_begin = time()
 
         if main_rank()
             # Used to save data about this test suite if needed

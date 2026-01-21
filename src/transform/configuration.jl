@@ -112,7 +112,7 @@ Args:
 Returns:
 - Loaded configuration dictionary or nothing
 """
-function load_config() :: Dict
+function load_config() :: Union{Dict, Nothing}
     try
         config = TOML.parsefile(CONFIG_FILE)
 

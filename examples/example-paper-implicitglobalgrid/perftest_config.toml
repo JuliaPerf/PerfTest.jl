@@ -8,15 +8,17 @@ enabled = false
 [general]
 recursive = true
 save_results = true
+autoflops = true
 suppress_output = true
 plotting = true
 save_folder = ".perftests"
 max_saved_results = 20
-verbose = true
+verbose = false
 logs_enabled = true
 safe_formulas = false
 
 [regression]
+enabled = true
 default_threshold = 0.9
 use_bencher = false
 custom_file = ""
@@ -30,7 +32,7 @@ enabled = true
 default_threshold = 0.5
 
 [machine_benchmarking]
-memory_bandwidth_test_buffer_size = false
+memory_bandwidth_test_buffer_size = 0
 
 [bencher]
 api_key = ""

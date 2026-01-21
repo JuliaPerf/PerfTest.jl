@@ -14,7 +14,7 @@ LOGS = Logger(String[
     "general"
 ], Set{AbstractString}(), Dict{AbstractString, IOBuffer}())
 
-LOG_FOLDER_PREFIX = ".perftest/perftest_logs_"
+LOG_FOLDER_PREFIX = ".perftest_logs/perftest_logs_"
 LOG_FOLDER= ""
 
 """
