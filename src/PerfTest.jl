@@ -186,6 +186,7 @@ The function will return a Julia expression with the resulting performance testi
 """
 function treeRun(path::AbstractString)
 
+    @warn "IF YOU SEE THIS PLEASE CONTACT VEGARD@USI.CH AND TELL HIM HE MERGED A DEVELOPMENT VERSION INTO MAIN"
     # Set log directory
     setLogFolder()
     # Clear logs

@@ -33,7 +33,7 @@ struct Metric_Result{N}
     mpi :: Union{Nothing, MPI_MetricInfo}
 end
 
-function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 0, reduct="")
+function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 1, reduct="")
 
     return Metric_Result(name,units,value,auxiliary, magnitude_prefix, magnitude_mult, nothing)
 end

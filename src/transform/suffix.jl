@@ -70,7 +70,9 @@
 #     end
 # end
 
-
+"""
+    DEPRECATED: PENDING REMOVAL
+"""
 function oldperftestsuffix(context :: Context)
     return quote
         # Local scope on the lowest level == Global scope
@@ -145,6 +147,9 @@ function oldperftestsuffix(context :: Context)
     end
 end
 
+"""
+    Builds the Julia expression that goes after the performance tests, it registers, prints and saves results given the measurements done above it.
+"""
 function perftestsuffix(context :: Context)
     return quote
         if main_rank()
@@ -186,6 +191,10 @@ function perftestsuffix(context :: Context)
                 bencher_config = Configuration.CONFIG["bencher"]
                 PerfTest.BencherREST.exportSuiteToBencher(_PRFT_GLOBALS.datafile, bencher_config)
             end
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
         end
     end
 end

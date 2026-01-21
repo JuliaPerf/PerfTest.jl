@@ -186,7 +186,7 @@ DEFAULT = Dict(
         "save_folder" => ".perftests",
         "max_saved_results" => 20,
         "plotting" => true,
-        "verbose" => true,
+        "verbose" => false,
         "recursive" => true,
         "suppress_output" => true,
         "safe_formulas" => false,
@@ -243,8 +243,8 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
 
     Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
 
-    if Configuration.CONFIG["general"]["verbose"] != old
-        addLog("general", "Verbosity level changed")
+    if Configuration.CONFIG["general"]["verbose"] != old["general"]["verbose"]
+        addLog("general", "Verbosity level changed from $(old["general"]["verbose"] ? "HIGH" : "LOW" ) to $(old["general"]["verbose"] ? "LOW" : "HIGH")")
     end
 
     io = IOBuffer()
