@@ -244,8 +244,12 @@ MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
 function __init__()
     # Precompile the transformation
-    Configuration.load_dummy_config()
-    x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
+    try 
+        Configuration.load_dummy_config()
+        x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
+    catch
+        @warn "Precompilation of transform could not be done during initialization. It will be done during the next function call."
+    end
 end
 
 end
