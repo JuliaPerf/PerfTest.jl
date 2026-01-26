@@ -242,5 +242,10 @@ transform = treeRun
 
 MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
+function __init__()
+    # Precompile the transformation
+    Configuration.load_dummy_config()
+    x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
+end
 
 end

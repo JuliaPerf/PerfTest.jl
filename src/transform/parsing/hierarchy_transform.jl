@@ -88,7 +88,7 @@ function transformPerftest(input_expr::Expr, context::Context)
     # Return the transformed expression, in the following quote ts means the current testset
     return quote
         # Run the benchmark
-        ts.benchmarks[$name] = @PRFTBenchmark($(prop...), ($parsed_target))
+        ts.benchmarks[$name] = @PRFTBenchmark(($parsed_target), $(prop...))
 
         # Create Test_Result struct to save test data
         test_res = Test_Result($name)

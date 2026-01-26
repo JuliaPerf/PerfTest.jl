@@ -131,6 +131,11 @@ function load_config() :: Union{Dict, Nothing}
     end
 end
 
+function load_dummy_config() :: Union{Dict, Nothing}
+    global CONFIG = PRECOMPILATION_CONFIG
+    return PRECOMPILATION_CONFIG
+end
+
 CONFIG_FILE = "perftest_config.toml"
 
 CONFIG_SHAPE = Dict(
@@ -188,6 +193,52 @@ DEFAULT = Dict(
         "plotting" => true,
         "verbose" => false,
         "recursive" => true,
+        "suppress_output" => true,
+        "safe_formulas" => false,
+    ),
+    "regression" => Dict(
+        "enabled" => true,
+        "custom_file" => "",
+        "default_threshold" => 0.9,
+        "use_bencher" => false,
+    ),
+    "roofline" => Dict(
+        "enabled" => true,
+        "default_threshold" => 0.5,
+    ),
+    "memory_bandwidth" => Dict(
+        "enabled" => true,
+        "default_threshold" => 0.5,
+    ),
+    "perfcompare" => Dict(
+        "enabled" => true,
+    ),
+    "machine_benchmarking" => Dict(
+        "memory_bandwidth_test_buffer_size" => 0
+    ),
+    "MPI" => Dict(
+        "enabled" => false,
+        "mode" => "reduce"
+    ),
+    "bencher" => Dict(
+        "api_key" => "",
+        "api_url" => "https://api.bencher.dev",
+        "project_name" => "",
+        "organization" => "",
+        "custom_testbed_name" => ""
+    )
+)
+
+PRECOMPILATION_CONFIG = Dict(
+    "general" => Dict(
+        "autoflops" => false,
+        "save_results" => false,
+        "logs_enabled" => false,
+        "save_folder" => ".thisshouldnotexist",
+        "max_saved_results" => 0,
+        "plotting" => true,
+        "verbose" => false,
+        "recursive" => false,
         "suppress_output" => true,
         "safe_formulas" => false,
     ),
