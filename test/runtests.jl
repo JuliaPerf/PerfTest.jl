@@ -7,4 +7,6 @@ if !(PerfTest.Configuration.load_config() isa Nothing)
     include("t2-validation-macro.jl")
     include("t3-transforms.jl")
 
+    rm(".perftest_logs", recursive=true, force=true)
+    rm(".perftests", recursive=true,force=true)
 end
