@@ -27,9 +27,9 @@ If the macro is evaluated it does not modify the target at all. The effects of t
 
 This macro is sensitive to context since other adjacent macros can change how the target will be evaluated.
         
-```julia
+`julia
 @perftest expression [parameters...]
-```
+`
 
 Run a performance test on a given target expression.
 
@@ -37,9 +37,9 @@ Run a performance test on a given target expression.
 
 The simplest usage is to place `@perftest` in front of the expression you want to test:
 
-```julia
+`
 julia> @perftest sin(1)
-```
+`
 
 # Additional parameters
 
@@ -65,19 +65,19 @@ You can pass the following keyword arguments to configure the execution process:
 
 ## Basic performance test
 
-```julia
+`
 julia> @perftest sin(1)
-```
+`
 
 ## With setup and teardown
 
-```julia
+`
  @perftest sort!(data) setup=(data=rand(100)) teardown=(data=nothing)
-```
+`
 
 ## With custom parameters
 
-```julia
+`
 # Run with a 3-second time budget
  @perftest sin(x) setup=(x=rand()) seconds=3
 
@@ -86,7 +86,7 @@ julia> @perftest sin(1)
 
 # Disable garbage collection before each sample
  @perftest allocating_function() gcsample=false gctrial=false
-```
+`
 
 # See Also
 
