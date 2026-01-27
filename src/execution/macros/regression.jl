@@ -20,9 +20,9 @@ This macro is used to define the memory bandwidth of a target in order to execut
  - enable: track regression in the metrics whose names are passed as argument, it accepts a single string or a vector of strings. Non-existent metrics are ignored.
 # Example:
 
-`
+```julia
     @regression threshold=0.9 enable=:median_time
-`
+```
 """
 macro regression(args...)
     return :(

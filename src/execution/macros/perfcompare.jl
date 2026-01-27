@@ -22,9 +22,9 @@ This macro is used to manually declare performance test conditions.
 
 # Example:
 
-`
+```julia
     @perfcompare :median_time < 0.05
-`
+```
 """
 macro perfcompare(args...)
     return :(

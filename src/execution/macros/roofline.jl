@@ -71,12 +71,12 @@ Any formula block specified in this macro supports these symbols.
 
 # Example
 
-`
+```julia
     @roofline actual_flops=:autoflop target_ratio=0.05 begin
         mem = ((:iterator + 1) * :iterator)
         :autoflop / mem
     end
-`
+```
 
 The code block defines operational intensity, whilst the other arguments define how to measure and compare the actual performance with the roofline performance. If the actual to projected performance ratio goes below the target, the test fails.
 
