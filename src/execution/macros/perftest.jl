@@ -82,7 +82,7 @@ julia> @perftest sin(1)
  @perftest sin(x) setup=(x=rand()) seconds=3
 
 # Limit to 100 samples with 10 evaluations each
- @perftest myfunction($data) samples=100 evals=10
+ @perftest myfunction(data) samples=100 evals=10
 
 # Disable garbage collection before each sample
  @perftest allocating_function() gcsample=false gctrial=false
