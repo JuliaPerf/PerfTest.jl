@@ -169,20 +169,30 @@ function perftestsuffix(context :: Context)
 
             testresdict = Dict{String,Union{Dict,Test_Result}}()
             if TS isa Vector
+                benchmarks = BenchmarkGroup()
                 for ts in TS
-                    testresdict[ts.description] = extractTestResults(TS)
+                    testresdict[ts.description * ts.iterator] = extractTestResults(TS)
+                    benchmarks[ts.description * ts.iterator] = ts.benchmarks
                 end
+                # Save new results
+                newres = Suite_Execution_Result(
+                    timestamp=datetime2unix(now()),
+                    elapsed=time() - _t_begin,
+                    benchmarks=benchmarks,
+                    # Populate new with results of current execution
+                    perftests = testresdict
+            )
             else
                 testresdict[TS.description] = extractTestResults(TS)
+                # Save new results
+                newres = Suite_Execution_Result(
+                    timestamp=datetime2unix(now()),
+                    elapsed=time() - _t_begin,
+                    benchmarks=TS.benchmarks,
+                    # Populate new with results of current execution
+                    perftests = testresdict
+                )
             end
-            # Save new results
-            newres = Suite_Execution_Result(
-                timestamp=datetime2unix(now()),
-                elapsed=time() - _t_begin,
-                benchmarks=TS.benchmarks,
-                # Populate new with results of current execution
-                perftests = testresdict
-            )
             push!(_PRFT_GLOBALS.datafile.results, newres)
 
             # No fails no errors
