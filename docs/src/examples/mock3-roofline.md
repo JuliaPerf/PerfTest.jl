@@ -37,8 +37,6 @@ end
     coeff = rand(N)
     x = 1.0
 
-    # To use a variable in macro formulas, it has to be exported (i.e. N)
-    @export_vars N
     @roofline actual_flops=:autoflop target_ratio=0.1 begin
         :autoflop / ((1 + N)*4)
     end
