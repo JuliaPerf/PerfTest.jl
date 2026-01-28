@@ -610,7 +610,7 @@ version = "2.8.1"
 
 [[deps.PerfTest]]
 deps = ["BenchmarkTools", "Configurations", "CountFlops", "CpuId", "Dates", "HTTP", "JLD2", "JSON", "LibGit2", "LinearAlgebra", "MLStyle", "MacroTools", "Pkg", "Printf", "Revise", "STREAMBenchmark", "Suppressor", "TOML", "Test", "UnicodePlots"]
-git-tree-sha1 = "e82c515ab89eb4790a3c84deb3dfbd5cf8a880f0"
+git-tree-sha1 = "d250fed091b1968b10af24d8315f7f6dabc5b6e4"
 repo-rev = "dev"
 repo-url = "/Users/dvegrod/.julia/dev/PerfTest"
 uuid = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"

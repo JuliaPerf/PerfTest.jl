@@ -244,16 +244,16 @@ transform = treeRun
 
 MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
-init_dummy_flag :: Bool = false
+init_dummy_flag :: Bool = true
 
 function __init__()
     # Precompile the transformation
     # This is a quite rudimentary (but effective) solution, a cleaner version is to be expected in the future 
     try 
         Configuration.load_dummy_config()
-        init_dummy_flag = true
+        global init_dummy_flag = true
         x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
-        init_dummy_flag = false
+        global init_dummy_flag = false
     catch
         @warn "Precompilation of transform could not be done during initialization. It will be performed during the next function call."
     end

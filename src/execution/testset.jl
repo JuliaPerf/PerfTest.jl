@@ -149,10 +149,10 @@ function extractTestResults(tss :: Vector{Any}) :: Dict{String, Union{Dict, Test
     dict = Dict{String,Union{Dict,Test_Result}}() 
 
     for ts in tss
-        results[ts.description * "_" * string(ts.iterator)] = extractTestResults(ts)
+        dict[ts.description * "_" * string(ts.iterator)] = extractTestResults(ts)
     end
 
-    return results
+    return dict
 end
 
 function extractTestResults(ts :: PerfTestSet) :: Dict{String,Union{Dict,Test_Result}}
