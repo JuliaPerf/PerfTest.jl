@@ -168,7 +168,13 @@ function perftestsuffix(context :: Context)
             end
 
             testresdict = Dict{String,Union{Dict,Test_Result}}()
-            testresdict[TS.description] = extractTestResults(TS)
+            if TS isa Vector
+                for ts in TS
+                    testresdict[ts.description] = extractTestResults(TS)
+                end
+            else
+                testresdict[TS.description] = extractTestResults(TS)
+            end
             # Save new results
             newres = Suite_Execution_Result(
                 timestamp=datetime2unix(now()),

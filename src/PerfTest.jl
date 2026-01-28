@@ -244,7 +244,7 @@ transform = treeRun
 
 MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
-init_dummy_flag :: Bool = true
+init_dummy_flag :: Bool = false
 
 function __init__()
     # Precompile the transformation
