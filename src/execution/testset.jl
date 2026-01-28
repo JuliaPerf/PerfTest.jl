@@ -113,6 +113,32 @@ function Test.get_test_counts(ts::PerfTestSet)
     return passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, duration
 end
 
+function get_test_counts(tss::Vector{Any})
+
+    passes, fails, errors, broken = 0, 0, 0, 0
+    c_passes, c_fails, c_errors, c_broken = 0, 0, 0, 0
+    
+    for ts in tss
+        for t in ts.results
+            isa(t, Pass)   && (passes  += 1)
+            isa(t, Fail)   && (fails  += 1)
+            isa(t, Error)  && (errors += 1)
+            isa(t, Broken) && (broken += 1)
+            if isa(t, AbstractTestSet)
+                np, nf, ne, nb, ncp, ncf, nce, ncb, duration = get_test_counts(t)
+                c_passes += np + ncp
+                c_fails += nf + ncf
+                c_errors += ne + nce
+                c_broken += nb + ncb
+            end
+        end
+    end
+
+    # We dont use this but we leave the field for compatibility with other types of TestSet
+    duration = ""
+    return passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, duration
+end
+
 function get_test_errors(ts::PerfTestSet)
     errors = Error[]
     for t in ts.results

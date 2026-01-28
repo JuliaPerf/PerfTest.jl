@@ -171,8 +171,8 @@ function perftestsuffix(context :: Context)
             if TS isa Vector
                 benchmarks = PerfTest.newBenchmarkGroup()
                 for ts in TS
-                    testresdict[ts.description * ts.iterator] = extractTestResults(TS)
-                    benchmarks[ts.description * ts.iterator] = ts.benchmarks
+                    testresdict[ts.description * "_" * string(ts.iterator)] = extractTestResults(TS)
+                    benchmarks[ts.description * "_" *string(ts.iterator)] = ts.benchmarks
                 end
                 # Save new results
                 newres = Suite_Execution_Result(
