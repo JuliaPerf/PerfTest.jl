@@ -192,7 +192,6 @@ function treeRun(path::AbstractString)
     # Clear logs
     #clearLogs()
     # Load configuration
-    config = Configuration.load_config()
     if !init_dummy_flag    
         config = Configuration.load_config()
     end
