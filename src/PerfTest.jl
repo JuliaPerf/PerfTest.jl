@@ -256,6 +256,7 @@ function __init__()
         global init_dummy_flag = false
     catch
         @warn "Precompilation of transform could not be done during initialization. It will be performed during the next function call."
+        global init_dummy_flag = false
     end
 end
 
