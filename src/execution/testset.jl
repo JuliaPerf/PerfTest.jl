@@ -39,6 +39,8 @@ mutable struct PerfTestSet <: AbstractTestSet
     end
 end
 
+BenchmarkGroup = BenchmarkTools.BenchmarkGroup
+
 
 # Save test results or child test sets
 function Test.record(ts::PerfTestSet, t::Result; extra_data = nothing)

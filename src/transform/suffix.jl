@@ -169,7 +169,7 @@ function perftestsuffix(context :: Context)
 
             testresdict = Dict{String,Union{Dict,Test_Result}}()
             if TS isa Vector
-                benchmarks = BenchmarkGroup()
+                benchmarks = PerfTest.BenchmarkGroup()
                 for ts in TS
                     testresdict[ts.description * ts.iterator] = extractTestResults(TS)
                     benchmarks[ts.description * ts.iterator] = ts.benchmarks
