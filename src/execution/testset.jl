@@ -39,7 +39,9 @@ mutable struct PerfTestSet <: AbstractTestSet
     end
 end
 
-BenchmarkGroup = BenchmarkTools.BenchmarkGroup
+function newBenchmarkGroup() :: BenchmarkGroup
+    return BenchmarkGroup()
+end
 
 
 # Save test results or child test sets
