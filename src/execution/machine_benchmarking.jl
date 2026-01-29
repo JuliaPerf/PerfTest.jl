@@ -98,7 +98,7 @@ function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBALS::GlobalSuiteDa
 end
 
 
-function machineBenchmarks()::Expr
+function machineBenchmarks(mode ::Type{<:NormalMode})::Expr
     quote
 	      # Block to create a separated scope
         let

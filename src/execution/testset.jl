@@ -46,6 +46,10 @@ end
 
 # Save test results or child test sets
 function Test.record(ts::PerfTestSet, t::Result; extra_data = nothing)
+    if !main_rank(mode)
+        return ts
+    end
+
     nt = nothing
     if isa(t, Pass)
         ts.n_passed += 1
@@ -57,6 +61,9 @@ function Test.record(ts::PerfTestSet, child::AbstractTestSet)
 end
 
 function Test.finish(ts::PerfTestSet)
+    if !main_rank(mode)
+        return ts
+    end
 
     # Print failed tests on the current level (or everything if verbose)
     for (test_name,test_result) in ts.test_results
@@ -113,7 +120,7 @@ function Test.get_test_counts(ts::PerfTestSet)
     return passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, duration
 end
 
-function get_test_counts(tss::Vector{Any})
+function Test.get_test_counts(tss::Vector{Any})
 
     passes, fails, errors, broken = 0, 0, 0, 0
     c_passes, c_fails, c_errors, c_broken = 0, 0, 0, 0
@@ -154,6 +161,10 @@ end
    Will print the overall result of the test suite execution 
 """
 function Test.print_test_results(ts::PerfTestSet)
+    if !main_rank(mode)
+        return ts
+    end
+
     passes, fails, errors, _, cp,cf,ce,_ = get_test_counts(ts)
     print("Aggregate Results: $(passes + cp) PASSED, $(fails + cf) FAILED, $(errors+ce) ERRORS\n")
     err = get_test_errors(ts)

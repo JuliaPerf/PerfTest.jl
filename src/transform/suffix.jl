@@ -152,7 +152,7 @@ end
 """
 function perftestsuffix(context :: Context)
     return quote
-        if main_rank()
+        if main_rank($mode)
             # Deal with recorder results
             let
                 res_num = length(_PRFT_GLOBALS.datafile.results)
@@ -208,6 +208,8 @@ function perftestsuffix(context :: Context)
                 bencher_config = Configuration.CONFIG["bencher"]
                 PerfTest.BencherREST.exportSuiteToBencher(_PRFT_GLOBALS.datafile, bencher_config)
             end
+            
+            PerfTest.clean($mode) 
         end
     end
 end

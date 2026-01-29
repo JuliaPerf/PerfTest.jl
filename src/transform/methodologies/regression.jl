@@ -17,6 +17,10 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
     else
         info[:metrics] = :median_time
     end
+    if haskey(info, :low_is_bad)
+    else
+        info[:low_is_bad] = false
+    end
     push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
         id=:regression,
         name="Metric regression tracking",
@@ -24,7 +28,7 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
         params=info,
     ))
 
-    addLog("metrics", "[METHODOLOGY] Defined REGRESSION on $([i.set_name for i in ctx._local.depth_record])")
+    addLog("metrics", "[METHODOLOGY] Defined REGRESSION on $([i.set_name for i in ctx._local.depth_record]) TH: $(info[:threshold]) LOW_IS_BAD: $(info[:low_is_bad])")
 end
 
 
@@ -33,10 +37,12 @@ end
 """
 function regression(metric :: Symbol, info)
     metric = QuoteNode(metric)
+
+    success_expr = :($(info[:low_is_bad] ? :(>) : :(<))(ratio ,$(info[:threshold])))
     return quote
         if haskey(test_res.metrics, $metric) && !(old_test_res isa Nothing) && haskey(old_test_res.metrics, $metric)
             ratio = test_res.metrics[$metric].value / old_test_res.metrics[$metric].value
-            success = ratio > $(info[:threshold])
+            success = $success_expr
 
             result = newMetricResult($mode,
                                     name=$("$metric Difference"),
@@ -47,7 +53,7 @@ function regression(metric :: Symbol, info)
                 reference=100.0,
                 threshold_min_percent=$(info[:threshold]) * 100,
                 threshold_max_percent=nothing,
-                low_is_bad=true,
+                low_is_bad=$(info[:low_is_bad]),
                 succeeded=success,
                 custom_plotting=Symbol[],
                 full_print=true
@@ -66,7 +72,7 @@ function regression(metric :: Symbol, info)
             all_succeeded &= success
         elseif !(old_test_res isa Nothing) && !haskey(test_res.metrics, $metric) && haskey(test_res.primitives, $metric) && haskey(old_test_res.primitives, $metric)
             ratio = test_res.primitives[$metric] / old_test_res.primitives[$metric]
-            success = ratio > $(info[:threshold])
+            success = $success_expr
 
             result = newMetricResult($mode,
                                     name=$("$metric Difference"),
@@ -77,7 +83,7 @@ function regression(metric :: Symbol, info)
                 reference=100.0,
                 threshold_min_percent=$(info[:threshold]) * 100,
                 threshold_max_percent=nothing,
-                low_is_bad=true,
+                low_is_bad=$(info[:low_is_bad]),
                 succeeded=success,
                 custom_plotting=Symbol[],
                 full_print=true

@@ -130,7 +130,6 @@ function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
         print(" "^10)
         p_yellow("MPI Enabled")
         print(" ")
-        p_blue(metric.mpi.reduct)
         println(" - " * string(metric.mpi.size) * " ranks")
     else
         println()

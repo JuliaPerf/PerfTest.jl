@@ -14,7 +14,9 @@ function perftestprefix(ctx :: Context)::Expr
 
         _t_begin = time()
 
-        if main_rank()
+        MPISetup($mode)
+        
+        if main_rank($mode)
             # Used to save data about this test suite if needed
             path = $("./$(Configuration.CONFIG["general"]["save_folder"])/$(suite_name).JLD2")
 
@@ -43,18 +45,19 @@ function perftestprefix(ctx :: Context)::Expr
             end
 
             _PRFT_GLOBALS = GlobalSuiteData(datafile,path,$(ctx._global.original_file_path))
-            MPISetup($mode, _PRFT_GLOBALS)
 
             if length(regression_file.results) > 0
                 _PRFT_GLOBALS.old = regression_file.results[end].perftests
             else
                 _PRFT_GLOBALS.old = nothing
             end
+        else
+            _PRFT_GLOBALS = GlobalSuiteData()
         end
 
         # Do machine specs
         # Will compute peak flops and peak bandwidth and populate
-        $(machineBenchmarks())
+        $(machineBenchmarks(mode))
 
         # Methodology prefixes
         #$(regressionPrefix(ctx))

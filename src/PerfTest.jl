@@ -194,6 +194,8 @@ function treeRun(path::AbstractString)
     # Load configuration
     if !init_dummy_flag    
         config = Configuration.load_config()
+    else
+        config = Configuration.load_dummy_config()
     end
 
     if config["general"]["verbose"]
@@ -250,7 +252,6 @@ function __init__()
     # Precompile the transformation
     # This is a quite rudimentary (but effective) solution, a cleaner version is to be expected in the future 
     try 
-        Configuration.load_dummy_config()
         global init_dummy_flag = true
         x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
         global init_dummy_flag = false

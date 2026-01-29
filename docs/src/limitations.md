@@ -10,5 +10,5 @@ There are a couple of things to keep into consideration when using the package:
 
 1. Easier access to performance suite results after execution
 2. Simplification of the package structure, there will be an emphasis on making the package easy to extend for unfamiliarised developers
-3. Access to performance counter values through LIKWID (hopefully by June 2025)
+3. Access to performance counter values through LIKWID
 4. Alternative regression testing against git commits instead of last execution for easier testing

@@ -107,7 +107,7 @@ end
 
 
 mutable struct GlobalSuiteData
-    datafile :: Perftest_Datafile_Root
+    datafile :: Union{Nothing,Perftest_Datafile_Root}
     datafile_path :: AbstractString
     origin_file :: AbstractString
     builtins :: Dict{Symbol,Any}
@@ -117,12 +117,21 @@ mutable struct GlobalSuiteData
     new::Dict{String,Union{Dict,Test_Result}}
 
     GlobalSuiteData(datafile, path, origin) = new(datafile, path, origin, Dict{Symbol,Metric_Result}(), Dict{Symbol,Metric_Result}(), Dict{String,Union{Dict,Test_Result}}(), Dict{String,Union{Dict,Test_Result}}())
+    GlobalSuiteData() = new(nothing, "", "",  Dict{Symbol,Metric_Result}(), Dict{Symbol,Metric_Result}(), Dict{String,Union{Dict,Test_Result}}(), Dict{String,Union{Dict,Test_Result}}())
 end
 
-function main_rank() :: Bool
+function main_rank(mode :: Type{<:NormalMode}) :: Bool
     return true
 end
 
-function ranks() :: Int
+function ranks(mode :: Type{<:NormalMode}) :: Int
     return 1
+end
+
+
+function mpi_rank(mode :: Type{<:NormalMode}) :: Int
+    return 0
+end
+
+function clean(mode :: Type{<:NormalMode})
 end

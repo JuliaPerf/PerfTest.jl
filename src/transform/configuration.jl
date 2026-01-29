@@ -199,7 +199,7 @@ DEFAULT = Dict(
     "regression" => Dict(
         "enabled" => true,
         "custom_file" => "",
-        "default_threshold" => 0.9,
+        "default_threshold" => 1.1,
         "use_bencher" => false,
     ),
     "roofline" => Dict(

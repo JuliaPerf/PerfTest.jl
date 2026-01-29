@@ -111,6 +111,9 @@ function backTokenToContextUpdate!(input_expr::QuoteNode, context::Context)
     return nothing;
 end
 
+"""
+    DEPRECATED: PENDING REMOVAL
+"""
 function perftestToBenchmark!(input_expr::Expr, context::Context)
     # Get the elements of interest from the macrocall
     @capture(input_expr, @perftest prop__ expr_)
