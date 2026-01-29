@@ -147,6 +147,9 @@ module BencherREST
         return (project, branch, testbed)
     end
 
+    """
+    
+    """
     function exportSuiteToBencher(datafile :: Perftest_Datafile_Root, config :: Dict)
         # New report of benchmarks
         report_benchmarks = Dict()
