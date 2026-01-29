@@ -1,7 +1,7 @@
 name = "PerfTest"
 uuid = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
 authors = ["Dvegrod <dvegrodu@gmail.com>, Samuel Omlin <samuel.omlin@cscs.ch>, and contributors"]
-version = "0.1.0"
+version = "0.1.5"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
