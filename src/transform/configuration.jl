@@ -243,7 +243,7 @@ PRECOMPILATION_CONFIG = Dict(
         "safe_formulas" => false,
     ),
     "regression" => Dict(
-        "enabled" => true,
+        "enabled" => false,
         "custom_file" => "",
         "default_threshold" => 0.9,
         "use_bencher" => false,

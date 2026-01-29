@@ -207,39 +207,43 @@ dz = 1.0
                     P  = GPUArray(P);
                     halowidths = (1,1,1)
                     if array_type == "CUDA"
-                        # (dim=3)
-                        dim = 3
-                        P2 = gpuzeros(eltype(P), size(P))
-                        buf = zeros(size(P, 1), size(P, 2), halowidths[dim])
-                        buf .= 0.0
-                        P2 .= 0.0
-                        ranges = [1:size(P, 1), 1:size(P, 2), 1:1]
-                        nthreads = (1, 1, 1)
-                        halosize = [(r[end] - r[1]) + 1 for r = ranges]
-                        nblocks = Tuple(ceil.(Int, halosize ./ nthreads))
-                        custream = stream();
-            	        @define_eff_memory_throughput custom_benchmark=GPUBandwidthCUDA begin
-                	        (nx * ny * 8) * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
-            	        end	
-                        @perftest begin
-                            CUDA.@sync GG.read_h2d_async!(buf, P2, ranges, custream)
+                        @testset "CUDA" begin
+                            # (dim=3)
+                            dim = 3
+                            P2 = gpuzeros(eltype(P), size(P))
+                            buf = zeros(size(P, 1), size(P, 2), halowidths[dim])
+                            buf .= 0.0
+                            P2 .= 0.0
+                            ranges = [1:size(P, 1), 1:size(P, 2), 1:1]
+                            nthreads = (1, 1, 1)
+                            halosize = [(r[end] - r[1]) + 1 for r = ranges]
+                            nblocks = Tuple(ceil.(Int, halosize ./ nthreads))
+                            custream = stream();
+                            @define_eff_memory_throughput custom_benchmark=GPUBandwidthCUDA begin
+                                (nx * ny * 8) * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
+                            end	
+                            @perftest begin
+                                CUDA.@sync GG.read_h2d_async!(buf, P2, ranges, custream)
+                            end
                         end
                     elseif array_type == "AMDGPU"
-                        # (dim=3)
-                        dim = 3
-                        P2 = gpuzeros(eltype(P), size(P))
-                        buf = zeros(size(P, 1), size(P, 2), halowidths[dim])
-                        ranges = [1:size(P, 1), 1:size(P, 2), 1:1]
-                        nthreads = (1, 1, 1)
-                        halosize = [(r[end] - r[1]) + 1 for r = ranges]
-                        nblocks = Tuple(ceil.(Int, halosize ./ nthreads))
-                        rocstream = AMDGPU.HIPStream()
-            	        @define_eff_memory_throughput custom_benchmark=GPUBandwidthROC begin
-                	        (nx * ny * 8) * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
-            	        end	
-                        @perftest begin
-                            GG.read_h2d_async!(buf, P2, ranges, rocstream)
-                            AMDGPU.synchronize()
+                        @testset "AMD" begin
+                            # (dim=3)
+                            dim = 3
+                            P2 = gpuzeros(eltype(P), size(P))
+                            buf = zeros(size(P, 1), size(P, 2), halowidths[dim])
+                            ranges = [1:size(P, 1), 1:size(P, 2), 1:1]
+                            nthreads = (1, 1, 1)
+                            halosize = [(r[end] - r[1]) + 1 for r = ranges]
+                            nblocks = Tuple(ceil.(Int, halosize ./ nthreads))
+                            rocstream = AMDGPU.HIPStream()
+                            @define_eff_memory_throughput custom_benchmark=GPUBandwidthROC begin
+                                (nx * ny * 8) * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
+                            end	
+                            @perftest begin
+                                GG.read_h2d_async!(buf, P2, ranges, rocstream)
+                                AMDGPU.synchronize()
+                            end
                         end
                     end
                     finalize_global_grid(finalize_MPI=false);

@@ -8,17 +8,17 @@ enabled = false
 [general]
 recursive = true
 save_results = true
-autoflops = true
+autoflops = false
 suppress_output = true
 plotting = true
 save_folder = ".perftests"
 max_saved_results = 20
-verbose = false
+verbose = true
 logs_enabled = true
 safe_formulas = false
 
 [regression]
-enabled = true
+enabled = false
 default_threshold = 0.9
 use_bencher = false
 custom_file = ""
