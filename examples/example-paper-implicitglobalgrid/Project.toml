@@ -1,7 +1,10 @@
 [deps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+CellArrays = "d35fcfd7-7af4-4c67-b1aa-d78070614af4"
 ImplicitGlobalGrid = "4d7a3746-15be-11ea-1130-334b0c4f5fa0"
 LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 PerfTest = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 ThreadPinning = "811555cd-349b-4f26-b7bc-1f208b848042"

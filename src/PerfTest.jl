@@ -1,6 +1,6 @@
 module PerfTest
 
-export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars,
+export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars, @define_benchmark,
     @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp
 
 using Test
@@ -186,7 +186,6 @@ The function will return a Julia expression with the resulting performance testi
 """
 function treeRun(path::AbstractString)
 
-    @warn "IF YOU SEE THIS PLEASE CONTACT VEGARD@USI.CH AND TELL HIM HE MERGED A DEVELOPMENT VERSION INTO MAIN"
     # Set log directory
     setLogFolder()
     # Clear logs
