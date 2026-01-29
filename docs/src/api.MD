@@ -33,7 +33,7 @@ Order = [:function, :macro]
 ```
 #### Documentation
 ```@autodocs
-Modules = [PerfTest, PerfTest.Configuration, PerfTest.BencherInterface]
+Modules = [PerfTest, PerfTest.Configuration]
 Order   = [:function, :macro]
 ```
 
