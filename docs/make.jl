@@ -22,7 +22,7 @@ MarkdownExtensions.expand_reflinks(reflinks; rootdir=DOCSRC)
 
 @info "Building documentation website using Documenter.jl..."
 makedocs(;
-    modules  = [PerfTest, PerfTest.Configuration, PerfTest.BencherInterface],
+    modules  = [PerfTest, PerfTest.Configuration, PerfTest.BencherREST],
     authors  = "Daniel Sergio Vega Rodriguez, Samuel Omlin, and contributors",
     repo     = "https://github.com/JuliaPerf/PerfTest.jl/blob/{commit}{path}#{line}",
     sitename = "PerfTest.jl",
