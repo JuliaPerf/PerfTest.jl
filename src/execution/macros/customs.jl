@@ -80,6 +80,8 @@ auxiliary_metric_validation = define_metric_validation
 # Arguments
  - `name` : the name of the metric for identification purposes.
  - `units` : the unit space that the metric values will be in.
+ - `mem_benchmark` : which STREAM kernel benchmark to use (e.g :MEM_STREAM_COPY for transfer operations :MEM_STREAM_ADD for transfer and computing)
+ - `custom_benchmark` : in case of using a custom benchmark, the symbol that identifies the chosen benchmark, (must have been defined before)
  - formula block : an expression that returns a single value, which would be the metric value. The formula can have any julia expression inside and additionally some special symbols are supported. The formula may be evaluated several times, so its applied to every target in every test set or just once, if the formula is defined inside a test set, which makes it only applicable to it.
 
 # Special symbols:
