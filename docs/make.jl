@@ -35,6 +35,7 @@ makedocs(;
         #assets           = [asset("https://img.shields.io/github/stars/JuliaPerf/PerfTest.jl.svg", class = :ico)],
         #warn_outdated    = true,
     ),
+    warnonly = [:missing_docs],
     pages   = [
         "Introduction"  => "index.md",
         "Usage"         => "usage.md",
