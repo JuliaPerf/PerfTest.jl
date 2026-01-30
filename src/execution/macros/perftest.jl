@@ -66,7 +66,7 @@ You can pass the following keyword arguments to configure the execution process:
 ## Basic performance test
 
 ```julia
-julia> @perftest sin(1)
+ @perftest sin(1)
 ```
 
 ## With setup and teardown

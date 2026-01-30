@@ -36,12 +36,8 @@ For more information have a look at the [Examples](@ref) and see the [API refere
 ## Installation
 
 `PerfTest` can be installed directly with the [Julia package manager] from the [Julia REPL]:
-```julia-repl
-julia>]
-  pkg> add https://github.com/JuliaPerf/PerfTest.jl.git
+```julia
+  using Pkg
+  Pkg.add("https://github.com/JuliaPerf/PerfTest.jl.git")
 ```
 
-<!-- `PerfTest` can be installed directly with the [Julia package manager] from the [Julia REPL]: -->
-<!-- ```julia-repl -->
-<!-- julia>] -->
-<!--   pkg> add PerfTest -->
