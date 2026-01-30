@@ -2,7 +2,7 @@
 # Memory and CPU benchmarks used by different methodologies
 
 function getMachineInfo()::Expr
-    if Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == false
+    if Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == 0
         return quote
             size = try
                 CpuId.cachesize()
@@ -98,7 +98,7 @@ function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBALS::GlobalSuiteDa
 end
 
 
-function machineBenchmarks()::Expr
+function machineBenchmarks(mode ::Type{<:NormalMode})::Expr
     quote
 	      # Block to create a separated scope
         let

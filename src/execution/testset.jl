@@ -39,9 +39,17 @@ mutable struct PerfTestSet <: AbstractTestSet
     end
 end
 
+function newBenchmarkGroup() :: BenchmarkGroup
+    return BenchmarkGroup()
+end
+
 
 # Save test results or child test sets
 function Test.record(ts::PerfTestSet, t::Result; extra_data = nothing)
+    if !main_rank(mode)
+        return ts
+    end
+
     nt = nothing
     if isa(t, Pass)
         ts.n_passed += 1
@@ -53,6 +61,9 @@ function Test.record(ts::PerfTestSet, child::AbstractTestSet)
 end
 
 function Test.finish(ts::PerfTestSet)
+    if !main_rank(mode)
+        return ts
+    end
 
     # Print failed tests on the current level (or everything if verbose)
     for (test_name,test_result) in ts.test_results
@@ -109,12 +120,59 @@ function Test.get_test_counts(ts::PerfTestSet)
     return passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, duration
 end
 
+function Test.get_test_counts(tss::Vector{Any})
+
+    passes, fails, errors, broken = 0, 0, 0, 0
+    c_passes, c_fails, c_errors, c_broken = 0, 0, 0, 0
+    
+    for ts in tss
+        for t in ts.results
+            isa(t, Pass)   && (passes  += 1)
+            isa(t, Fail)   && (fails  += 1)
+            isa(t, Error)  && (errors += 1)
+            isa(t, Broken) && (broken += 1)
+            if isa(t, AbstractTestSet)
+                np, nf, ne, nb, ncp, ncf, nce, ncb, duration = get_test_counts(t)
+                c_passes += np + ncp
+                c_fails += nf + ncf
+                c_errors += ne + nce
+                c_broken += nb + ncb
+            end
+        end
+    end
+
+    # We dont use this but we leave the field for compatibility with other types of TestSet
+    duration = ""
+    return passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, duration
+end
+
+function get_test_errors(ts::PerfTestSet)
+    errors = Error[]
+    for t in ts.results
+        isa(t, Error)  && (push!(errors, t))
+        if isa(t, AbstractTestSet)
+            append!(errors, get_test_errors(t))
+        end
+    end
+    return errors
+end
+
 """
    Will print the overall result of the test suite execution 
 """
 function Test.print_test_results(ts::PerfTestSet)
+    if !main_rank(mode)
+        return ts
+    end
+
     passes, fails, errors, _, cp,cf,ce,_ = get_test_counts(ts)
     print("Aggregate Results: $(passes + cp) PASSED, $(fails + cf) FAILED, $(errors+ce) ERRORS\n")
+    err = get_test_errors(ts)
+    for _error in err    
+        println("ERROR:")
+        println(_error.value)
+        print(_error.backtrace)
+    end 
 end
 
 
@@ -127,8 +185,19 @@ end
 
 var"@perftestset" = Test.var"@testset"
 
+function extractTestResults(tss :: Vector{Any}) :: Dict{String, Union{Dict, Test_Result}}
+# In case a testset with for is present
+    dict = Dict{String,Union{Dict,Test_Result}}() 
+
+    for ts in tss
+        dict[ts.description * "_" * string(ts.iterator)] = extractTestResults(ts)
+    end
+
+    return dict
+end
+
 function extractTestResults(ts :: PerfTestSet) :: Dict{String,Union{Dict,Test_Result}}
-    dict = Dict{String,Union{Dict,Test_Result}}()
+    dict = Dict{String,Union{Dict,Test_Result}}() 
 
     for t in ts.results
         if isa(t, Test.Result)
@@ -148,7 +217,7 @@ end
 TODO
 """
 function saveMethodologyData(testname :: AbstractString, data :: Methodology_Result)
-	  ts = Test.get_testset()
+	ts = Test.get_testset()
     res :: Test_Result = ts.test_results[testname]
     push!(res.methodology_results, data)
 end

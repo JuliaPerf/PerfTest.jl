@@ -67,8 +67,8 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                                        value=value*100)
                 test = Metric_Test(
                     reference=100,
-                    threshold_min_percent=$(info[:ratio]),
-                    threshold_max_percent=1.0,
+                    threshold_min_percent=$(info[:ratio])*100,
+                    threshold_max_percent=1.0*100,
                     low_is_bad=true,
                     succeeded=success,
                     custom_plotting=Symbol[],
@@ -80,7 +80,7 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                     $mode,
                     name="Attained Bandwidth",
                     units="B/s",
-		    value=test_res.metrics[:effMemTP].value
+		            value=test_res.metrics[:effMemTP].value
                 )
                 aux_ref_value = newMetricResult(
                     $mode,

@@ -112,7 +112,7 @@ Args:
 Returns:
 - Loaded configuration dictionary or nothing
 """
-function load_config() :: Dict
+function load_config() :: Union{Dict, Nothing}
     try
         config = TOML.parsefile(CONFIG_FILE)
 
@@ -131,6 +131,11 @@ function load_config() :: Dict
     end
 end
 
+function load_dummy_config() :: Union{Dict, Nothing}
+    global CONFIG = PRECOMPILATION_CONFIG
+    return PRECOMPILATION_CONFIG
+end
+
 CONFIG_FILE = "perftest_config.toml"
 
 CONFIG_SHAPE = Dict(
@@ -147,7 +152,9 @@ CONFIG_SHAPE = Dict(
         "suppress_output" => Bool),
     "regression" => Dict(
         "enabled" => Bool,
-        "default_threshold" => Number
+        "custom_file" => String,
+        "default_threshold" => Number,
+        "use_bencher" => Bool,
     ),
     "roofline" => Dict(
         "enabled" => Bool,
@@ -161,12 +168,19 @@ CONFIG_SHAPE = Dict(
         "enabled" => Bool,
     ),
     "machine_benchmarking" => Dict(
-        "memory_bandwidth_test_buffer_size" => Union{Bool, Int}
+        "memory_bandwidth_test_buffer_size" => Int
     ),
     "MPI" => Dict(
         "enabled" => Bool,
         "mode" => String
     ),
+    "bencher" => Dict(
+        "api_key" => String,
+        "api_url" => String,
+        "project_name" => String,
+        "organization" => String,
+        "custom_testbed_name" => String
+    )
 )
 
 DEFAULT = Dict(
@@ -177,14 +191,16 @@ DEFAULT = Dict(
         "save_folder" => ".perftests",
         "max_saved_results" => 20,
         "plotting" => true,
-        "verbose" => true,
+        "verbose" => false,
         "recursive" => true,
         "suppress_output" => true,
         "safe_formulas" => false,
     ),
     "regression" => Dict(
         "enabled" => true,
-        "default_threshold" => 0.9
+        "custom_file" => "",
+        "default_threshold" => 1.1,
+        "use_bencher" => false,
     ),
     "roofline" => Dict(
         "enabled" => true,
@@ -198,12 +214,65 @@ DEFAULT = Dict(
         "enabled" => true,
     ),
     "machine_benchmarking" => Dict(
-        "memory_bandwidth_test_buffer_size" => false
+        "memory_bandwidth_test_buffer_size" => 0
     ),
     "MPI" => Dict(
         "enabled" => false,
         "mode" => "reduce"
     ),
+    "bencher" => Dict(
+        "api_key" => "",
+        "api_url" => "https://api.bencher.dev",
+        "project_name" => "",
+        "organization" => "",
+        "custom_testbed_name" => ""
+    )
+)
+
+PRECOMPILATION_CONFIG = Dict(
+    "general" => Dict(
+        "autoflops" => false,
+        "save_results" => false,
+        "logs_enabled" => false,
+        "save_folder" => ".thisshouldnotexist",
+        "max_saved_results" => 0,
+        "plotting" => true,
+        "verbose" => false,
+        "recursive" => false,
+        "suppress_output" => true,
+        "safe_formulas" => false,
+    ),
+    "regression" => Dict(
+        "enabled" => false,
+        "custom_file" => "",
+        "default_threshold" => 0.9,
+        "use_bencher" => false,
+    ),
+    "roofline" => Dict(
+        "enabled" => true,
+        "default_threshold" => 0.5,
+    ),
+    "memory_bandwidth" => Dict(
+        "enabled" => true,
+        "default_threshold" => 0.5,
+    ),
+    "perfcompare" => Dict(
+        "enabled" => true,
+    ),
+    "machine_benchmarking" => Dict(
+        "memory_bandwidth_test_buffer_size" => 0
+    ),
+    "MPI" => Dict(
+        "enabled" => false,
+        "mode" => "reduce"
+    ),
+    "bencher" => Dict(
+        "api_key" => "",
+        "api_url" => "https://api.bencher.dev",
+        "project_name" => "",
+        "organization" => "",
+        "custom_testbed_name" => ""
+    )
 )
 
 PARENT_CONFIGS = Dict[]
@@ -225,8 +294,8 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
 
     Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
 
-    if Configuration.CONFIG["general"]["verbose"] != old
-        addLog("general", "Verbosity level changed")
+    if Configuration.CONFIG["general"]["verbose"] != old["general"]["verbose"]
+        addLog("general", "Verbosity level changed from $(old["general"]["verbose"] ? "HIGH" : "LOW" ) to $(old["general"]["verbose"] ? "LOW" : "HIGH")")
     end
 
     io = IOBuffer()

@@ -70,7 +70,9 @@
 #     end
 # end
 
-
+"""
+    DEPRECATED: PENDING REMOVAL
+"""
 function oldperftestsuffix(context :: Context)
     return quote
         # Local scope on the lowest level == Global scope
@@ -145,9 +147,12 @@ function oldperftestsuffix(context :: Context)
     end
 end
 
+"""
+    Builds the Julia expression that goes after the performance tests, it registers, prints and saves results given the measurements done above it.
+"""
 function perftestsuffix(context :: Context)
     return quote
-        if main_rank()
+        if main_rank($mode)
             # Deal with recorder results
             let
                 res_num = length(_PRFT_GLOBALS.datafile.results)
@@ -163,23 +168,48 @@ function perftestsuffix(context :: Context)
             end
 
             testresdict = Dict{String,Union{Dict,Test_Result}}()
-            testresdict[TS.description] = extractTestResults(TS)
-            # Save new results
-            newres = Suite_Execution_Result(
-                timestamp=datetime2unix(now()),
-                benchmarks=TS.benchmarks,
-                # Populate new with results of current execution
-                perftests = testresdict
+            if TS isa Vector
+                benchmarks = PerfTest.newBenchmarkGroup()
+                for ts in TS
+                    testresdict[ts.description * "_" * string(ts.iterator)] = extractTestResults(TS)
+                    benchmarks[ts.description * "_" *string(ts.iterator)] = ts.benchmarks
+                end
+                # Save new results
+                newres = Suite_Execution_Result(
+                    timestamp=datetime2unix(now()),
+                    elapsed=time() - _t_begin,
+                    benchmarks=benchmarks,
+                    # Populate new with results of current execution
+                    perftests = testresdict
             )
+            else
+                testresdict[TS.description] = extractTestResults(TS)
+                # Save new results
+                newres = Suite_Execution_Result(
+                    timestamp=datetime2unix(now()),
+                    elapsed=time() - _t_begin,
+                    benchmarks=TS.benchmarks,
+                    # Populate new with results of current execution
+                    perftests = testresdict
+                )
+            end
             push!(_PRFT_GLOBALS.datafile.results, newres)
 
             # No fails no errors
             if sum(Test.get_test_counts(TS)[2:3]) == 0
                 PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
                 # Export as json
-                BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
+                #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
             end
-            println("[✓] $path Performance tests have been finished")
+            println("[✓] $path Performance tests have been finished (elapsed $(newres.elapsed) s)")
+
+            # Bencher export using the REST API
+            if Configuration.CONFIG["regression"]["use_bencher"]
+                bencher_config = Configuration.CONFIG["bencher"]
+                PerfTest.BencherREST.exportSuiteToBencher(_PRFT_GLOBALS.datafile, bencher_config)
+            end
+            
+            PerfTest.clean($mode) 
         end
     end
 end

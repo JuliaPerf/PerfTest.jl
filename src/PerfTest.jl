@@ -1,6 +1,6 @@
 module PerfTest
 
-export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars,
+export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars, @define_benchmark,
     @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp
 
 using Test
@@ -66,8 +66,6 @@ include("execution/macros/configuration.jl")
 include("execution/structs.jl")
 include("execution/testset.jl")
 
-# Bencher Interface
-include("bencher/BencherInterface.jl")
 
 # Machine features extraction
 include("execution/machine_benchmarking.jl")
@@ -90,6 +88,8 @@ include("execution/data_handling.jl")
 include("execution/units.jl")
 include("execution/misc.jl")
 
+# Bencher Interface
+include("bencher/BencherREST.jl")
 
 # Base active rules
 rules = ASTRule[testset_macro_rule,
@@ -191,7 +191,11 @@ function treeRun(path::AbstractString)
     # Clear logs
     #clearLogs()
     # Load configuration
-    config = Configuration.load_config()
+    if !init_dummy_flag    
+        config = Configuration.load_config()
+    else
+        config = Configuration.load_dummy_config()
+    end
 
     if config["general"]["verbose"]
         verboseOutput()
@@ -241,5 +245,19 @@ transform = treeRun
 
 MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
+init_dummy_flag :: Bool = false
+
+function __init__()
+    # Precompile the transformation
+    # This is a quite rudimentary (but effective) solution, a cleaner version is to be expected in the future 
+    try 
+        global init_dummy_flag = true
+        x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
+        global init_dummy_flag = false
+    catch
+        @warn "Precompilation of transform could not be done during initialization. It will be performed during the next function call."
+        global init_dummy_flag = false
+    end
+end
 
 end

@@ -122,6 +122,8 @@ This macro is used to define the memory bandwidth of a target in order to execut
 # Arguments
  - formula block : an expression that returns a single value, which would be the metric value. The formula can have any julia expression inside and additionally some special symbols are supported. The formula may be evaluated several times, so its applied to every target in every test set or just once, if the formula is defined inside a test set, which makes it only applicable to it.
  - ratio : the allowed minimum percentage over the maximum attainable that is allowed to pass the test
+ - mem_benchmark : which STREAM kernel benchmark to use (e.g :MEM_STREAM_COPY for transfer operations :MEM_STREAM_ADD for transfer and computing)
+ - custom_benchmark : in case of using a custom benchmark, the symbol that identifies the chosen benchmark, (must have been defined before)
 
 # Special symbols:
  - `:median_time` : will be substituted by the median time the target took to execute in the benchmark.
@@ -178,6 +180,12 @@ define_benchmark_validation = defineMacroParams([
     )
 ])
 """
+    Defines a customized reference to compare against. Must be always defined inside a testset.
+
+# Arguments
+ - name : (string) an identifier for the custom benchmark, methodologies that use it will refer too it using this name.
+ - units: (string) units of the reference value.
+ - formula: an expression to calculate the reference value.
 """
 macro define_benchmark(args...)
     return :(

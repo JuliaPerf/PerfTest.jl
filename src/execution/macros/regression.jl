@@ -1,6 +1,10 @@
 
 
 define_regression_validation = defineMacroParams([
+    MacroParameter(:low_is_bad,
+                    Bool,
+                    true,
+                    false)
     MacroParameter(:threshold,
                    Float64,
                    (x) -> 0.0 <= x <= 1.0,
@@ -19,7 +23,10 @@ This macro is used to define the memory bandwidth of a target in order to execut
  - threshold : the minimum ratio over that is allowed to pass the test (e.g 0.9 means that the test is a success if the new metric is at least 90% of the old)
  - enable: track regression in the metrics whose names are passed as argument, it accepts a single string or a vector of strings. Non-existent metrics are ignored.
 # Example:
+
+```julia
     @regression threshold=0.9 enable=:median_time
+```
 """
 macro regression(args...)
     return :(

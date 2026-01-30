@@ -36,13 +36,20 @@ function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}})::Exp
         end
         buffer = quote
             $buffer
-            test_res.metrics[$(QuoteNode(symbol))] = newMetricResult(
+            # Auxiliary metrics are not tested for regression, they shall be saved in the auxiliar dictionary
+            let m = newMetricResult(
                 $mode,
                 name=$(metric_def.name),
                 units=$(metric_def.units),
                 value=$(metric_def.formula),
                 auxiliary=$(metric_def.auxiliary)
             )
+                $(if metric_def.auxiliary
+                    :(test_res.auxiliar[$(QuoteNode(symbol))] = m)
+                else
+                    :(test_res.metrics[$(QuoteNode(symbol))] = m)
+                end)
+            end
         end
         addLog("metrics", "[METRIC] Building $(metric_def.name)")
     end

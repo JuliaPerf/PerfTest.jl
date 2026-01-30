@@ -33,7 +33,7 @@ struct Metric_Result{N}
     mpi :: Union{Nothing, MPI_MetricInfo}
 end
 
-function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 0, reduct="")
+function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 1, reduct="")
 
     return Metric_Result(name,units,value,auxiliary, magnitude_prefix, magnitude_mult, nothing)
 end
@@ -54,7 +54,7 @@ end
 
 
 # A custom methodology element is used to save informational metrics, other special values and custom functions to be executed after testing.
-Custom_Methodology_Elements = Union{Metric_Result,Float64,Function}
+Custom_Methodology_Elements = Union{Metric_Result,Float64,Function, Pair}
 
 
 """
@@ -92,6 +92,7 @@ This struct saves a complete test suite result for one execution. It also saves 
 """
 @kwdef struct Suite_Execution_Result
     timestamp::Float64
+    elapsed :: Float64
     benchmarks::BenchmarkGroup
     perftests::Dict{String, Union{Dict, Test_Result}}
 end
@@ -106,7 +107,7 @@ end
 
 
 mutable struct GlobalSuiteData
-    datafile :: Perftest_Datafile_Root
+    datafile :: Union{Nothing,Perftest_Datafile_Root}
     datafile_path :: AbstractString
     origin_file :: AbstractString
     builtins :: Dict{Symbol,Any}
@@ -116,12 +117,21 @@ mutable struct GlobalSuiteData
     new::Dict{String,Union{Dict,Test_Result}}
 
     GlobalSuiteData(datafile, path, origin) = new(datafile, path, origin, Dict{Symbol,Metric_Result}(), Dict{Symbol,Metric_Result}(), Dict{String,Union{Dict,Test_Result}}(), Dict{String,Union{Dict,Test_Result}}())
+    GlobalSuiteData() = new(nothing, "", "",  Dict{Symbol,Metric_Result}(), Dict{Symbol,Metric_Result}(), Dict{String,Union{Dict,Test_Result}}(), Dict{String,Union{Dict,Test_Result}}())
 end
 
-function main_rank() :: Bool
+function main_rank(mode :: Type{<:NormalMode}) :: Bool
     return true
 end
 
-function ranks() :: Int
+function ranks(mode :: Type{<:NormalMode}) :: Int
     return 1
+end
+
+
+function mpi_rank(mode :: Type{<:NormalMode}) :: Int
+    return 0
+end
+
+function clean(mode :: Type{<:NormalMode})
 end

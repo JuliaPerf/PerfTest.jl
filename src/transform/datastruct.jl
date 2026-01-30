@@ -138,6 +138,8 @@ mutable struct GlobalContext
     errors::ErrorCollection
     valid_symbols::Set{Symbol}
     custom_benchmarks::Set{Symbol}
+    # Measure suite time
+    elapsed :: Float64
 
     GlobalContext(path, errors, valid) = new(path, false, errors, valid, Set{Symbol}())
     GlobalContext(path, errors, valid, _) = new(path, true, errors, valid, Set{Symbol}())

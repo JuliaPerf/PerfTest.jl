@@ -10,14 +10,15 @@ function perftestprefix(ctx :: Context)::Expr
 
     return quote
         using Test, Dates
-        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress,Test_Result,by_index,regression,Suite_Execution_Result,savePrimitives,main_rank,GlobalSuiteData,@perftestset,PerfTestSet,extractTestResults,saveMethodologyData,BencherInterface
+        using PerfTest: DepthRecord,Metric_Test,Methodology_Result,StrOrSym,Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!,measureMemBandwidth!,addLog,@PRFTBenchmark,PRFTBenchmarkGroup,@PRFTCapture_out,@PRFTCount_ops,PRFTflop,@PRFTSuppress,Test_Result,by_index,regression,Suite_Execution_Result,savePrimitives,main_rank,GlobalSuiteData,@perftestset,PerfTestSet,extractTestResults,saveMethodologyData,Configuration
 
+        _t_begin = time()
 
-
-        if main_rank()
+        MPISetup($mode)
+        
+        if main_rank($mode)
             # Used to save data about this test suite if needed
             path = $("./$(Configuration.CONFIG["general"]["save_folder"])/$(suite_name).JLD2")
-
 
             nofile = true
             if isfile(path)
@@ -29,20 +30,34 @@ function perftestprefix(ctx :: Context)::Expr
                 PerfTest.p_yellow("[!]")
                 println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
             end
+            
+            # Regression data
+            regression_path = Configuration.CONFIG["regression"]["custom_file"]
+            # If absent use default data file, otherwise check if exists and open custom file
+            if regression_path != "" && isfile(regression_path)
+                regression_file = PerfTest.openDataFile(regression_path)
+            else
+                if regression_path != ""
+                    @error "Regression data file $regression_file could not be opened or found"
+                else
+                    regression_file = datafile
+                end
+            end
 
             _PRFT_GLOBALS = GlobalSuiteData(datafile,path,$(ctx._global.original_file_path))
-            MPISetup($mode, _PRFT_GLOBALS)
 
-            if length(_PRFT_GLOBALS.datafile.results) > 0
-                _PRFT_GLOBALS.old = _PRFT_GLOBALS.datafile.results[end].perftests
+            if length(regression_file.results) > 0
+                _PRFT_GLOBALS.old = regression_file.results[end].perftests
             else
                 _PRFT_GLOBALS.old = nothing
             end
+        else
+            _PRFT_GLOBALS = GlobalSuiteData()
         end
 
         # Do machine specs
         # Will compute peak flops and peak bandwidth and populate
-        $(machineBenchmarks())
+        $(machineBenchmarks(mode))
 
         # Methodology prefixes
         #$(regressionPrefix(ctx))

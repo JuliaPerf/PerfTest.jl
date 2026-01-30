@@ -35,8 +35,6 @@ end
 
     a = rand(Int, N)
 
-    # To use a variable in macro formulas, it has to be exported (i.e. N)
-    @export_vars N
     # The ratio sets the threshold, being 1.0 the maximum empirical bandwidth and 0.6 = 60% of such maximum
     @define_eff_memory_throughput ratio=0.6 begin
         # The main block of the macro holds the formula for the bandwidth (therefore BYTES divided by SECONDS) on

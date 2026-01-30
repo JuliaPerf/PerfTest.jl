@@ -6,98 +6,133 @@
 
 module PerfTest_MPIExt
 
-using STREAMBenchmark: add_allthreads
-using LinearAlgebra: peakflops
 using MPI
 using PerfTest
 using LinearAlgebra
 using STREAMBenchmark
 using BenchmarkTools
+using Base.Threads
 
-
+# Module-level MPI state
 mpi_rank = 0
 mpi_size = 1
+mpi_initialized = false
 
-function PerfTest.MPISetup(::Type{PerfTest.MPIMode},global_ctx :: Dict{Symbol,Any}) :: Nothing
-    MPI.Init()
-    global_ctx[:is_main_rank] = ((global_ctx[:mpi_rank] = MPI.Comm_rank(MPI.COMM_WORLD)) == 0)
-    global_ctx[:comm_size] = MPI.Comm_size(MPI.COMM_WORLD)
-    @info "MPI PerfTest is enabled"
+function PerfTest.MPISetup(::Type{PerfTest.MPIMode})::Nothing
+    if !mpi_initialized
+        MPI.Init()
+    end
+    PerfTest.toggleMPI()
+    global mpi_rank = MPI.Comm_rank(MPI.COMM_WORLD)
+    global mpi_size = MPI.Comm_size(MPI.COMM_WORLD)
+    global mpi_initialized = true
+    
+    PerfTest.addLog("machine", "[MPI] PerfTest MPI extension enabled - Rank $mpi_rank of $mpi_size")
+    return nothing
 end
 
+# Override main_rank and ranks for MPI mode
+function PerfTest.main_rank(mode :: Type{PerfTest.MPIMode})::Bool
+    return mpi_rank == 0
+end
 
-#  Will gather results in the dictionaries of the main rank
-function MPICommunicateResults!(results::Union{Number,Dict{Int64,Number}}, rank, size)
+function PerfTest.mpi_rank(mode :: Type{PerfTest.MPIMode}) :: Int
+    return mpi_rank
+end
+
+function PerfTest.ranks(mode :: Type{PerfTest.MPIMode})::Int
+    return mpi_size
+end
+
+# MPI Communication utilities
+
+"""
+Gather results from all ranks to the main rank (rank 0)
+"""
+function MPICommunicateResults!(results::Number, rank, size)
     if rank != 0
-        MPI.Send(results, MPI.COMM_WORLD; dest = 0)
+        MPI.Send(results, MPI.COMM_WORLD; dest=0)
+        return Dict{Int64,Number}(rank => results)
+    else
+        gathered = Dict{Int64,Number}()
+        gathered[0] = results
+        for i in 1:(size-1)
+            gathered[i] = MPI.Recv(typeof(results), MPI.COMM_WORLD; source=i)
+        end
+        return gathered
+    end
+end
+
+function MPICommunicateResults!(results::Dict{Int64,Number}, rank, size)
+    if rank != 0
+        MPI.Send(results[rank], MPI.COMM_WORLD; dest=0)
     else
         for i in 1:(size-1)
-            results[i] = MPI.Recv(typeof(results[0]), MPI.COMM_WORLD; source=i)
+            results[i] = MPI.Recv(Number, MPI.COMM_WORLD; source=i)
         end
     end
+    return results
 end
 
+# Reduction operations
 op_sum(acc, new, _...) = acc + new
-op_avg(acc, new, num) = acc + new/num
-op_max(acc, new, _...) = max(acc,new)
-op_min(acc, new, _...) = min(acc,new)
+op_avg(acc, new, num) = acc + new / num
+op_max(acc, new, _...) = max(acc, new)
+op_min(acc, new, _...) = min(acc, new)
 
-function MPIShareAndReduce!(value::Union{Number,Dict{Int64,Number}}, reduction_op :: Function, rank, size)::Number
-
-    if rank != 0
-        local_value = value
-    else # TODO ASSUMES MAIN RANK IS 0
-        local_value = Dict{Int64,Number}()
-        local_value[0] = value
-        # Local value in main process will hold all values as well
-    end
-
-    MPICommunicateResults!(local_value, rank, size)
-
+"""
+Share values across all ranks and reduce them on the main rank
+"""
+function MPIShareAndReduce!(value::Number, reduction_op::Function, rank, size)::Number
+    gathered = MPICommunicateResults!(value, rank, size)
+    
     if rank == 0
-        # Reduction of all values
-        acc = 0
+        acc = 0.0
         for i in 0:(size-1)
-            acc = reduction_op(acc, local_value[i], size)
+            acc = reduction_op(acc, gathered[i], size)
         end
-
-        @show acc
         return acc
     end
     return value
 end
 
-# MEM MW MPI BEGIN
-using Base.Threads
-# Synchonize the local kernels at the end just in case they took turns doing the transfer, the important is the total transfer of data not the local
-# CAUTION adds overhead
-copy_kernel(C,A;kwargs...) = begin STREAMBenchmark.copy_nthreads(C,A;kwargs...); MPI.Barrier(MPI.COMM_WORLD) end
-add_kernel(C,A,B;kwargs...) = begin STREAMBenchmark.add_nthreads(C,A,B;kwargs...); MPI.Barrier(MPI.COMM_WORLD) end
+# MPI-synchronized STREAM benchmark kernels
+# Synchronize the local kernels at the end to ensure coordinated memory transfer measurement
+function copy_kernel_mpi(C, A; kwargs...)
+    STREAMBenchmark.copy_nthreads(C, A; kwargs...)
+    MPI.Barrier(MPI.COMM_WORLD)
+end
 
-function _run_kernels(copy, add;
-                      verbose = true,
-                      N,
-                      evals_per_sample = 10,
-                      write_allocate = true,
-                      nthreads = Threads.nthreads(),
-                      init = :parallel)
+function add_kernel_mpi(C, A, B; kwargs...)
+    STREAMBenchmark.add_nthreads(C, A, B; kwargs...)
+    MPI.Barrier(MPI.COMM_WORLD)
+end
+
+"""
+Run STREAM benchmark kernels with MPI synchronization
+"""
+function _run_kernels_mpi(copy, add;
+                          verbose=false,
+                          N,
+                          evals_per_sample=10,
+                          write_allocate=true,
+                          nthreads=Threads.nthreads(),
+                          init=:parallel)
     α = write_allocate ? 24 : 16
     β = write_allocate ? 32 : 24
 
     f = t -> N * α / t
     g = t -> N * β / t
 
-    # N / nthreads if necessary
     thread_indices = STREAMBenchmark._threadidcs(N, nthreads)
 
-    # initialize memory
+    # Initialize memory
     if init == :parallel
         A = Vector{Float64}(undef, N)
         B = Vector{Float64}(undef, N)
         C = Vector{Float64}(undef, N)
-        s = rand()
 
-        # fill in parallel (important for NUMA mapping / first-touch policy)
+        # Fill in parallel (important for NUMA mapping / first-touch policy)
         @threads :static for tid in 1:nthreads
             @inbounds for i in thread_indices[tid]
                 A[i] = 0.0
@@ -109,75 +144,139 @@ function _run_kernels(copy, add;
         A = zeros(N)
         B = zeros(N)
         C = zeros(N)
-        s = rand()
     end
 
-    # COPY
-    t_copy = @belapsed $copy($C, $A; nthreads = $nthreads, thread_indices = $thread_indices) setup=begin MPI.Barrier(MPI.COMM_WORLD) end samples=10 evals=evals_per_sample
-    bw_copy = f(t_copy)
-    verbose && println("╟─ $(MPI.Comm_rank(MPI.COMM_WORLD)) COPY:  ", round(bw_copy; digits = 1), "B/s")
-
-    # ADD
-    t_add = @belapsed $add($C, $A, $B; nthreads = $nthreads,
-        thread_indices=$thread_indices) samples = 10 evals = evals_per_sample setup = begin MPI.Barrier(MPI.COMM_WORLD) end
-    bw_add = g(t_add)
-    verbose && println("╟─ $(MPI.Comm_rank(MPI.COMM_WORLD)) ADD:   ", round(bw_add; digits=1), "B/s")
-
-    # statistics
-    values = [bw_copy, bw_add]
-    calc = f -> round(f(values); digits = 1)
-
-    return (bw_copy,bw_add)
-end
-
-
-function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBAL::Dict{Symbol, Any})
-
-    N = div(_PRFT_GLOBAL[:machine][:cache_sizes][end], 2)
-    # In B/s
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW] = Dict{Symbol, Number}()
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:COPY] = _run_kernels(copy_kernel, add_kernel; N=N)[1] * _PRFT_GLOBAL[:comm_size]
-    _PRFT_GLOBAL[:machine][:empirical][:peakmemBW][:ADD] = _run_kernels(copy_kernel, add_kernel; N=N)[2] * _PRFT_GLOBAL[:comm_size]
-    sleep(_PRFT_GLOBAL[:mpi_rank] * 0.5)
-    @show _PRFT_GLOBAL[:machine][:empirical][:peakmemBW]
-end
-
-# MEM BW MPI END
-
-function PerfTest.measureCPUPeakFlops!(::Type{PerfTest.MPIMode}, _PRFT_GLOBAL :: Dict{Symbol, Any})
-        LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
-        # MPI Barrier
-        # In Flop/s
+    # COPY benchmark with MPI barrier setup
+    t_copy = @belapsed $copy($C, $A; nthreads=$nthreads, thread_indices=$thread_indices) setup = begin
         MPI.Barrier(MPI.COMM_WORLD)
-        peakflops = LinearAlgebra.peakflops(; parallel=true)
+    end samples = 10 evals = evals_per_sample
+    bw_copy = f(t_copy)
+    
+    if verbose
+        println("╟─ Rank $(MPI.Comm_rank(MPI.COMM_WORLD)) COPY: ", round(bw_copy; digits=1), " B/s")
+    end
 
-        _PRFT_GLOBAL[:machine][:empirical][:peakflops] = MPIShareAndReduce!(peakflops, op_sum, _PRFT_GLOBAL[:mpi_rank], _PRFT_GLOBAL[:comm_size])
+    # ADD benchmark with MPI barrier setup
+    t_add = @belapsed $add($C, $A, $B; nthreads=$nthreads, thread_indices=$thread_indices) setup = begin
+        MPI.Barrier(MPI.COMM_WORLD)
+    end samples = 10 evals = evals_per_sample
+    bw_add = g(t_add)
+    
+    if verbose
+        println("╟─ Rank $(MPI.Comm_rank(MPI.COMM_WORLD)) ADD:  ", round(bw_add; digits=1), " B/s")
+    end
+
+    return (bw_copy, bw_add)
 end
 
 
-function PerfTest.newMetricResult(::Type{PerfTest.MPIMode}; name, units, value, auxiliary=false, magnitude_prefix="", magnitude_mult=0, reduct="Sum")
+# Override core measurement functions for MPI mode
+function PerfTest.getMachineInfo(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::PerfTest.GlobalSuiteData)::Expr
+    if Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"] == 0
+        return quote
+            size = try
+                CpuId.cachesize()
+            catch
+                addLog("machine", "[MACHINE/MPI] CpuId failed, using default cache size")
+                [1024 * 1024 * 16]
+            end
+            _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES] = size
 
-    return PerfTest.Metric_Result(name,units,value,auxiliary, magnitude_prefix, magnitude_mult, PerfTest.MPI_MetricInfo(MPI.Comm_size(MPI.COMM_WORLD), reduct))
+            addLog("machine", "[MACHINE/MPI] Memory buffer size for benchmarking = $(size ./ 1024 ./ 1024) [MB]")
+        end
+    else
+	return quote
+        _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES] = [$(Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"])]
+
+	    addLog("machine", "[MACHINE/MPI] Set by config, benchmark buffer size = $(_PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES]  ./ 1024 ./ 1024) [MB]")
+        end
+    end
 end
 
-function PerfTest.buildPrimitiveMetrics!(::Type{PerfTest.MPIMode}, _PRFT_LOCAL :: Dict, _PRFT_GLOBAL :: Dict{Symbol, Any})
+function PerfTest.measureCPUPeakFlops!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::PerfTest.GlobalSuiteData)
+    LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
+    
+    # Synchronize all ranks before measurement
+    MPI.Barrier(MPI.COMM_WORLD)
+    
+    rank = mpi_rank
+    size = mpi_size
+    # Local peak flops measurement
+    local_peakflops = LinearAlgebra.peakflops(; parallel=true)
+    PerfTest.addLog("machine", "[MACHINE/MPI] (Rank $rank) max flops $local_peakflops")
 
-    # MEAN TIME MAX
-    _PRFT_LOCAL[:primitives][:median_time] = MPIShareAndReduce!(median(_PRFT_LOCAL[:suite]).time / 1e9,
-        op_max, _PRFT_GLOBAL[:mpi_rank], _PRFT_GLOBAL[:comm_size])
-    # MIN TIME MIN
-    _PRFT_LOCAL[:primitives][:min_time] =MPIShareAndReduce!(minimum(_PRFT_LOCAL[:suite]).time / 1e9,
-        op_min, _PRFT_GLOBAL[:mpi_rank], _PRFT_GLOBAL[:comm_size])
-    # FLOPS SUM
-    _PRFT_LOCAL[:primitives][:autoflop_MPI] = MPIShareAndReduce!(_PRFT_LOCAL[:additional][:autoflop],
-        op_sum, _PRFT_GLOBAL[:mpi_rank], _PRFT_GLOBAL[:comm_size])
-
-    # Equal among all ranks
-    _PRFT_LOCAL[:primitives][:iterator] = _PRFT_LOCAL[:additional][:iterator]
-    # Cannot be collected from other ranks
-    _PRFT_LOCAL[:primitives][:ret_value] = _PRFT_LOCAL[:additional][:ret_value]
-    _PRFT_LOCAL[:primitives][:printed_output] = _PRFT_LOCAL[:additional][:printed_output]
+    
+    # Sum peak flops across all ranks
+    _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK] = MPIShareAndReduce!(local_peakflops, op_sum, rank, size)
+    
+    if PerfTest.main_rank(PerfTest.MPIMode) 
+        PerfTest.addLog("machine", "[MACHINE/MPI] CPU max attainable flops (sum of $size ranks) = $(_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]) [FLOP/S]")
+    end
 end
 
-# End of extension
+function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::PerfTest.GlobalSuiteData)
+    N = _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES][end] 
+    rank = mpi_rank
+    size = mpi_size
+    
+    # Run MPI-synchronized STREAM benchmarks
+    bench_data = _run_kernels_mpi(copy_kernel_mpi, add_kernel_mpi; N=N, verbose=false)
+    
+    # Each rank's bandwidth, multiplied by number of ranks for aggregate
+    local_copy_bw = bench_data[1]
+    local_add_bw = bench_data[2]
+    
+    PerfTest.addLog("machine", "[MACHINE/MPI] (Rank $rank) max stream $bench_data")
+    # Sum bandwidth across all ranks
+    total_copy_bw = MPIShareAndReduce!(local_copy_bw, op_sum, rank, size)
+    total_add_bw = MPIShareAndReduce!(local_add_bw, op_sum, rank, size)
+    
+    _PRFT_GLOBALS.builtins[:MEM_STREAM] = (total_copy_bw, total_add_bw)
+    _PRFT_GLOBALS.builtins[:MEM_STREAM_COPY] = total_copy_bw
+    _PRFT_GLOBALS.builtins[:MEM_STREAM_ADD] = total_add_bw
+    if PerfTest.main_rank(PerfTest.MPIMode) 
+        PerfTest.addLog("machine", "[MACHINE/MPI] CPU max attainable bandwidth (sum of $size ranks) = $(_PRFT_GLOBALS.builtins[:MEM_STREAM]) [Byte/s]")
+    end
 end
+
+# Override metric creation for MPI mode
+
+function PerfTest.newMetricResult(::Type{PerfTest.MPIMode}; 
+                                   name, 
+                                   units, 
+                                   value, 
+                                   auxiliary=false, 
+                                   magnitude_prefix="", 
+                                   magnitude_mult=1, 
+                                   reduct="Sum")
+    mpi_info = PerfTest.MPI_MetricInfo(MPI.Comm_size(MPI.COMM_WORLD), reduct)
+    return PerfTest.Metric_Result(name, units, value, auxiliary, magnitude_prefix, magnitude_mult, mpi_info)
+end
+
+# Build primitive metrics with MPI reduction
+
+function PerfTest.buildPrimitiveMetrics!(::Type{PerfTest.MPIMode},
+                                          ts::PerfTest.PerfTestSet, 
+                                          test_result::PerfTest.Test_Result)
+    rank = mpi_rank
+    size = mpi_size
+    
+    # MEDIAN TIME - use MAX across ranks (slowest determines overall time)
+    local_median_time = median(ts.benchmarks[test_result.name]).time / 1e9
+    test_result.primitives[:median_time] = MPIShareAndReduce!(local_median_time, op_max, rank, size)
+    
+    # MIN TIME - use MIN across ranks
+    local_min_time = minimum(ts.benchmarks[test_result.name]).time / 1e9
+    test_result.primitives[:min_time] = MPIShareAndReduce!(local_min_time, op_min, rank, size)
+    
+    # Iterator count - should be equal among all ranks
+    test_result.primitives[:iterator] = ts.iterator
+
+    test_result.primitives[:autoflop] = MPIShareAndReduce!(test_result.primitives[:autoflop], op_sum, rank, size)
+end
+
+function PerfTest.clean(mode :: Type{PerfTest.MPIMode})
+    PerfTest.toggleMPI()
+end
+
+end # module PerfTest_MPIExt
