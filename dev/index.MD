@@ -3,19 +3,30 @@ The package `PerfTest` provides the user with a performance regression unit test
 
 ## Dependencies
 `PerfTest` relies on:
- - [MacroTools]
- - [JLD2]
- - [MPI]
- - [STREAMBenchmark]
- - [GFlops]
- - [UnicodePlots]
- - [Test]
- - [Suppressor]
-
+  - BenchmarkTools
+  - Configurations
+  - CountFlops
+  - CpuId
+  - Dates
+  - HTTP
+  - JLD2
+  - JSON
+  - LibGit2
+  - LinearAlgebra
+  - MLStyle
+  - MacroTools
+  - Pkg
+  - Printf
+  - Revise
+  - STREAMBenchmark
+  - Suppressor
+  - TOML
+  - Test
+  - UnicodePlots
 ## Contributors
 This project has been developed as a Master's thesis by Daniel Sergio Vega Rodriguez.
 Thus, the contributors to this project have been so far:
-- Daniel Sergio Vega Rodriguez ([@Dvegrod](https://github.com/Dvegrod)), Università della Svizzera italiana (USI): developer
-- Dr. Samuel Omlin ([@omlins](https://github.com/omlins)), Swiss National Supercomputing Centre (CSCS), ETH Zurich: original idea and Master's thesis supervisor
-- Prof. Olaf Schenk, Università della Svizzera italiana (USI): Master's thesis supervisor
+- Daniel Sergio Vega Rodriguez ([@Dvegrod](https://github.com/Dvegrod)), Università della Svizzera italiana (USI): package developer
+- Dr. Samuel Omlin ([@omlins](https://github.com/omlins)), Swiss National Supercomputing Centre (CSCS), ETH Zurich: original idea and supervisor
+- Prof. Olaf Schenk, Università della Svizzera italiana (USI): PhD supervisor
 - Dr. Pasadakis Dimosthenis, Università della Svizzera italiana (USI): additional advisor

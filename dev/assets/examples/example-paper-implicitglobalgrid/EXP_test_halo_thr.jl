@@ -1,4 +1,7 @@
-
+# IMPORTANT: To replicate the same results as in the original paper, divide the GB/s values by 3
+# this difference is due to the STREAM benchmark policy, which counts each byte transferred thrice (write-allocate cache) and thus the target does as write_allocate
+# in our example the policy is to measure throughput as the amount of bytes transferred on an execution which is a different policy
+# Nevertheless, the percentages remain constant and the test is valid regardless of the used criterion
 # NOTE: All tests of this file can be run with any number of processes.
 # Nearly all of the functionality can however be verified with one single process
 # (thanks to the usage of periodic boundaries in most of the full halo update tests).
@@ -17,6 +20,13 @@ NTHREADS = 16
 
 # 256M Elements on STREAM Benchmark (2GB)
 @perftest_config "
+[general]
+verbose = true
+autoflops = false
+
+[regression]
+enabled = false
+
 [machine_benchmarking]
 memory_bandwidth_test_buffer_size = 536870912
 "
@@ -37,7 +47,7 @@ nprocs = MPI.Comm_size(MPI.COMM_WORLD); # NOTE: these tests can run with any num
 ndims_mpi = GG.NDIMS_MPI;
 nneighbors_per_dim = GG.NNEIGHBORS_PER_DIM; # Should be 2 (one left and one right neighbor).
 # 256M Elements (2GB)
-nx = Int(round(sqrt(536870912/16*NTHREADS/nprocs)));
+nx = Int(round(sqrt(1024^3/4/16*NTHREADS/nprocs)));
 ny = nx;
 nz = 5;
 dx = 1.0
@@ -58,11 +68,12 @@ dz = 1.0
                 P2 = zeros(size(P));
                 halowidths = (1,1,1)
                 # (dim=3)
-		buf = zeros(size(P ,1), size(P,2), halowidths[3]);
-		ranges = [1:size(P,1), 1:size(P,2), 1:1];
+                buf = zeros(size(P ,1), size(P,2), halowidths[3]);
+                ranges = [1:size(P,1), 1:size(P,2), 1:1];
 
-		i = 0
-		@define_eff_memory_throughput begin
+                i = 0
+                # For info in the x3 multiplier see beggining of file
+                @define_eff_memory_throughput ratio=0.9 begin
                     (nx * ny * 8) * 3 * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
                 end
                 @auxiliary_metric name="Time" units="s" begin
@@ -74,13 +85,11 @@ dz = 1.0
                 for i in 1:1
                     GG.write_h2h!(buf, P, ranges, 3);
                 end
-                @perftest begin
-             	   GG.read_h2h!(buf, P2, ranges, 3);
+                @perftest samples=100 begin
+                    GG.read_h2h!(buf, P2, ranges, 3);
                 end
                 finalize_global_grid(finalize_MPI=false);
             end;
-
-
         end;
     end;
 end;
