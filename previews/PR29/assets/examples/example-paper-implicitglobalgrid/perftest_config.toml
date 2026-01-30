@@ -1,0 +1,42 @@
+[perfcompare]
+enabled = true
+
+[MPI]
+mode = "reduce"
+enabled = false
+
+[general]
+recursive = true
+save_results = true
+autoflops = false
+suppress_output = true
+plotting = true
+save_folder = ".perftests"
+max_saved_results = 20
+verbose = true
+logs_enabled = true
+safe_formulas = false
+
+[regression]
+enabled = false
+default_threshold = 0.9
+use_bencher = false
+custom_file = ""
+
+[roofline]
+enabled = true
+default_threshold = 0.5
+
+[memory_bandwidth]
+enabled = true
+default_threshold = 0.5
+
+[machine_benchmarking]
+memory_bandwidth_test_buffer_size = 0
+
+[bencher]
+api_key = ""
+organization = ""
+api_url = "https://api.bencher.dev"
+project_name = ""
+custom_testbed_name = ""
