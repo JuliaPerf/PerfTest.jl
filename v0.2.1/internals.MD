@@ -22,7 +22,7 @@ PerfTest.jl translates a declarative recipe file for performance tests into a Ju
   18. @define\_eff\_memory\_throughput macro
   19. @define\_metric macro
   20. @define\_benchmark macro
-  21  @roofline macro
+  21.  @roofline macro
   22. @auxiliary\_metric macro 
   23. @perfcompare macro
   24. Recursivity rule, used for includes inside testsets
