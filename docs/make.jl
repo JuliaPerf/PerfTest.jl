@@ -45,6 +45,7 @@ makedocs(;
                             "examples/mock3-roofline.md",
                             "examples/mock4-recursive.md",
                            ],
+        "Internals"     => "internals.md",
         "Limitations"   => "limitations.md",
         "API reference" => "api.md",
     ],
