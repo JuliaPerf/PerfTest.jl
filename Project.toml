@@ -30,3 +30,18 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 
 [extensions]
 PerfTest_MPIExt = "MPI"
+
+[compat]
+BenchmarkTools="1"
+Configurations="0"
+CountFlops="0"
+CpuId="0"
+HTTP="1"
+JLD2="0"
+JSON="0"
+MLStyle="0"
+MacroTools="0"
+Revise="3"
+STREAMBenchmark="0"
+Suppressor="0"
+UnicodePlots="3"
