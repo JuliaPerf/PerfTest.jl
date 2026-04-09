@@ -4,7 +4,7 @@ define_regression_validation = defineMacroParams([
     MacroParameter(:low_is_bad,
                     Bool,
                     true,
-                    false)
+                    false),
     MacroParameter(:threshold,
                    Float64,
                    (x) -> 0.0 <= x <= 1.0,
