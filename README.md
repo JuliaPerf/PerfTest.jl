@@ -2,6 +2,8 @@
 
 NOTE: This package is under active development, bugs may lurk around, if a bug is found please raise an issue so it can be adressed. Thanks :)
 
+NOTE 2: I'm working on updating the package for the new Julia 1.12, as of now it might fail on that version
+
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/dev)
 [![CI](https://github.com/JuliaPerf/PerfTest.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/JuliaPerf/PerfTest.jl/actions/workflows/CI.yml?query=branch%3Amain)
