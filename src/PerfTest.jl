@@ -13,6 +13,7 @@ using BenchmarkTools
 using STREAMBenchmark
 using LinearAlgebra
 using CpuId
+using Hwloc
 
 var"@capture" = MacroTools.var"@capture"
 
@@ -68,6 +69,7 @@ include("execution/testset.jl")
 
 
 # Machine features extraction
+include("execution/machine_topology.jl")
 include("execution/machine_benchmarking.jl")
 
 
