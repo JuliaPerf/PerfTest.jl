@@ -29,6 +29,11 @@ The following things can be appreciated in this example:
 2. The target of the perftest is the innerProduct function
 3. The performance test methodology is a roofline model, the developer expects innerProduct to perform at least at 50% of the maximum flop performance set by the roofline. The operational intensity is defined on the main block of the macro. :autoflop is a symbol that enables the use of an automatic flop count feature.
 
+## Execution
+
+To execute the functional test, simply run the file. 
+
+To execute the performance test, pass the file path to `PerfTest.transform` and evaluate the resulting test suite. The result of transform can be also saved as a file (see `PerfTest.saveExprAsFile`) for later execution.
 
 For more information have a look at the [Examples](@ref) and see the [API reference](@ref) for details on the usage of `PerfTest`.
 
