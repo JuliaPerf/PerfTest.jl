@@ -117,6 +117,8 @@ back_macro_rule = ASTRule(
     (x, ctx, info) -> backTokenToContextUpdate!(x, ctx)
 )
 
+# SECOND PASS TRIGGER TOKENS
+
 prefix_macro_rule = ASTRule(
     x -> (x == :(:__PERFTEST_FW__)),
     no_validation,
@@ -137,6 +139,11 @@ config_macro_rule = ASTRule(
     (x, ctx, info) -> (parseConfigurationMacro(x, ctx, info))
 )
 
+threads_macro_rule = ASTRule(
+    x -> (@capture(x, @m_ __); m == Symbol("@perftest_threads")),
+    threads_validation,
+    (x, ctx, info) -> (parseThreadsMacro(x, ctx, info))
+)
 
 # CONDITIONAL EXECUTION
 

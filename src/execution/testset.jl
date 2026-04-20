@@ -1,5 +1,4 @@
 
-# Create a custom Julia testset type (from jl) template
 using Test
 using Test: AbstractTestSet, Broken, Error, Fail, Pass, record, finish, get_testset_depth, get_testset, print_test_results, get_test_counts, Result
 

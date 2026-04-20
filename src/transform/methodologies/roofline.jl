@@ -81,6 +81,7 @@ function buildRoofline(context::Context)::Expr
                 opint = test_res.metrics[:opInt].value
                 flop_s = test_res.metrics[:attainedFLOPS].value
 
+                $(context._global.uses_benchmarks = union(context._global.uses_benchmarks, [:CPU_FLOPS_PEAK, :MEM_STREAM_COPY]))
                 roof = PerfTest.rooflineCalc(_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK], _PRFT_GLOBALS.builtins[:MEM_STREAM_COPY])
 
                 result_flop_ratio = newMetricResult(

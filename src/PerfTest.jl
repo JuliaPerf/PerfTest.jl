@@ -1,7 +1,7 @@
 module PerfTest
 
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars, @define_benchmark,
-    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp
+    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp, perftest
 
 using Test
 using MacroTools
@@ -55,23 +55,23 @@ include("transform/methodologies/roofline.jl")
 include("transform/prefix.jl")
 include("transform/suffix.jl")
 
+# EXECUTION PART
 
-# TODO: Separate Macro definitions
+include("execution/structs.jl")
+include("execution/testset.jl")
+
+# Machine features extraction
+include("execution/machine_topology.jl")
+include("execution/machine_benchmarking.jl")
+
+# Separate Macro definitions
 include("execution/macros/perftest.jl")
 include("execution/macros/perfcompare.jl")
 include("execution/macros/roofline.jl")
 include("execution/macros/exec_ignore.jl")
 include("execution/macros/customs.jl")
 include("execution/macros/configuration.jl")
-
-include("execution/structs.jl")
-include("execution/testset.jl")
-
-
-# Machine features extraction
-include("execution/machine_topology.jl")
-include("execution/machine_benchmarking.jl")
-
+include("execution/macros/topology.jl")
 
 # Rules of the ruleset
 include("transform/parsing/hierarchy_transform_test_region.jl")
@@ -94,7 +94,7 @@ include("execution/misc.jl")
 include("bencher/BencherREST.jl")
 
 # Base active rules
-rules = ASTRule[testset_macro_rule,
+first_pass_rules = ASTRule[testset_macro_rule,
                 test_macro_rule,
                 test_throws_macro_rule,
                 test_logs_macro_rule,
@@ -106,9 +106,8 @@ rules = ASTRule[testset_macro_rule,
     test_skip_macro_rule,
     perftest_macro_rule,
     back_macro_rule,
-    prefix_macro_rule,
-    suffix_macro_rule,
     config_macro_rule,
+    threads_macro_rule,
     on_perftest_exec_rule,
     on_perftest_ignore_rule,
     define_memory_throughput_rule,
@@ -118,6 +117,11 @@ rules = ASTRule[testset_macro_rule,
     auxiliary_metric_rule, roofline_macro_rule,
     manual_macro_rule,
     recursive_rule
+]
+
+second_pass_rules = ASTRule[
+    prefix_macro_rule,
+    suffix_macro_rule,
 ]
 
 
@@ -168,7 +172,10 @@ This method gets a input julia expression, and a context register and executes a
 """
 function _treeRun(input_expr::Expr, context::Context, args...)
 
-    return MacroTools.prewalk(ruleSet(context, rules), input_expr)
+    first_pass = MacroTools.prewalk(ruleSet(context, first_pass_rules), input_expr)
+    @info context._global.uses_benchmarks
+    second_pass = MacroTools.prewalk(ruleSet(context, second_pass_rules), first_pass)
+    return second_pass
 end
 
 
@@ -208,6 +215,8 @@ function treeRun(path::AbstractString)
 
     setupContext(path)
 
+    Topology.setupLog(addLog, x -> throwParseError!(x, ctx))
+
     # Run through AST and build new expressions
     full = _treeRun(input_expr, ctx)
 
@@ -230,6 +239,35 @@ function treeRun(path::AbstractString)
     end
 
     return MacroTools.prettify(module_full)
+end
+
+
+"""
+    perftest(file :: AbstractString, execute :: Bool = true)
+
+    # Arguments
+        file: the path of the recipe script to be transformed
+        execute: whether the resulting suite should be executed after generation, by default true. 
+        If false, the resulting suite will only be saved in a file with the name of the input with and added "_perfsuite.jl" suffix.
+    
+    # Description
+        This method implements the procedure of the package. It takes a recipe script, transforms it into a performance testing suite and executes it. The resulting suite is also saved in a file for later usage.           
+
+    # (!) Do not mistake this method for the macro with the same name, which is used to set test targets inside the recipe script.
+    
+    See the macro reference for more details about the recipe script format and the possible configurations.
+"""
+function perftest(file :: AbstractString, execute :: Bool = true)
+    expr = treeRun(file)
+    name = replace(file, r"\.jl$" => "_perfsuite.jl")
+    saveExprAsFile(expr, name)
+    if num_errors(ctx._global.errors) == 0
+        addLog("general", "[SUCCESS] Performance testing suite generated and saved in $name")
+        if execute
+            addLog("general", "[PERFTEST] Executing performance testing suite $name")
+            include(name)
+        end
+    end
 end
 
 """

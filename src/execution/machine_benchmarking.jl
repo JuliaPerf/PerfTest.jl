@@ -88,7 +88,7 @@ end
 
 
 function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBALS::GlobalSuiteData)
-    bench_data = _run_kernels(copy_kernel, add_kernel; N=div(_PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES][end], 2))
+    bench_data = _run_kernels(copy_kernel, add_kernel; N=_PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES][1])
     # in Bytes/sec
     peakbandwidth = bench_data
     _PRFT_GLOBALS.builtins[:MEM_STREAM] = peakbandwidth
@@ -98,13 +98,17 @@ function measureMemBandwidth!(::Type{<:NormalMode}, _PRFT_GLOBALS::GlobalSuiteDa
 end
 
 
-function machineBenchmarks(mode ::Type{<:NormalMode})::Expr
+function machineBenchmarks(mode ::Type{<:NormalMode}, ctx :: Context)::Expr
     quote
 	      # Block to create a separated scope
         let
-            $(getMachineInfo())
-            measureCPUPeakFlops!($mode, _PRFT_GLOBALS)
-            measureMemBandwidth!($mode, _PRFT_GLOBALS)
+            PerfTest.Topology.getMachineTopology!()
+            _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES] = PerfTest.Topology.getCacheSizes()
+            $(ctx._global.uses_benchmarks == Set{Symbol}() ? quote 
+            end : quote
+                measureCPUPeakFlops!($mode, _PRFT_GLOBALS)
+                measureMemBandwidth!($mode, _PRFT_GLOBALS) 
+            end)
         end
     end
 end

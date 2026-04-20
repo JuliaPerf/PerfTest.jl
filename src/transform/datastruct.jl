@@ -138,11 +138,13 @@ mutable struct GlobalContext
     errors::ErrorCollection
     valid_symbols::Set{Symbol}
     custom_benchmarks::Set{Symbol}
+    # This set is used to track which benchmarks are being used in the recipe, so the machine benchmarking can be done only if needed
+    uses_benchmarks::Set{Symbol}
     # Measure suite time
     elapsed :: Float64
 
-    GlobalContext(path, errors, valid) = new(path, false, errors, valid, Set{Symbol}())
-    GlobalContext(path, errors, valid, _) = new(path, true, errors, valid, Set{Symbol}())
+    GlobalContext(path, errors, valid) = new(path, false, errors, valid, Set{Symbol}(), Set{Symbol}(), 0.0)
+    GlobalContext(path, errors, valid, _) = new(path, true, errors, valid, Set{Symbol}(), Set{Symbol}(), 0.0)
 end
 
 """

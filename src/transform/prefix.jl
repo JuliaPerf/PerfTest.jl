@@ -27,8 +27,10 @@ function perftestprefix(ctx :: Context)::Expr
             else
                 datafile = PerfTest.Perftest_Datafile_Root(PerfTest.Suite_Execution_Result[])
 
-                PerfTest.p_yellow("[!]")
-                println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
+                if Configuration.CONFIG["regression"]["enabled"]
+                    PerfTest.p_yellow("[!]")
+                    println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
+                end
             end
             
             # Regression data
@@ -55,9 +57,8 @@ function perftestprefix(ctx :: Context)::Expr
             _PRFT_GLOBALS = GlobalSuiteData()
         end
 
-        # Do machine specs
-        # Will compute peak flops and peak bandwidth and populate
-        $(machineBenchmarks(mode))
+        # Do machine probe
+        $(machineBenchmarks(mode, ctx))
 
         # Methodology prefixes
         #$(regressionPrefix(ctx))

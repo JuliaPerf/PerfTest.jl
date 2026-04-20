@@ -1,6 +1,5 @@
 module Configuration
 
-
 using Base: DEFAULT_STABLE
 using TOML
 """
@@ -44,11 +43,11 @@ end
 
 
 """
-Recursively merge two dictionaries, with values from override_dict taking precedence.
+Recursively merge two configs, with values from override_config taking precedence.
 """
 function merge_configs(base_config::Dict, override_config::Dict)
 
-    function _mc(bc:: Dict, oc :: Dict) :: Dict
+    function _mc(bc::Dict, oc::Dict)::Dict
         local merged = deepcopy(bc)
 
         for (key, value) in oc
@@ -112,7 +111,7 @@ Args:
 Returns:
 - Loaded configuration dictionary or nothing
 """
-function load_config() :: Union{Dict, Nothing}
+function load_config()::Union{Dict,Nothing}
     try
         config = TOML.parsefile(CONFIG_FILE)
 
@@ -131,16 +130,19 @@ function load_config() :: Union{Dict, Nothing}
     end
 end
 
-function load_dummy_config() :: Union{Dict, Nothing}
+function load_dummy_config()::Union{Dict,Nothing}
     global CONFIG = PRECOMPILATION_CONFIG
     return PRECOMPILATION_CONFIG
 end
 
 CONFIG_FILE = "perftest_config.toml"
 
+
 CONFIG_SHAPE = Dict(
     "general" => Dict(
         "autoflops" => Bool,
+        "numas" => Union{String,Integer,Float64},
+        "threads_per_numa" => Union{String,Integer,Float64},
         "save_results" => Bool,
         "logs_enabled" => Bool,
         "save_folder" => String,
@@ -186,6 +188,8 @@ CONFIG_SHAPE = Dict(
 DEFAULT = Dict(
     "general" => Dict(
         "autoflops" => true,
+        "numas" => "single",
+        "threads_per_numa" => "single",
         "save_results" => true,
         "logs_enabled" => true,
         "save_folder" => ".perftests",
@@ -283,7 +287,7 @@ end # module
 
 using TOML
 
-function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict) :: Expr
+function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
 
     # Parse, and merge
     string = info[Symbol("")]
@@ -299,7 +303,7 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
     end
 
     io = IOBuffer()
-    TOML.print(nothing,io, Configuration.CONFIG)
+    TOML.print(nothing, io, Configuration.CONFIG)
     serialized_config = String(take!(io))
 
     return quote
@@ -309,11 +313,41 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
     end
 end
 
+function parseThreadsMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
+    try
+        specs = info[Symbol("")]
+
+        return quote
+            let
+                specs = $specs
+                arrgmt_l = PerfTest.Topology.literallizeArrangement($specs)
+                arrgmt_e = PerfTest.Topology.isExecutableArrangement(arrgmt_l)
+                if arrgmt_e === nothing
+                    @warn "Specified thread arrangement $specs is not executable on this Julia process, not enough threads available ($(Threads.nthreads()) of $(arrgmt_l[1] * arrgmt_l[2])). Ignoring."
+                else
+                    try
+                        PerfTest.Topology.enforceThreadArrangement(arrgmt_e)
+                    catch e
+                        if Sys.iswindows() || Sys.isapple()
+                            @warn "Thread pinning enforcement is not supported on this OS. Ignoring specified arrangement."
+                        else
+                            @warn "Failed to enforce thread pinning: $e, ignoring specified arrangement."
+                        end
+                    end
+                end
+            end
+        end
+
+    catch
+        return quote "INVALID THREAD ARRANGEMENT" end
+    end
+end
+
 
 """
   Used on a generated test suite to import the configuration set during generation
 """
-function _perftest_config(config_string :: String)
+function _perftest_config(config_string::String)
     # Parse, and merge
     parsed = TOML.parse(config_string)
 

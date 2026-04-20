@@ -19,7 +19,7 @@ function onMemoryThroughputDefinition(formula::ExtendedExpr, ctx::Context, info)
     if haskey(info, :custom_benchmark)
         info[:custom] = true
         # Check TODO if custom b. has been defined
-        if !( info[:custom_benchmark] in ctx._global.custom_benchmarks)
+        if !(info[:custom_benchmark] in ctx._global.custom_benchmarks)
             throwParseError!("Undefined custom benchmark $(info[:custom_benchmark])", ctx)
         end
     else
@@ -45,7 +45,7 @@ end
 """
   Returns an expression used to evaluate the effective memory throughput over a test target
 """
-function buildMemTRPTMethodology(context :: Context)::Expr
+function buildMemTRPTMethodology(context::Context)::Expr
 
     info = captureMethodologyInfo(:effMemTP, context._local.enabled_methodologies)
 
@@ -54,21 +54,24 @@ function buildMemTRPTMethodology(context :: Context)::Expr
     else
         info = info.params
         return quote
-	          let
-                reference_benchmark = $(!info[:custom]
-                                        ? :(_PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))])
-                                        : :(_PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(info[:custom_benchmark]))].value))
+            let
+                reference_benchmark = $(if !info[:custom]
+                    push!(context._global.uses_benchmarks, info[:mem_benchmark])
+                    :(_PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))])
+                else
+                    :(_PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(info[:custom_benchmark]))].value)
+                end)
 
                 value = test_res.metrics[:effMemTP].value / reference_benchmark
                 success = value >= $(info[:ratio])
                 result = newMetricResult($mode,
-                                       name="Effective Throughput Ratio",
-                                       units="%",
-                                       value=value*100)
+                    name="Effective Throughput Ratio",
+                    units="%",
+                    value=value * 100)
                 test = Metric_Test(
                     reference=100,
-                    threshold_min_percent=$(info[:ratio])*100,
-                    threshold_max_percent=1.0*100,
+                    threshold_min_percent=$(info[:ratio]) * 100,
+                    threshold_max_percent=1.0 * 100,
                     low_is_bad=true,
                     succeeded=success,
                     custom_plotting=Symbol[],
@@ -80,7 +83,7 @@ function buildMemTRPTMethodology(context :: Context)::Expr
                     $mode,
                     name="Attained Bandwidth",
                     units="B/s",
-		            value=test_res.metrics[:effMemTP].value
+                    value=test_res.metrics[:effMemTP].value
                 )
                 aux_ref_value = newMetricResult(
                     $mode,

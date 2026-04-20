@@ -1,9 +1,10 @@
 name = "PerfTest"
 uuid = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
-version = "0.2.1"
 authors = ["Dvegrod <dvegrodu@gmail.com>, Samuel Omlin <samuel.omlin@cscs.ch>, and contributors"]
+version = "0.2.1"
 
 [deps]
+BandwidthBenchmark = "68eb07c1-04fd-4e62-9736-d6127c4c03c6"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Configurations = "5218b696-f38b-4ac9-8b61-a12ec717816d"
 CountFlops = "1db9610d-79e1-487a-8d40-77f3295c7593"
@@ -24,6 +25,7 @@ STREAMBenchmark = "05e9033e-e298-417a-adae-495536c11ad4"
 Suppressor = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+ThreadPinningCore = "6f48bc29-05ce-4cc8-baad-4adcba581a18"
 UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [weakdeps]
@@ -33,6 +35,7 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 PerfTest_MPIExt = "MPI"
 
 [compat]
+BandwidthBenchmark = "0.2.0"
 BenchmarkTools = "1"
 Configurations = "0"
 CountFlops = "0"
@@ -46,4 +49,5 @@ MacroTools = "0"
 Revise = "3"
 STREAMBenchmark = "0"
 Suppressor = "0"
+ThreadPinningCore = "0.4.5"
 UnicodePlots = "3"
