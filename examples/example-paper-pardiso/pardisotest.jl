@@ -103,7 +103,7 @@ end
 
         ## We define operational intensity and thus enable a roofline test below
         #
-        # Target ratio of 5% of roofline performance
+        # Target ratio of 40% of roofline performance
         # Actual flops extracted from standard output
         # Operational intensity extraced from standard output as well
         @roofline target_ratio=0.4 actual_flops=begin
@@ -147,7 +147,7 @@ end
 
         ## We define operational intensity and thus enable a roofline test below
         #
-        # Target ratio of 5% of roofline performance
+        # Target ratio of 40% of roofline performance
         # Actual flops extracted from standard output
         # Operational intensity extraced from standard output as well
         @roofline target_ratio=0.4 actual_flops=begin

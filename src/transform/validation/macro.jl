@@ -61,7 +61,7 @@ function validateMacro(macro_param :: Dict{Symbol, MacroParameter})
         param_info = macro_param[Symbol("")]
         param = args[end]
         @matchast param quote
-	          ($a = $b) => (throwParseError!("Last parameter cannot be a keyword parameter on macro $m",context); return nothing)
+	          ($a = $b) => (throwParseError!("Last parameter cannot be a keyword ($a) parameter on macro $m",context); return nothing)
             $_ => nothing
         end
         if typeof(param) <: param_info.type

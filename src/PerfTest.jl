@@ -173,7 +173,6 @@ This method gets a input julia expression, and a context register and executes a
 function _treeRun(input_expr::Expr, context::Context, args...)
 
     first_pass = MacroTools.prewalk(ruleSet(context, first_pass_rules), input_expr)
-    @info context._global.uses_benchmarks
     second_pass = MacroTools.prewalk(ruleSet(context, second_pass_rules), first_pass)
     return second_pass
 end

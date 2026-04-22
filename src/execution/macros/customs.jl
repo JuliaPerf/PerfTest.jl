@@ -16,6 +16,7 @@ define_metric_validation = defineMacroParams([
         true
     )
 ])
+
 """
 This macro is used to define a new custom metric.
 
@@ -106,7 +107,7 @@ define_eff_memory_throughput_validation = defineMacroParams([
     MacroParameter(
         :mem_benchmark,
         Symbol,
-        (x) -> x in [:MEM_STREAM_COPY,:MEM_STREAM_ADD],
+        (x) -> x in [:MEM_STREAM_COPY, :MEM_STREAM_ADD, :MEM_BENCH_STRIAD, :MEM_BENCH_SDAXPY],
         :MEM_STREAM_COPY, #default
     ),
     MacroParameter(
@@ -122,7 +123,7 @@ This macro is used to define the memory bandwidth of a target in order to execut
 # Arguments
  - formula block : an expression that returns a single value, which would be the metric value. The formula can have any julia expression inside and additionally some special symbols are supported. The formula may be evaluated several times, so its applied to every target in every test set or just once, if the formula is defined inside a test set, which makes it only applicable to it.
  - ratio : the allowed minimum percentage over the maximum attainable that is allowed to pass the test, it can be a number or a Julia expression that evaluates to a number
- - mem_benchmark : which STREAM kernel benchmark to use (e.g :MEM_STREAM_COPY for transfer operations :MEM_STREAM_ADD for transfer and computing)
+ - mem_benchmark : which STREAM kernel benchmark to use (e.g :MEM_STREAM_COPY for transfer operation, :MEM_BENCH_STRIAD (Shoenauer triad) for computing operations), :MEM_BENCH_SDAXPY (Shoenauer Daxpy) useful when not sure if copy on write is happening)
  - custom_benchmark : in case of using a custom benchmark, the symbol that identifies the chosen benchmark, (must have been defined before)
 
 # Special symbols:

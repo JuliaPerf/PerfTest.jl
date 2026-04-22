@@ -14,7 +14,7 @@ end
 function pushError!(error :: ParsingErrorInfo, collection :: VecErrorCollection, depth :: AbstractArray{DepthEntry})
     push!(collection.errors, error)
     push!(collection.loc, "| " * foldl(*, [e.set_name * " > " for e in depth]))
-    addLog("general", error.name)
+    addLog("general", Base.text_colors[:red] * "[ERROR] " * error.name * Base.text_colors[:default])
 end
 
 # Abbreviations for ASTRule

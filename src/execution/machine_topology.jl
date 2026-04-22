@@ -89,13 +89,9 @@ function recursiveTopRetrieve!(obj::Hwloc.Object, pu_dict, devices, numas, index
         push!(indexing, i)
         push!(symbols, child.type_)
         if child.type_ == :PU
-            @info "$indexing -> id: $(obj.os_index)"
             pu_dict[child.os_index] = Topology.Index(indexing, symbols)
         end
         recursiveTopRetrieve!(child, pu_dict, devices, numas, indexing, symbols)
-        if child.type_ == :Package
-            @info "$i"
-        end
         pop!(indexing)
         pop!(symbols)
     end
@@ -310,12 +306,15 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
     total_needed = literal_numas * literal_threads
 
     # Check Julia thread count
-    if Threads.nthreads() < total_needed || reason != ""
+    if Threads.nthreads() < total_needed
         reason *= "Not enough threads on the interpreter."
         addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
         return (0,0)
-    elseif Threads.nthreads() > total_needed || reason == ""
-        reason *= "Too many threads on the interpreter."
+    elseif Threads.nthreads() > total_needed
+        reason *= "Too many threads on the interpreter ($(Threads.nthreads()) > $total_needed)."
+        addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
+        return (0,0)
+    elseif reason != ""
         addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
         return (0,0)
     end

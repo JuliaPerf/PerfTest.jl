@@ -323,13 +323,13 @@ function parseThreadsMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
                 arrgmt_l = PerfTest.Topology.literallizeArrangement($specs)
                 arrgmt_e = PerfTest.Topology.isExecutableArrangement(arrgmt_l)
                 if arrgmt_e === nothing
-                    @warn "Specified thread arrangement $specs is not executable on this Julia process, not enough threads available ($(Threads.nthreads()) of $(arrgmt_l[1] * arrgmt_l[2])). Ignoring."
+                    @warn "Ignoring pinning."
                 else
                     try
                         PerfTest.Topology.enforceThreadArrangement(arrgmt_e)
                     catch e
                         if Sys.iswindows() || Sys.isapple()
-                            @warn "Thread pinning enforcement is not supported on this OS. Ignoring specified arrangement."
+                            @warn "Thread pinning is not supported on this OS. Ignoring specified arrangement."
                         else
                             @warn "Failed to enforce thread pinning: $e, ignoring specified arrangement."
                         end
