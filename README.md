@@ -100,6 +100,12 @@ julia>]
 
 Please email: vegard@usi.ch or raise an issue.
 
+## Citing this software
+
+Daniel Vega Rodriguez, Samuel Omlin, Dimosthenis Pasadakis, and Olaf Schenk. 2026. Generating Architecture-Agnostic Performance Tests from Functional Unit Tests. ACM Trans. Model. Perform. Eval. Comput. Syst. 11, 1–2, Article 16 (June 2026), 24 pages. https://doi.org/10.1145/3801098
+
+A citation file (CITATION.cff) is available on the root of the repository.
+
 ## Your contributions
 
 Help is more than welcome! If you have an idea/contribution that could benefit from this project, please share!
