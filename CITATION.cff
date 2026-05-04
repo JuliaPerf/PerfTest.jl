@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "PerfTest.jl"
-version: 1.2.1
+version: 0.2.1
 doi: 10.1145/3801098
 preferred-citation:
   type: article
