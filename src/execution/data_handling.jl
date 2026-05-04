@@ -190,3 +190,4 @@ function get_metric_results(datafile::Perftest_Datafile_Root, metric_name::Abstr
     end
     return metric_results
 end
+

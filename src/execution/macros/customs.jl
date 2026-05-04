@@ -18,7 +18,7 @@ define_metric_validation = defineMacroParams([
 ])
 
 """
-This macro is used to define a new custom metric.
+This macro is used to define a new custom metric. The metric result can be used subsequently by other macros.
 
 # Arguments
  - `name` : the name of the metric for identification purposes.
@@ -32,6 +32,7 @@ This macro is used to define a new custom metric.
  - `:autoflop`: will be substituted by the FLOP count the target.
  - `:printed_output` : will be substituted by the standard output stream of the target.
  - `:iterator` : will be substituted by the current iterator value in a loop test set.
+ -  Any symbol representing a custom metric or benchmark (e.g metric with name="example" -> :example)
 """
 macro define_metric(args...)
     return :(
@@ -76,7 +77,7 @@ end
 # Same parameters
 auxiliary_metric_validation = define_metric_validation
 """
-  Defines a custom metric for informational purposes that will not be used for testing but will be printed as output.
+  Defines a custom metric for informational purposes that will not be used for testing but will be printed as output. The metric cannot be used by other macros.
 
 # Arguments
  - `name` : the name of the metric for identification purposes.
@@ -90,6 +91,7 @@ auxiliary_metric_validation = define_metric_validation
  - `:autoflop`: will be substituted by the FLOP count the target.
  - `:printed_output` : will be substituted by the standard output stream of the target.
  - `:iterator` : will be substituted by the current iterator value in a loop test set.
+ -  Any symbol representing a custom metric or benchmark (e.g metric with name="example" -> :example)
 """
 macro auxiliary_metric(formula, name, units)
     return :(
@@ -106,8 +108,8 @@ define_eff_memory_throughput_validation = defineMacroParams([
     ),
     MacroParameter(
         :mem_benchmark,
-        Symbol,
-        (x) -> x in [:MEM_STREAM_COPY, :MEM_STREAM_ADD, :MEM_BENCH_STRIAD, :MEM_BENCH_SDAXPY],
+        metricID(),
+        (x) -> metricID(x) in [:MEM_STREAM_COPY, :MEM_STREAM_ADD, :MEM_BENCH_STRIAD, :MEM_BENCH_SDAXPY],
         :MEM_STREAM_COPY, #default
     ),
     MacroParameter(
@@ -118,13 +120,18 @@ define_eff_memory_throughput_validation = defineMacroParams([
                    true)
 ])
 """
+
+`@define_eff_memory_throughput [kwargs...] begin {formula block} end`
+
+`@def_mem_thr [kwargs...] begin {formula block} end`
+
 This macro is used to define the memory bandwidth of a target in order to execute the effective memory thorughput methodology.
 
 # Arguments
- - formula block : an expression that returns a single value, which would be the metric value. The formula can have any julia expression inside and additionally some special symbols are supported. The formula may be evaluated several times, so its applied to every target in every test set or just once, if the formula is defined inside a test set, which makes it only applicable to it.
+ - formula block : an expression that returns a single value, which would be the metric value. The formula can have any julia expression inside and additionally special symbols listed below are supported. The formula may be evaluated several times, so its applied to every target in every test set or just once, if the formula is defined inside a test set, which makes it only applicable on it and onto children testset.
  - ratio : the allowed minimum percentage over the maximum attainable that is allowed to pass the test, it can be a number or a Julia expression that evaluates to a number
- - mem_benchmark : which STREAM kernel benchmark to use (e.g :MEM_STREAM_COPY for transfer operation, :MEM_BENCH_STRIAD (Shoenauer triad) for computing operations), :MEM_BENCH_SDAXPY (Shoenauer Daxpy) useful when not sure if copy on write is happening)
- - custom_benchmark : in case of using a custom benchmark, the symbol that identifies the chosen benchmark, (must have been defined before)
+ - benchmark : which bandwidth kernel benchmark to use (e.g :MEM_STREAM_COPY for transfer operation, :MEM_BENCH_STRIAD (Shoenauer triad) for computing operations), :MEM_BENCH_SDAXPY (Shoenauer Daxpy) useful when not sure if copy on write is happening)
+ - custom_benchmark : if a previously defined benchmark name is passed, the methodology will use it as the maximum bandwidth reference.
 
 # Special symbols:
  - `:median_time` : will be substituted by the median time the target took to execute in the benchmark.
@@ -133,6 +140,7 @@ This macro is used to define the memory bandwidth of a target in order to execut
  - `:autoflop`: will be substituted by the FLOP count the target.
  - `:printed_output` : will be substituted by the standard output stream of the target.
  - `:iterator` : will be substituted by the current iterator value in a loop test set.
+ -  Any symbol representing a custom metric or benchmark (e.g metric with name="example" -> :example)
 
 # Example:
 
@@ -148,7 +156,7 @@ macro define_eff_memory_throughput(args...)
         begin end
     )
 end
-
+var"@def_eff_mem" = var"@define_eff_memory_throughput"
 
 
 """

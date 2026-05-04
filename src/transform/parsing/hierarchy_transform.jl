@@ -8,7 +8,9 @@ function transformTestset(input_expr::Expr, context::Context)
     depth = length(context.test_tree_expr_builder)
 
     # Concatenate expressions of the current level into a new node on the upper level
-    concat = :(begin end)
+    concat = :(
+        begin end
+    )
 
 
     # for expr in context.test_tree_expr_builder[depth]
@@ -32,7 +34,7 @@ function transformTestset(input_expr::Expr, context::Context)
     push!(context._local.enabled_methodologies, MethodologyParameters[])
 
     # LOGINFO
-    addLog("hierarchy", "[BNCH] New Group: $([i.set_name for i in context._local.depth_record])")
+    addLog("hierarchy", "[TESTSET] New Group: $([i.set_name for i in context._local.depth_record])")
 
     # Launch regression methodology by default
     onRegressionDefinition(quote end, context, Dict())
@@ -43,7 +45,7 @@ function transformTestset(input_expr::Expr, context::Context)
         result = quote
             $(outerset ? :(:__PERFTEST_FW__) : begin end)
 
-            TS = @perftestset PerfTestSet $name  for $a in $b
+            TS = @perftestset PerfTestSet $name for $a in $b
                 local ts = Test.get_testset()
                 ts.iterator = $a
                 $(outerset ? :(ts.old_test_results = _PRFT_GLOBALS.old) : begin end)
@@ -56,7 +58,7 @@ function transformTestset(input_expr::Expr, context::Context)
     else
         result = quote
             $(outerset ? :(:__PERFTEST_FW__) : begin end)
-            TS = @perftestset PerfTestSet $name  begin
+            TS = @perftestset PerfTestSet $name begin
                 local ts = Test.get_testset()
 
                 $(outerset ? :(ts.old_test_results = _PRFT_GLOBALS.old) : begin end)
@@ -84,7 +86,7 @@ function transformPerftest(input_expr::Expr, context::Context)
     name = "Test $num"
 
     # LOGINFO
-    addLog("hierarchy", "[BNCH] New Test: $name \"$expr\" @ $([i.set_name for i in context._local.depth_record])")
+    addLog("hierarchy", "[PERFTEST] New Test: $name \"$expr\" @ $([i.set_name for i in context._local.depth_record])")
     # Return the transformed expression, in the following quote ts means the current testset
     return quote
         # Run the benchmark
@@ -134,8 +136,5 @@ function transformPerftest(input_expr::Expr, context::Context)
         $(buildPerfcmp(context))
         $(buildRegression(context))
 
-        PerfTest.printAuxiliaries(test_res.auxiliar, Test.get_testset_depth());
-
-        nothing
     end
 end

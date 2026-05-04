@@ -198,6 +198,7 @@ function perftestsuffix(context :: Context)
             # No fails no errors
             if sum(Test.get_test_counts(TS)[2:3]) == 0
                 PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
+                println("Some test faile or errored, ommitting result recording.")
                 # Export as json
                 #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
             end

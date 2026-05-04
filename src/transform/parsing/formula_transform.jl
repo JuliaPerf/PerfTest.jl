@@ -29,7 +29,7 @@ formula_rules = ASTRule[
             quote
                 test_res.primitives[$x]
             end
-        ) : x),
+        ) : SBMID(x.value)),
 ]
 
 

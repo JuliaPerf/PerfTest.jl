@@ -66,7 +66,7 @@ function Test.finish(ts::PerfTestSet)
 
     # Print failed tests on the current level (or everything if verbose)
     for (test_name,test_result) in ts.test_results
-        if sum(get_test_counts(ts)[2:3]) > 0 || Configuration.CONFIG["general"]["verbose"]
+        if sum(get_test_counts(ts)[2:3]) > 0 || Configuration.CONFIG["general"]["verbose"] > 0
             for parent in ts.parent_chain
                 print("IN: $(parent) ")
             end

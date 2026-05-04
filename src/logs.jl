@@ -57,9 +57,9 @@ function addLog(channel::AbstractString, message::AbstractString, configuration 
     if !(configuration["general"]["logs_enabled"])
         return
     end
-    if !(configuration["general"]["verbose"]) && !isempty(LOGS.stdout_bindings)
+    if !(configuration["general"]["verbose"] > 0) && !isempty(LOGS.stdout_bindings)
         empty!(LOGS.stdout_bindings)
-    elseif configuration["general"]["verbose"] && isempty(LOGS.stdout_bindings)
+    elseif configuration["general"]["verbose"] > 0 && isempty(LOGS.stdout_bindings)
         verboseOutput()
     end
 

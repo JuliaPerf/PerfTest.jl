@@ -1,4 +1,3 @@
-
 # The tree builder is a stack used to construct the test region
 # 3 DIRECTIONS
 # DOWNWARDS : a new testset level is parsed -> a new test level is created (new top of stack)
@@ -140,7 +139,6 @@ function updateTestTreeSideways!(context::Context, name::String)
                                 $(buildPerfcmp(context))
                                 $(buildRegression(context))
 
-                                PerfTest.printAuxiliaries(_PRFT_LOCAL[:metrics], length(_PRFT_LOCAL[:depth]))
                             end
                         end))
 end

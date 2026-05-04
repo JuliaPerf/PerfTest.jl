@@ -7,7 +7,7 @@ using PerfTest
 [regression]
 enabled = false
 [general]
-verbose = false
+verbose = 0
 "
 
 @testset "A" begin

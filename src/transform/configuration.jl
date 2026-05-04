@@ -148,7 +148,7 @@ CONFIG_SHAPE = Dict(
         "save_folder" => String,
         "max_saved_results" => Int,
         "plotting" => Bool,
-        "verbose" => Bool,
+        "verbose" => Int,
         "recursive" => Bool,
         "safe_formulas" => Bool,
         "suppress_output" => Bool),
@@ -195,7 +195,7 @@ DEFAULT = Dict(
         "save_folder" => ".perftests",
         "max_saved_results" => 20,
         "plotting" => true,
-        "verbose" => false,
+        "verbose" => 0,
         "recursive" => true,
         "suppress_output" => true,
         "safe_formulas" => false,
@@ -299,7 +299,7 @@ function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Exp
     Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
 
     if Configuration.CONFIG["general"]["verbose"] != old["general"]["verbose"]
-        addLog("general", "Verbosity level changed from $(old["general"]["verbose"] ? "HIGH" : "LOW" ) to $(old["general"]["verbose"] ? "LOW" : "HIGH")")
+        addLog("general", "Verbosity level changed from $(old["general"]["verbose"]) to $(old["general"]["verbose"])")
     end
 
     io = IOBuffer()

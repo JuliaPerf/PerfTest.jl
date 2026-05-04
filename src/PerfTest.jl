@@ -1,7 +1,7 @@
 module PerfTest
 
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars, @define_benchmark,
-    @define_eff_memory_throughput, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp, perftest
+    @define_eff_memory_throughput, @def_eff_mem, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp, perftest
 
 using Test
 using MacroTools
@@ -10,9 +10,7 @@ using Configurations
 using Printf
 
 using BenchmarkTools
-using STREAMBenchmark
 using LinearAlgebra
-using CpuId
 using Hwloc
 
 var"@capture" = MacroTools.var"@capture"
@@ -87,6 +85,7 @@ include("transform/auxiliar.jl")
 # Functions used by the generated suites
 include("execution/printing.jl")
 include("execution/data_handling.jl")
+include("execution/retrieve.jl")
 include("execution/units.jl")
 include("execution/misc.jl")
 
@@ -95,13 +94,13 @@ include("bencher/BencherREST.jl")
 
 # Base active rules
 first_pass_rules = ASTRule[testset_macro_rule,
-                test_macro_rule,
-                test_throws_macro_rule,
-                test_logs_macro_rule,
-                inferred_macro_rule,
-                test_deprecated_macro_rule,
-                test_warn_macro_rule,
-                test_nowarn_macro_rule,
+    test_macro_rule,
+    test_throws_macro_rule,
+    test_logs_macro_rule,
+    inferred_macro_rule,
+    test_deprecated_macro_rule,
+    test_warn_macro_rule,
+    test_nowarn_macro_rule,
     test_broken_macro_rule,
     test_skip_macro_rule,
     perftest_macro_rule,
@@ -133,7 +132,7 @@ perftest_expression_ruleset = [
     perftest_dot_interpolation_rule,
 ]
 
-function parseTarget(expr :: Expr, context::Context)::Expr
+function parseTarget(expr::Expr, context::Context)::Expr
     return MacroTools.prewalk(ruleSet(context, perftest_expression_ruleset), expr)
 end
 
@@ -147,7 +146,7 @@ WARNING: the rule set will apply the FIRST rule that matches with the expression
  - `context` the context structure of the tree run, it will be ocassinally used by some rules on the set.
  - `rules` the collection of rules that will belong to the resulting set.
 """
-function ruleSet(context::Context, rules :: Vector{ASTRule})
+function ruleSet(context::Context, rules::Vector{ASTRule})
     function _ruleSet(x)
         for rule in rules
             if rule.match(x)
@@ -179,7 +178,7 @@ end
 
 
 ctx = nothing
-function setupContext(path :: AbstractString)
+function setupContext(path::AbstractString)
 
     global ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols))
     ctx._global.original_file_path = path
@@ -192,20 +191,22 @@ The function will return a Julia expression with the resulting performance testi
  - `path` the path of the script to be transformed.
 
 """
-function treeRun(path::AbstractString)
+function treeRun(path::AbstractString; config=nothing)
 
     # Set log directory
     setLogFolder()
     # Clear logs
     #clearLogs()
     # Load configuration
-    if !init_dummy_flag    
-        config = Configuration.load_config()
-    else
+    if init_dummy_flag
         config = Configuration.load_dummy_config()
+    else
+        if config isa Nothing
+            config = Configuration.load_config()
+        end
     end
 
-    if config["general"]["verbose"]
+    if config["general"]["verbose"] >= 1
         verboseOutput()
     end
 
@@ -224,16 +225,18 @@ function treeRun(path::AbstractString)
 
     # Mount inside a module environment
     module_full = Expr(:toplevel,
-                       Expr(:module, true, :__PERFTEST__,
-                            Expr(:block, full.args...)))
+        Expr(:module, true, :__PERFTEST__,
+            Expr(:block, full.args...)))
 
     if num_errors(ctx._global.errors) > 0
         printErrors(ctx._global.errors)
-        return quote @warn "Parsing failed" end
+        return quote
+            @warn "Parsing failed"
+        end
     end
 
 
-    if config["general"]["verbose"]
+    if config["general"]["verbose"] >= 3
         saveLogFolder()
     end
 
@@ -242,22 +245,33 @@ end
 
 
 """
-    perftest(file :: AbstractString, execute :: Bool = true)
+    perftest(file; ...)
+
+    # Description
+        Simplified function to access the perftest transformation and execute performance test suites.
+        It takes a recipe script, transforms it into a performance testing suite and executes it. The resulting suite is also saved in a file for later usage.           
 
     # Arguments
-        file: the path of the recipe script to be transformed
-        execute: whether the resulting suite should be executed after generation, by default true. 
-        If false, the resulting suite will only be saved in a file with the name of the input with and added "_perfsuite.jl" suffix.
+        `file    ::AbstractString`: the path of the recipe script to be transformed
+
+    # Keyword arguments
+        `execute::Bool = true`             : whether the resulting suite should be executed right after generation, by default true. If false, the resulting suite will only be saved in a file with the name of the input with and added "_perfsuite.jl" suffix.
+        `record ::Bool = true`             : if executing, whether to save the execution results to be compared with in future executions. 
+        `verbose::Int  = 2`                : level of verbosity, from 0 to 3 higher is more verbose
+        `clean  ::Bool = false`            : whether to leave the config file, the output test suite and the test results or delete everything after the suite has been executed, !!! including previously done results !!!.
+        `config  ::Dict{String,Any} = {}`   : other configuration parameters to override the configuration file. Configuration priority: config macro > this argument > configuration file. See configuration for more info.
     
-    # Description
-        This method implements the procedure of the package. It takes a recipe script, transforms it into a performance testing suite and executes it. The resulting suite is also saved in a file for later usage.           
 
     # (!) Do not mistake this method for the macro with the same name, which is used to set test targets inside the recipe script.
+
+    # Example of a config parameter"
+        `{"regression" : {"enabled" : true}, "general" : {"recursive" : false}}`
     
+
     See the macro reference for more details about the recipe script format and the possible configurations.
 """
-function perftest(file :: AbstractString, execute :: Bool = true)
-    expr = treeRun(file)
+function perftest(file::AbstractString; execute::Bool=true, record::Bool=true, verbose::Int=2, clean::Bool=false, config :: Dict{String, Any}=Dict{String,Any}())
+    expr = treeRun(file, config=config)
     name = replace(file, r"\.jl$" => "_perfsuite.jl")
     saveExprAsFile(expr, name)
     if num_errors(ctx._global.errors) == 0
@@ -266,6 +280,11 @@ function perftest(file :: AbstractString, execute :: Bool = true)
             addLog("general", "[PERFTEST] Executing performance testing suite $name")
             include(name)
         end
+    end
+    if clean
+        rm(name)
+        rm("./perftest_config.toml")
+        rm("./$(Configuration.CONFIG["general"]["save_folder"])", recursive=true)
     end
 end
 
@@ -284,18 +303,17 @@ transform = treeRun
 
 MPItransform(path) = (toggleMPI(); transform(path); toggleMPI())
 
-init_dummy_flag :: Bool = false
+init_dummy_flag::Bool = false
 
-function __init__()
-    # Precompile the transformation
-    # This is a quite rudimentary (but effective) solution, a cleaner version is to be expected in the future 
-    try 
+import PrecompileTools
+PrecompileTools.@compile_workload begin
+    try
+        redirect_stdout(Base.DevNull()) do
         global init_dummy_flag = true
         x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
         global init_dummy_flag = false
-    catch
-        @warn "Precompilation of transform could not be done during initialization. It will be performed during the next function call."
-        global init_dummy_flag = false
+        end
+    catch err
     end
 end
 

@@ -2,7 +2,7 @@
 """
 
 Called when a regression macro is detected, sets up the regression methodology
-
+    
 """
 function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
     if !(Configuration.CONFIG["regression"]["enabled"])

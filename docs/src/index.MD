@@ -4,10 +4,11 @@ The package `PerfTest` provides the user with a performance regression unit test
 ## Dependencies
 `PerfTest` relies on:
   - BenchmarkTools
+  - BandwidthBenchmark
   - Configurations
   - CountFlops
-  - CpuId
   - Dates
+  - Hwloc
   - HTTP
   - JLD2
   - JSON
@@ -16,9 +17,9 @@ The package `PerfTest` provides the user with a performance regression unit test
   - MLStyle
   - MacroTools
   - Pkg
+  - PrecompileTools
   - Printf
   - Revise
-  - STREAMBenchmark
   - Suppressor
   - TOML
   - Test

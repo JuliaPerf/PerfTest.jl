@@ -12,3 +12,17 @@ formula_symbols = Set([
     :peak_bandwidth,
 ])
 
+function SBMID(metric :: metricID())
+    sym = metricID(metric)
+    if sym in formula_symbols
+        return quote _PRFT_GLOBALS.builtins[$(QuoteNode(sym))] end
+    else
+        return quote (haskey(_PRFT_GLOBALS.custom_benchmarks,$(QuoteNode(sym))) ? 
+            _PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(sym))].value : 
+            haskey(test_res.metrics,$(QuoteNode(sym))) ? 
+            test_res.metrics[$(QuoteNode(sym))].value : 
+            haskey(test_res.auxiliar,$(QuoteNode(sym))) ?
+            test_res.auxiliar[$(QuoteNode(sym))].value :
+            error("Undefined $($(sym)), wrong spelling?")) end 
+    end
+end

@@ -15,6 +15,9 @@ struct ASTRule
     ASTRule(match, macro_params :: Dict, transformation) = new(match, validateMacro(macro_params), transformation)
 end
 
+metricID() = Union{Symbol, String}
+metricID(id :: metricID()) = id isa String ? Symbol(id) : id
+
 struct MacroParameter
     name :: Symbol
     type :: Type

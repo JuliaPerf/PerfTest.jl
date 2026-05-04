@@ -15,6 +15,7 @@ function onMemoryThroughputDefinition(formula::ExtendedExpr, ctx::Context, info)
     else
         info[:ratio] = Configuration.CONFIG["memory_bandwidth"]["default_threshold"]
     end
+    info[:benchmark] = metricID(info[:mem_benchmark])
     # Check if the user wants to use a custom benchmark
     if haskey(info, :custom_benchmark)
         info[:custom] = true
@@ -22,9 +23,11 @@ function onMemoryThroughputDefinition(formula::ExtendedExpr, ctx::Context, info)
         if !(info[:custom_benchmark] in ctx._global.custom_benchmarks)
             throwParseError!("Undefined custom benchmark $(info[:custom_benchmark])", ctx)
         end
+        info[:benchmark] = info[:custom_benchmark]
     else
         info[:custom] = false
     end
+    push!(ctx._global.uses_benchmarks, info[:benchmark])
     # Adds to the inner scope the request to build the methodology and its needed metric
     push!(ctx._local.custom_metrics[end], CustomMetric(
         name="Effective memory throughput",
@@ -55,12 +58,7 @@ function buildMemTRPTMethodology(context::Context)::Expr
         info = info.params
         return quote
             let
-                reference_benchmark = $(if !info[:custom]
-                    push!(context._global.uses_benchmarks, info[:mem_benchmark])
-                    :(_PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))])
-                else
-                    :(_PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(info[:custom_benchmark]))].value)
-                end)
+                reference_benchmark = $(SBMID(info[:benchmark]))
 
                 value = test_res.metrics[:effMemTP].value / reference_benchmark
                 success = value >= $(info[:ratio])

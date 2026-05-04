@@ -19,6 +19,7 @@ This macro is used to manually declare performance test conditions.
  - `:autoflop`: will be substituted by the FLOP count the target.
  - `:printed_output` : will be substituted by the standard output stream of the target.
  - `:iterator` : will be substituted by the current iterator value in a loop test set.
+ -  Any symbol representing a custom metric or benchmark (e.g metric with name="example" -> :example)
 
 # Example:
 
