@@ -1,25 +1,31 @@
 cff-version: 1.2.0
-type: article
-authors:
-  - family-names: Vega Rodriguez
-    given-names: Daniel
-  - family-names: Omlin
-    given-names: Samuel
-  - family-names: Pasadakis
-    given-names: Dimosthenis
-  - family-names: Schenk
-    given-names: Olaf
-title: "Generating Architecture-Agnostic Performance Tests from Functional Unit Tests"
-journal: "ACM Transactions on Modeling and Performance Evaluation of Computing Systems"
-volume: 11
-issue: "1–2"
-number: 16
-year: 2026
-month: 4
-pages: "16:1-16:24"
-doi: "10.1145/3801098"
-url: "https://doi.org/10.1145/3801098"
-issn: "2376-3639"
-publisher:
-  name: "Association for Computing Machinery"
-  address: "New York, NY, USA"
+message: "If you use this software, please cite it as below."
+title: "PerfTest.jl"
+version: 1.2.1
+doi: 10.1145/3801098
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Vega Rodriguez"
+      given-names: "Daniel"
+    - family-names: "Omlin"
+      given-names: "Samuel"
+    - family-names: "Pasadakis"
+      given-names: "Dimosthenis"
+    - family-names: "Schenk"
+      given-names: "Olaf"
+  title: "Generating Architecture-Agnostic Performance Tests from Functional Unit Tests"
+  journal: "ACM Transactions on Modeling and Performance Evaluation of Computing Systems"
+  volume: 11
+  issue: "1–2"
+  number: 16
+  year: 2026
+  month: 4
+  start: 1
+  end: 24
+  doi: "10.1145/3801098"
+  url: "https://doi.org/10.1145/3801098"
+  issn: "2376-3639"
+  publisher:
+    name: "Association for Computing Machinery"
+    address: "New York, NY, USA"
