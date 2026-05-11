@@ -21,7 +21,7 @@ safe_formulas = false
 enabled = false
 default_threshold = 0.9
 use_bencher = false
-custom_file = ""
+dedicated_reference_file = ""
 
 [roofline]
 enabled = true

@@ -111,14 +111,14 @@ end
 """
     In case of heterogeneous levels, returns the biggest of each level
 """
-function getCacheSizes()::Vector
+function getCacheSizes()::Vector{Int64}
     sizes = []
     for i in [:L3Cache, :L2Cache, :L1Cache]
         if (size = getMaxCacheSize(i)) > 0
             push!(sizes, size)
         end
     end
-    return sizes
+    return Int64.(sizes)
 end
 
 """
@@ -176,7 +176,7 @@ function getEfficiencyCores()::Vector{Integer}
     return eff
 end
 
-setupLog(logfunc :: Function, errorfunc :: Function) = begin
+setupLog(logfunc::Function, errorfunc::Function) = begin
     Topology.addLog = logfunc
     Topology.throwParseError! = errorfunc
 end
@@ -211,6 +211,7 @@ function getMachineTopology!()
 
     addLog("machine", "[MACHINE] $(cpu_model), $(length(numas)) NUMA domains with $([t for t in threadsPerNuma()]) threads per domain.")
     addLog("machine", "[MACHINE] Cache sizes (biggest per level): $(getCacheSizes() ./ 1024 ./ 1024) MBytes.")
+    addLog("machine", "[THREADS] Julia process is running with $(Threads.nthreads()) threads.")
 
     return pu_dict, devices, numas
 end
@@ -224,8 +225,20 @@ function threadsPerNuma()::Vector{Integer}
 end
 
 # Autovectorized
-function literallizeArrangement(arrgmts::Vector)::Vector{Tuple{Integer,Integer}}
+function literallizeArrangement(arrgmts::Vector{N})::Vector{N} where {N<:Tuple{<:Number,<:Number}}
     return literallizeArrangement.(arrgmts)
+end
+
+# Manual pinning
+function literallizeArrangement(arrgmts::Vector{N})::Vector{N} where {N<:Integer}
+    if Topology.hwloc_topology isa Nothing
+        Topology.getMachineTopology!()
+    end
+    threadids = Base.Flatten(Topology.getNUMADomainCores())
+    if !all([in(pin, threadids) for pin in arrgmts])
+        error("Invalid manual thread pin, thread id not found in machine, (machine threads [$(min(threadids))-$(max(threadids))])")
+    end
+    return arrgmts
 end
 
 """
@@ -254,7 +267,7 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
                   "Must be one of [:single, :numa, :all] or a tuple — see ArrangementSpec docs.")
         end
     end
-    
+
     if length(arrgmt) != 2
         error("Invalid thread arrangement: $arrgmt has $(length(arrgmt)) element(s); " *
               "expected exactly 2  (#numas, #threads_per_numa).")
@@ -275,7 +288,7 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
         end
         if numa_spec > total_numas
             reason *= ("Invalid thread arrangement: requested $numa_spec NUMA domain(s) but " *
-                  "the host only has $total_numas.")
+                       "the host only has $total_numas.")
         end
         Integer(numa_spec)
     end
@@ -297,8 +310,8 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
         end
         if thread_spec > min_threads_in_selected
             reason *= ("Invalid thread arrangement: requested $thread_spec thread(s) per NUMA but " *
-                  "the most constrained of the $literal_numas selected NUMA domain(s) only " *
-                  "has $min_threads_in_selected available thread(s).")
+                       "the most constrained of the $literal_numas selected NUMA domain(s) only " *
+                       "has $min_threads_in_selected available thread(s).")
         end
         Integer(thread_spec)
     end
@@ -309,14 +322,14 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
     if Threads.nthreads() < total_needed
         reason *= "Not enough threads on the interpreter."
         addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
-        return (0,0)
+        return (0, 0)
     elseif Threads.nthreads() > total_needed
         reason *= "Too many threads on the interpreter ($(Threads.nthreads()) > $total_needed)."
         addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
-        return (0,0)
+        return (0, 0)
     elseif reason != ""
         addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
-        return (0,0)
+        return (0, 0)
     end
     return (literal_numas, literal_threads)
 end
@@ -326,6 +339,9 @@ function validateArrangement(arrgmts::Vector)::Bool
     return all(validateArrangement.(arrgmts))
 end
 
+function validateArrangement(arrgmts::Vector{N})::Bool where {N<:Integer}
+    return all(0 .< arrgmts)
+end
 
 """
     validateArrangement(arrgmt::ArrangementSpec) -> Bool
@@ -384,6 +400,10 @@ function validateArrangement(arrgmt::ArrangementSpec)::Bool
     return true
 end
 
+function isExecutableArrangement(arrgmts::Vector{N}) :: Union{Vector{N}, Nothing} where {N <: Integer}
+    return validateArrangement(arrgmts) ? arrgmts : nothing
+end
+
 function isExecutableArrangement(arrgmts::Vector)::Union{ArrangementSpec,Nothing}
     for arrgmt in arrgmts
         if !((found = isExecutableArrangement(arrgmt)) isa Nothing)
@@ -440,10 +460,11 @@ function enforceThreadArrangement(arrgmt::Tuple{Integer,Integer})::Bool
     end
 
     pinthreads(cpu_ids)
+    addLog("machine", "[MACHINE] Pinning enforced, cpuids pinned = $(cpu_ids)")
     return true
 end
 
-function enforceThreadArrangement(manual::Vector{Integer})::Bool
+function enforceThreadArrangement(manual::Vector{<:Integer})::Bool
     if length(manual) > sum(length.(Topology.getNUMADomainCores()))
         error("enforceThreadArrangement: more threads have been specified than the ones available in the machine")
     end

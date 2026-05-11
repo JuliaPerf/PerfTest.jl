@@ -102,7 +102,6 @@ function validateBlocklessMacro(macro_param::Dict{Symbol,MacroParameter})
 
         @capture(macro_expr, @m_ args__)
 
-
         mandatory = sum([a.second.mandatory for a in macro_param])
         _all = length(macro_param)
         # Invalid parameter numbers

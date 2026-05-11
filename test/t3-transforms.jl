@@ -1,4 +1,8 @@
+
+using Test, PerfTest
+
 prefix = "test-recipes/"
+
 sources = [
     "ex1-hierarchy-basic.jl",
     "ex2-effmemtp.jl",
@@ -24,9 +28,9 @@ checks = [
         "[TESTSET] New Group: [\"FIRST LEVEL\"]", "[TESTSET] New Group: [\"FIRST LEVEL\", \"SECOND LEVEL\"]", "[PERFTEST] New Test: Test 1 \"testfun(10)\" @ [\"FIRST LEVEL\", \"SECOND LEVEL\"]", "[TESTSET] Exiting group", "[TESTSET] Exiting group",
     ],
     [
-        "[TESTSET] New Group: [\"RECURSIVE\"]", "[RECURSIVE] Recursivity is enabled, entering \"ex4-perfcmp.jl\"",
+        "[TESTSET] New Group: [\"RECURSIVE\"]", "[RECURSIVE] Recursivity is enabled, entering \"test-recipes/ex4-perfcmp.jl\"",
         "[TESTSET] New Group: [\"RECURSIVE\", \"FIRST LEVEL\"]", "[TESTSET] New Group: [\"RECURSIVE\", \"FIRST LEVEL\", \"SECOND LEVEL\"]", "[PERFTEST] New Test: Test 1 \"testfun(10)\" @ [\"RECURSIVE\", \"FIRST LEVEL\", \"SECOND LEVEL\"]", "[TESTSET] Exiting group", "[TESTSET] Exiting group",
-        "[RECURSIVE] \"ex4-perfcmp.jl\" has been processed, 0 errors found", "[TESTSET] Exiting group"
+        "[RECURSIVE] \"test-recipes/ex4-perfcmp.jl\" has been processed, 0 errors found", "[TESTSET] Exiting group"
     ],
 ]
 

@@ -1,7 +1,7 @@
 module PerfTest
 
 export @perftest, @on_perftest_exec, @on_perftest_ignore, @perftest_config, @export_vars, @define_benchmark,
-    @define_eff_memory_throughput, @def_eff_mem, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp, perftest
+    @define_eff_memory_throughput, @def_eff_mem, @define_metric, @roofline, @define_test_metric, magnitudeAdjust, @perfcompare, @perfcmp, runperftests, @regression
 
 using Test
 using MacroTools
@@ -15,11 +15,11 @@ using Hwloc
 
 var"@capture" = MacroTools.var"@capture"
 
-abstract type NormalMode end
-struct MPIMode <: NormalMode end
+abstract type Mode end
+struct MPIMode <: Mode end
+struct NormalMode <: Mode end
 
 mode = NormalMode
-
 
 ### PARSING TIME
 
@@ -66,6 +66,7 @@ include("execution/machine_benchmarking.jl")
 include("execution/macros/perftest.jl")
 include("execution/macros/perfcompare.jl")
 include("execution/macros/roofline.jl")
+include("execution/macros/regression.jl")
 include("execution/macros/exec_ignore.jl")
 include("execution/macros/customs.jl")
 include("execution/macros/configuration.jl")
@@ -110,6 +111,7 @@ first_pass_rules = ASTRule[testset_macro_rule,
     on_perftest_exec_rule,
     on_perftest_ignore_rule,
     define_memory_throughput_rule,
+    regression_macro_rule,
     define_metric_rule,
     define_benchmark_rule,
     export_vars_rule,
@@ -201,13 +203,28 @@ function treeRun(path::AbstractString; config=nothing)
     if init_dummy_flag
         config = Configuration.load_dummy_config()
     else
-        if config isa Nothing
+        if config === nothing
             config = Configuration.load_config()
+        else
+            _config = Configuration.load_config()
+            config = Configuration.merge_configs(_config, config)
+            Configuration.load_config(config)
         end
     end
 
     if config["general"]["verbose"] >= 1
         verboseOutput()
+    end
+
+    if config["MPI"]["enabled"] == true
+        if isdefined(Main, :MPI)
+            global mode = MPIMode
+            addLog("general", "[MPI] MPI enabled in configuration and MPI package found, switching to MPI aware generation")
+        else
+            @warn "[MPI] MPI enabled in configuration but MPI package not found, defaulting to non-MPI mode"
+        end
+    else
+        global mode = NormalMode
     end
 
     # Load original
@@ -228,15 +245,15 @@ function treeRun(path::AbstractString; config=nothing)
         Expr(:module, true, :__PERFTEST__,
             Expr(:block, full.args...)))
 
-    if num_errors(ctx._global.errors) > 0
-        printErrors(ctx._global.errors)
+    if num_errors(ctx) > 0
+        printErrors(ctx)
         return quote
             @warn "Parsing failed"
         end
     end
 
 
-    if config["general"]["verbose"] >= 3
+    if config["general"]["verbose"] >= 2
         saveLogFolder()
     end
 
@@ -245,10 +262,10 @@ end
 
 
 """
-    perftest(file; ...)
+    runperftests(file; ...)
 
     # Description
-        Simplified function to access the perftest transformation and execute performance test suites.
+        Simplified function to access the perftest transformation and subsequent execution of performance test suites.
         It takes a recipe script, transforms it into a performance testing suite and executes it. The resulting suite is also saved in a file for later usage.           
 
     # Arguments
@@ -256,27 +273,49 @@ end
 
     # Keyword arguments
         `execute::Bool = true`             : whether the resulting suite should be executed right after generation, by default true. If false, the resulting suite will only be saved in a file with the name of the input with and added "_perfsuite.jl" suffix.
-        `record ::Bool = true`             : if executing, whether to save the execution results to be compared with in future executions. 
-        `verbose::Int  = 2`                : level of verbosity, from 0 to 3 higher is more verbose
+        `verbose::Int  = 0`                : level of verbosity, from 0 to 3 higher is more verbose
+            0 : minimal output, only warnings and errors
+            1 : general information about the transformation and execution process
+            2 : detailed information about the transformation and execution process, logs are saved in a folder
+            3 : debug level, very detailed information about the transformation and execution process
         `clean  ::Bool = false`            : whether to leave the config file, the output test suite and the test results or delete everything after the suite has been executed, !!! including previously done results !!!.
         `config  ::Dict{String,Any} = {}`   : other configuration parameters to override the configuration file. Configuration priority: config macro > this argument > configuration file. See configuration for more info.
     
 
     # (!) Do not mistake this method for the macro with the same name, which is used to set test targets inside the recipe script.
 
-    # Example of a config parameter"
+    # Example of a config parameter value:
         `{"regression" : {"enabled" : true}, "general" : {"recursive" : false}}`
     
 
     See the macro reference for more details about the recipe script format and the possible configurations.
 """
-function perftest(file::AbstractString; execute::Bool=true, record::Bool=true, verbose::Int=2, clean::Bool=false, config :: Dict{String, Any}=Dict{String,Any}())
+function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, clean::Bool=false, config::Union{Dict,Nothing}=nothing)
+    # Load config file
+    Configuration.load_config()
+    # Override with config argument
+    if config isa Dict
+        config = Configuration.merge_configs(Configuration.CONFIG, config)
+    else
+        config = Configuration.CONFIG
+    end
+    # Override with parameters
+    configp = Dict{String,Any}()
+    configp["general"] = Dict{String,Any}()
+    if config["general"]["verbose"] != verbose
+        configp["general"]["verbose"] = verbose
+    end
+    config = Configuration.merge_configs(config, configp)
+
     expr = treeRun(file, config=config)
     name = replace(file, r"\.jl$" => "_perfsuite.jl")
     saveExprAsFile(expr, name)
-    if num_errors(ctx._global.errors) == 0
-        addLog("general", "[SUCCESS] Performance testing suite generated and saved in $name")
-        if execute
+    if num_errors(ctx) == 0
+        addLog("general", "[SUCCESS] Performance testing suite generated and saved in $name\n")
+        if mode == MPIMode
+            addLog("general", "[MPI] Performance testing suite generated in MPI mode, make sure to execute it with an MPI launcher to properly run the tests across all ranks")
+        end
+        if execute && mode == NormalMode
             addLog("general", "[PERFTEST] Executing performance testing suite $name")
             include(name)
         end
@@ -289,7 +328,7 @@ function perftest(file::AbstractString; execute::Bool=true, record::Bool=true, v
 end
 
 """
-  In order for the suite to be MPI aware, this function has to be called. Calling it again will disable this feature.
+  [!] DEPRECATED, do not use, use the Perftest configuration attributes instead. 
 """
 function toggleMPI()
     if mode == NormalMode
@@ -309,11 +348,13 @@ import PrecompileTools
 PrecompileTools.@compile_workload begin
     try
         redirect_stdout(Base.DevNull()) do
-        global init_dummy_flag = true
-        x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
-        global init_dummy_flag = false
+            global init_dummy_flag = true
+            x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
+            rm("./$(Configuration.PRECOMPILATION_CONFIG["general"]["save_folder"])", recursive=true)
         end
     catch err
+    finally
+        global init_dummy_flag = false
     end
 end
 

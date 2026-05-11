@@ -7,8 +7,14 @@ function printError(e :: ParsingErrorInfo, l :: String)
     println("")
 end
 
-function num_errors(e :: VecErrorCollection) :: Int
-    return length(e.errors)
+function num_errors(c :: Context) :: Int
+    return length(c._global.errors.errors)
+end
+function num_errors(c :: VecErrorCollection) :: Int
+    return length(c.errors)
+end
+function num_errors() :: Int
+    return ctx._global.errors.errors |> length
 end
 
 function pushError!(error :: ParsingErrorInfo, collection :: VecErrorCollection, depth :: AbstractArray{DepthEntry})
@@ -25,8 +31,8 @@ function throwParseError!(num, name, context)
 	  pushError!(ParsingErrorInfo(num, name), context._global.errors, context._local.depth_record)
 end
 
-function printErrors(collection :: VecErrorCollection)
-    for e in zip(collection.errors, collection.loc)
+function printErrors(context :: Context)
+    for e in zip(context._global.errors.errors, context._global.errors.loc)
         printError(e...)
     end
 end

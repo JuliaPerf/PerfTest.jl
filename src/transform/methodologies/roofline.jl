@@ -3,7 +3,7 @@ using MacroTools: blockunify
 using Configurations: ExproniconLite
 using UnicodePlots
 
-function rooflineCalc(peakCPU :: Float64, peakMem :: Float64)
+function rooflineCalc(peakCPU :: Number, peakMem :: Number)
     return (opint) -> min(peakCPU, opint * peakMem)
 end
 
@@ -81,9 +81,12 @@ function buildRoofline(context::Context)::Expr
             let
                 opint = test_res.metrics[:opInt].value
                 flop_s = test_res.metrics[:attainedFLOPS].value
+                flop_peak = $(haskey(info, :cpu_peak) ? info[:cpu_peak] : quote _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK] end)
+                mem_peak = $(haskey(info, :membw_peak) ? info[:membw_peak] : quote _PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))] end)
 
-                $(context._global.uses_benchmarks = union(context._global.uses_benchmarks, [:CPU_FLOPS_PEAK, :MEM_STREAM_DAXPY]))
-                roof = PerfTest.rooflineCalc(_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK], _PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))])
+                $(context._global.uses_benchmarks = union(context._global.uses_benchmarks, [:CPU_FLOPS_PEAK, :MEM_STREAM_DAXPY]); nothing)
+                # Check if the user wants to use a hardcoded memory bandwidth or cpu peak
+                roof = PerfTest.rooflineCalc(flop_peak, mem_peak)
 
                 result_flop_ratio = newMetricResult(
                     $mode,
@@ -95,7 +98,6 @@ function buildRoofline(context::Context)::Expr
                 methodology_res = Methodology_Result(
                     name="Roofline Model"
                 )
-
                 $(if info[:test_flop]
                       quote
                           success_flop = result_flop_ratio.value >= $(info[:target_ratio]) * 100
@@ -124,13 +126,13 @@ function buildRoofline(context::Context)::Expr
                     $mode,
                     name="Peak empirical bandwidth",
                     units="B/s",
-                    value=_PRFT_GLOBALS.builtins[$(QuoteNode(info[:mem_benchmark]))]
+                    value=mem_peak
                 )
                 aux_flops = newMetricResult(
                     $mode,
                     name="Peak empirical flops",
                     units="FLOP/s",
-                    value=_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]
+                    value=flop_peak
                 )
                 aux_rcorner = newMetricResult(
                     $mode,
@@ -152,7 +154,11 @@ function buildRoofline(context::Context)::Expr
                 try
                     PerfTest.@_prftest flop_test.succeeded
                     saveMethodologyData(test_res.name, methodology_res)
-                catch end
+                catch e
+                    @error "Roofline test failed with error: $e"
+               
+                
+                end
             end
         end
     end

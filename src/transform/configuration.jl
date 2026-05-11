@@ -106,14 +106,13 @@ Load configuration from a TOML file.
 
 Args:
 - filepath: Path to the TOML file
-- schema: Optional schema for validation
 
 Returns:
 - Loaded configuration dictionary or nothing
 """
-function load_config()::Union{Dict,Nothing}
+function load_config(filepath::AbstractString = "")::Union{Dict,Nothing}
     try
-        config = TOML.parsefile(CONFIG_FILE)
+        config = TOML.parsefile(filepath == "" ? CONFIG_FILE : filepath)
 
         if !validate_config(config, CONFIG_SHAPE)
             @error "Configuration validation failed"
@@ -124,10 +123,21 @@ function load_config()::Union{Dict,Nothing}
 
         return CONFIG
     catch e
-        @info "Configuration not found, loading default configuration"
+        @info "Configuration not found or invalid, loading default configuration"
         save_config(DEFAULT)
         return DEFAULT
     end
+end
+
+function load_config(config :: Dict)::Union{Dict,Nothing}
+    if !validate_config(config, CONFIG_SHAPE)
+        @error "Configuration validation failed"
+        return nothing
+    end
+
+    global CONFIG = config
+
+    return CONFIG
 end
 
 function load_dummy_config()::Union{Dict,Nothing}
@@ -154,7 +164,7 @@ CONFIG_SHAPE = Dict(
         "suppress_output" => Bool),
     "regression" => Dict(
         "enabled" => Bool,
-        "custom_file" => String,
+        "dedicated_reference_file" => String,
         "default_threshold" => Number,
         "use_bencher" => Bool,
     ),
@@ -202,7 +212,7 @@ DEFAULT = Dict(
     ),
     "regression" => Dict(
         "enabled" => true,
-        "custom_file" => "",
+        "dedicated_reference_file" => "",
         "default_threshold" => 1.1,
         "use_bencher" => false,
     ),
@@ -248,7 +258,7 @@ PRECOMPILATION_CONFIG = Dict(
     ),
     "regression" => Dict(
         "enabled" => false,
-        "custom_file" => "",
+        "dedicated_reference_file" => "",
         "default_threshold" => 0.9,
         "use_bencher" => false,
     ),
@@ -299,7 +309,7 @@ function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Exp
     Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
 
     if Configuration.CONFIG["general"]["verbose"] != old["general"]["verbose"]
-        addLog("general", "Verbosity level changed from $(old["general"]["verbose"]) to $(old["general"]["verbose"])")
+        addLog("general", "Verbosity level changed from $(old["general"]["verbose"]) to $(Configuration.CONFIG["general"]["verbose"])")
     end
 
     io = IOBuffer()
@@ -339,7 +349,9 @@ function parseThreadsMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
         end
 
     catch
-        return quote "INVALID THREAD ARRANGEMENT" end
+        return quote
+            "INVALID THREAD ARRANGEMENT"
+        end
     end
 end
 

@@ -1,3 +1,4 @@
+# Careful changing testset names (used for parsing)
 
 using Test
 using PerfTest
@@ -5,8 +6,6 @@ using PerfTest
 @perftest_config "
 [regression]
 enabled = false
-[general]
-verbose = 0
 "
 
 @testset "Time Measurements" begin
@@ -49,6 +48,27 @@ verbose = 0
             @perfcompare (:apples < :pears)
             @perftest sleep(0.1)
         end
+
+        @testset "Roofline hardcoded" begin
+            @roofline actual_flops=10 target_ratio=0.8 cpu_peak=120 membw_peak=100 begin
+                4 / 4
+            end
+            @perftest sleep(0.1)
+        end
+
+
+        @testset "Roofline perfect" begin
+            @on_perftest_exec begin
+                global _flops = _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]/10
+                global _opint = 1
+            end
+
+            @roofline actual_flops=_flops target_ratio=0.9 begin
+                _opint
+            end
+
+            @perftest sleep(0.1)
+        end
     end
 
     @testset "This should fail" begin
@@ -82,6 +102,26 @@ verbose = 0
             end
 
             @perfcompare :apples > :pears
+            @perftest sleep(0.1)
+        end
+
+        @testset "Roofline hardcoded" begin
+            @roofline actual_flops=10 target_ratio=0.95 cpu_peak=120 membw_peak=100 begin
+                6 / 4
+            end
+            @perftest sleep(0.1)
+        end
+
+        @testset "Roofline perfect" begin
+            @on_perftest_exec begin
+                global _flops = _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]/10/2
+                global _opint = 1
+            end
+
+            @roofline actual_flops=_flops target_ratio=0.9 begin
+                _opint
+            end
+
             @perftest sleep(0.1)
         end
     end

@@ -153,19 +153,6 @@ end
 function perftestsuffix(context :: Context)
     return quote
         if main_rank($mode)
-            # Deal with recorder results
-            let
-                res_num = length(_PRFT_GLOBALS.datafile.results)
-
-                if (excess = $(Configuration.CONFIG["general"]["max_saved_results"]) - res_num) <= 0
-                    PerfTest.p_yellow("[ℹ]")
-                    println(" Regression: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
-                    for i in 1:(-1*excess+1)
-                        popfirst!(_PRFT_GLOBALS.datafile.results)
-                    end
-                end
-
-            end
 
             testresdict = Dict{String,Union{Dict,Test_Result}}()
             if TS isa Vector
@@ -193,15 +180,42 @@ function perftestsuffix(context :: Context)
                     perftests = testresdict
                 )
             end
-            push!(_PRFT_GLOBALS.datafile.results, newres)
 
-            # No fails no errors
-            if sum(Test.get_test_counts(TS)[2:3]) == 0
-                PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
-                println("Some test faile or errored, ommitting result recording.")
-                # Export as json
-                #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
+            # No fails no errors, regression enabled and different regression file path
+            if PerfTest.testsSucceeded(TS) && Configuration.CONFIG["regression"]["enabled"] && regression_path != _PRFT_GLOBALS.datafile_path
+                println("All performance tests have passed. Values will be registered as reference for regression testing.")
+                push!(regression_file.results, newres)
+                # Deal with recorded results
+                let
+                    res_num = length(regression_file.results)
+                    if (excess = $(Configuration.CONFIG["general"]["max_saved_results"]) - res_num) <= 0
+                        PerfTest.p_yellow("[ℹ]")
+                        println(" Regression: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
+                        for i in 1:(-1*excess+1)
+                            popfirst!(regression_file.results)
+                        end
+                    end
+                end
+                PerfTest.saveDataFile(regression_path, regression_file)
+            else
+                println("Some tests failed or errored.")
+            end 
+            # Deal with recorded results
+            let
+                push!(_PRFT_GLOBALS.datafile.results, newres)
+                res_num = length(_PRFT_GLOBALS.datafile.results)
+
+                if (excess = $(Configuration.CONFIG["general"]["max_saved_results"]) - res_num) <= 0
+                    PerfTest.p_yellow("[ℹ]")
+                    println(" Results File: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
+                    for i in 1:(-1*excess+1)
+                        popfirst!(_PRFT_GLOBALS.datafile.results)
+                    end
+                end
             end
+            # Export as json
+            #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
+            PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
             println("[✓] $path Performance tests have been finished (elapsed $(newres.elapsed) s)")
 
             # Bencher export using the REST API

@@ -1,3 +1,4 @@
+using Test, PerfTest
 # Here the macro parser is tested, common errors are put to check if they are caught
 @testset "Macro validation tests" begin
 
@@ -18,7 +19,7 @@
 
     f(expr, ctx)
 
-    @test PerfTest.num_errors(ctx._global.errors) == 0
+    @test PerfTest.num_errors(ctx) == 0
 
 
     # VALID
@@ -28,7 +29,7 @@
 
     parsed = f(expr, ctx)
 
-    @test PerfTest.num_errors(ctx._global.errors) == 0
+    @test PerfTest.num_errors(ctx) == 0
 
     # Test parameter parsing
     @test parsed[:aparam] == 3.45
@@ -41,7 +42,7 @@
     end
 
     parsed = f(expr, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 1
+    @test PerfTest.num_errors(ctx) == 1
 
     # Test parameter parsing
     @test parsed[Symbol("")] == :(4+5)
@@ -54,7 +55,7 @@
     end
 
     f(expr, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 2
+    @test PerfTest.num_errors(ctx) == 2
 
     # missing all arguments
     expr = quote
@@ -62,7 +63,7 @@
     end
 
     f(expr, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 3
+    @test PerfTest.num_errors(ctx) == 3
 
     # bparam should be positive
     expr = quote
@@ -70,7 +71,7 @@
     end
 
     f(expr, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 4
+    @test PerfTest.num_errors(ctx) == 4
 
     # expression should be a sum
     expr = quote
@@ -78,7 +79,7 @@
     end
 
     f(expr, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 5
+    @test PerfTest.num_errors(ctx) == 5
 
     # non-existent parameter
     expr = quote
@@ -86,9 +87,9 @@
     end
 
     f(expr, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 6
+    @test PerfTest.num_errors(ctx) == 6
 
     # Uncomment to see error messages
-    #PerfTest.printErrors(ctx._global.errors)
+    #PerfTest.printErrors(ctx)
 
 end

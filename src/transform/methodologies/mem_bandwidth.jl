@@ -41,6 +41,8 @@ function onMemoryThroughputDefinition(formula::ExtendedExpr, ctx::Context, info)
         override=true,
         params=info,
     ))
+
+    addLog("metrics", "[METHODOLOGY] Defined Effective Memory Throughput on $([i.set_name for i in ctx._local.depth_record]) with benchmark $(info[:benchmark]) and threshold $(info[:ratio])")
     return quote end
 end
 

@@ -1,4 +1,4 @@
-export retrievePerfTests, inTestSet, hasMetric, hasAuxiliar, hasPrimitive, testNamed, testPassed
+export retrievePerfTests, inTestSet, hasMetric, hasAuxiliar, hasPrimitive, testNamed, testPassed, testFailed
 
 """
     retrievePerfTests(datafile_path; get=:tests, where=(x)->true, execution=:latest)
@@ -21,6 +21,7 @@ General-purpose retrieval over a performance-test datafile.
 tests  = retrievePerfTests("results.dat")
 fast   = retrievePerfTests("results.dat"; where = t -> hasMetric(t, :median_time))
 passed = retrievePerfTests("results.dat"; where = testPassed)
+failed = retrievePerfTests("results.dat"; where = testFailed)
 meths  = retrievePerfTests("results.dat"; get = :methodologies) 
 
 # All predicates:
@@ -30,6 +31,7 @@ meths  = retrievePerfTests("results.dat"; get = :methodologies)
 - `hasPrimitive(test, :min_time)` → true if `test` has a primitive
 - `testNamed(test, "MyTest")` → true if `test.name == "MyTest"`
 - `testPassed(test)` → true if all methodologies of `test` passed
+- `testFailed(test)` → true if any methodology of `test` failed
 - `methodologyNamed(m, "MyMethodology")` → true if `m.name == "MyMethodology"`
 - `methodologyHasMetric(m, "median_time")` → true if `m` has a metric named "median_time"
 - `methodologyPassed(m)` → true if all metrics of `m` succeeded
@@ -67,6 +69,16 @@ _retrieve(::Val{:methodologies}, suite, pred) = _collect_methodologies(suite, pr
 _retrieve(::Val{:testsets}, suite, pred) = _collect_testsets(suite, pred)
 function _retrieve(::Val{S}, _, _) where {S}
     throw(ArgumentError("retrievePerfTests: unknown get=:$S. " * "Expected one of :tests, :methodologies, :testsets."))
+end
+
+"""
+    getExecutionTimestamps(datafile_path::AbstractString)
+
+    Returns a vector of timestamps corresponding to each execution recorded in the datafile at `datafile_path`.
+"""
+function getExecutionTimestamps(datafile_path::AbstractString)
+    root = openDataFile(datafile_path)
+    return [result.timestamp for result in root.results]
 end
 
 
@@ -145,6 +157,7 @@ hasAuxiliar(t::Test_Result, key::Symbol)    = haskey(t.auxiliar, key)
 hasPrimitive(t::Test_Result, key::Symbol)   = haskey(t.primitives, key)
 testNamed(t::Test_Result, name::AbstractString) = t.name == name
 testPassed(t::Test_Result) = all([methodologyPassed(m) for m in t.methodology_results])
+testFailed(t::Test_Result) = !testPassed(t)
 
 # Methodology predicates:
 methodologyNamed(m::Methodology_Result, name::AbstractString) = m.name == name

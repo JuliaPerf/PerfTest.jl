@@ -2,17 +2,17 @@
 roofline_validation = defineMacroParams([
     MacroParameter(
         :cpu_peak,
-        Float64,
+        Number,
         greaterThan0,
     ),
     MacroParameter(
         :membw_peak,
-        Float64,
+        Number,
         greaterThan0,
     ),
     MacroParameter(
         :target_opint,
-        Float64,
+        Number,
         greaterThan0,
     ),
     MacroParameter(
@@ -21,7 +21,7 @@ roofline_validation = defineMacroParams([
     ),
     MacroParameter(
         :target_ratio,
-        Float64,
+        Number,
         (x) -> 0. < x < 2.
     ),
     MacroParameter(

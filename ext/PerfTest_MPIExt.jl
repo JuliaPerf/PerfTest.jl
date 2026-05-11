@@ -9,7 +9,6 @@ module PerfTest_MPIExt
 using MPI
 using PerfTest
 using LinearAlgebra
-using STREAMBenchmark
 using BenchmarkTools
 using Base.Threads
 
@@ -22,7 +21,6 @@ function PerfTest.MPISetup(::Type{PerfTest.MPIMode})::Nothing
     if !mpi_initialized
         MPI.Init()
     end
-    PerfTest.toggleMPI()
     global mpi_rank = MPI.Comm_rank(MPI.COMM_WORLD)
     global mpi_size = MPI.Comm_size(MPI.COMM_WORLD)
     global mpi_initialized = true
@@ -45,87 +43,157 @@ function PerfTest.ranks(mode::Type{PerfTest.MPIMode})::Int
 end
 
 # MPI Communication utilities
+const MAIN_RANK = 0
 
 """
-Gather results from all ranks to the main rank (rank 0)
+    gather_to_main(value::N; comm=MPI.COMM_WORLD, root=MAIN_RANK) where {N}
+
+Gather a scalar `value` from every rank into a `Dict{Int64, N}` on the main rank,
+keyed by the source rank. Non-main ranks receive an empty `Dict{Int64, N}`.
+
+`N` must be a type natively supported by MPI (e.g. a `Number` / `isbits` type).
 """
-function MPICommunicateResults!(results::Number, rank, size)
-    if rank != 0
-        MPI.Send(results, MPI.COMM_WORLD; dest=0)
-        return Dict{Int64,Number}(rank => results)
+function gatherToMain(value::N; comm::MPI.Comm=MPI.COMM_WORLD,
+    root::Integer=MAIN_RANK) where {N}
+    rank = MPI.Comm_rank(comm)
+    nproc = MPI.Comm_size(comm)
+
+    # Pack the local scalar in a length-1 buffer so MPI.Gather can move it.
+    sendbuf = N[value]
+
+    if rank == root
+        recvbuf = Vector{N}(undef, nproc)
+        MPI.Gather!(sendbuf, MPI.UBuffer(recvbuf, 1), comm; root=root)
+        return Dict{Int64,N}(Int64(r) => recvbuf[r+1] for r in 0:(nproc-1))
     else
-        gathered = Dict{Int64,Number}()
-        gathered[0] = results
-        for i in 1:(size-1)
-            gathered[i] = MPI.Recv(typeof(results), MPI.COMM_WORLD; source=i)
-        end
-        return gathered
+        MPI.Gather!(sendbuf, nothing, comm; root=root)
+        return Dict{Int64,N}()
     end
 end
 
-function MPICommunicateResults!(results::Dict{Int64,Number}, rank, size)
-    if rank != 0
-        MPI.Send(results[rank], MPI.COMM_WORLD; dest=0)
+"""
+    gather_to_main(value::Vector{N}; comm=MPI.COMM_WORLD, root=MAIN_RANK) where {N}
+
+Vector dispatch: each rank contributes a `Vector{N}` (lengths may differ between
+ranks). On the main rank, returns a `Dict{Int64, Vector{N}}` keyed by source rank.
+Other ranks receive an empty dict.
+"""
+function gatherToMain(value::Vector{N}; comm::MPI.Comm=MPI.COMM_WORLD,
+    root::Integer=MAIN_RANK) where {N}
+    rank = MPI.Comm_rank(comm)
+    nproc = MPI.Comm_size(comm)
+
+    # First, communicate per-rank lengths so the root can build a VBuffer.
+    local_len = Cint(length(value))
+    counts = if rank == root
+        Vector{Cint}(undef, nproc)
     else
-        for i in 1:(size-1)
-            results[i] = MPI.Recv(Number, MPI.COMM_WORLD; source=i)
-        end
+        nothing
     end
-    return results
+    MPI.Gather!(Cint[local_len],
+        rank == root ? MPI.UBuffer(counts, 1) : nothing,
+        comm; root=root)
+
+    if rank == root
+        total = sum(counts)
+        recvbuf = Vector{N}(undef, total)
+        MPI.Gatherv!(value, MPI.VBuffer(recvbuf, counts), comm; root=root)
+
+        out = Dict{Int64,Vector{N}}()
+        offset = 0
+        for r in 0:(nproc-1)
+            n = Int(counts[r+1])
+            out[Int64(r)] = recvbuf[(offset+1):(offset+n)]
+            offset += n
+        end
+        return out
+    else
+        MPI.Gatherv!(value, nothing, comm; root=root)
+        return Dict{Int64,Vector{N}}()
+    end
+end
+
+"""
+    reduce_to_main(op, value; comm=MPI.COMM_WORLD, root=MAIN_RANK)
+
+Gather every rank's `value` onto the main rank using [`gather_to_main`](@ref) and
+then apply the reduction `op` to the collected values.
+
+- On the **main rank** returns the reduced value (a scalar for the scalar
+  dispatch, a `Vector{N}` for the vector dispatch — whatever `op` produces).
+- On **other ranks** returns the original local `value` unchanged.
+
+`op` is any callable accepting a single iterable, e.g. `sum`, `minimum`,
+`maximum`, `prod`, or `vs -> reduce(+, vs)`.
+"""
+function reduceToMain(value::N, op::Function; comm::MPI.Comm=MPI.COMM_WORLD,
+    root::Integer=MAIN_RANK) where {N}
+    gathered = gatherToMain(value; comm=comm, root=root)
+    if MPI.Comm_rank(comm) == root
+        ordered = [gathered[Int64(r)] for r in 0:(MPI.Comm_size(comm)-1)]
+        return op(ordered)
+    else
+        return value
+    end
+end
+
+function reduceToMain(value::Vector{N}, op::Function; comm::MPI.Comm=MPI.COMM_WORLD,
+    root::Integer=MAIN_RANK) where {N}
+    gathered = gatherToMain(value; comm=comm, root=root)
+    if MPI.Comm_rank(comm) == root
+        ordered = [gathered[Int64(r)] for r in 0:(MPI.Comm_size(comm)-1)]
+        reduced = []
+        for i in 1:length(value)
+            push!(reduced, op(v[i] for v in ordered))
+        end
+        return reduced
+    else
+        return value
+    end
+end
+
+"""
+    Share values of a dictionary from the main rank to all ranks. Value must be a isbits type.
+"""
+function bcastFromMain(val::N; comm::MPI.Comm=MPI.COMM_WORLD,
+    root::Integer=MAIN_RANK) where {N}
+    nbuf = N[val]
+    MPI.Bcast!(nbuf, comm; root=root)
+    return nbuf[1]
+end
+
+function bcastFromMain(vals::Vector{N}; comm::MPI.Comm=MPI.COMM_WORLD,
+    root::Integer=MAIN_RANK) where {N}
+    if MPI.Comm_rank(comm) == root
+        nbuf = vals
+    else
+        nbuf = Vector{N}(undef, length(vals))
+    end
+    MPI.Bcast!(nbuf, comm; root=root)
+    return nbuf
 end
 
 # Reduction operations
-op_sum(acc, new, _...) = acc + new
-op_avg(acc, new, num) = acc + new / num
-op_max(acc, new, _...) = max(acc, new)
-op_min(acc, new, _...) = min(acc, new)
+op_sum(vals) = sum(vals)
+op_avg(vals) = sum(vals) / length(vals)
+op_max(vals) = maximum(vals)
+op_min(vals) = minimum(vals)
 
-"""
-Share values across all ranks and reduce them on the main rank
-"""
-function MPIShareAndReduce!(value::Number, reduction_op::Function, rank, size)::Number
-    gathered = MPICommunicateResults!(value, rank, size)
 
-    if rank == 0
-        acc = 0.0
-        for i in 0:(size-1)
-            acc = reduction_op(acc, gathered[i], size)
-        end
-        return acc
-    end
-    return value
-end
-
-function MPIShareAndReduce!(values::Vector{Number}, reduction_op::Function, rank, size)::Vector{Number}
-    gathered = MPICommunicateResults!(Dict(i => values[i] for i in 0:(size-1)), rank, size)
-
-    if rank == 0
-        acc = zeros(length(values))
-        for i in 0:(size-1)
-            for j in eachindex(values)
-                acc[j] = reduction_op(acc[j], gathered[i][j], size)
-            end
-        end
-        return acc
-    end
-    return values
-
-end
-
-# MPI-synchronized STREAM benchmark kernels
+# MPI-synchronized bandwidth benchmark kernels
 # Synchronize the local kernels at the end to ensure coordinated memory transfer measurement
-function copy_kernel_mpi(C, A; kwargs...)
-    STREAMBenchmark.copy_nthreads(C, A; kwargs...)
-    MPI.Barrier(MPI.COMM_WORLD)
-end
+using DataFrames
+using BandwidthBenchmark
+init_kernel = BandwidthBenchmark.init_kernel
+copy_kernel = BandwidthBenchmark.copy_kernel
+update_kernel = BandwidthBenchmark.update_kernel
+triad_kernel = BandwidthBenchmark.triad_kernel
+daxpy_kernel = BandwidthBenchmark.daxpy_kernel
+striad_kernel = BandwidthBenchmark.striad_kernel
+sdaxpy_kernel = BandwidthBenchmark.sdaxpy_kernel
+allocate = BandwidthBenchmark.allocate
 
-function add_kernel_mpi(C, A, B; kwargs...)
-    STREAMBenchmark.add_nthreads(C, A, B; kwargs...)
-    MPI.Barrier(MPI.COMM_WORLD)
-end
 
-import BandwidthBenchmark: copy_kernel, add_kernel, update_kernel, triad_kernel, daxpy_kernel, striad_kernel, sdaxpy_kernel, validate
-import DataFrames
 
 
 """
@@ -188,15 +256,15 @@ function _run_kernels_mpi(;
     end
 
     # perform measurement
-    times = zeros(NBENCH, niter)
+    times = zeros(7, niter)
     for k in 1:niter
-        times[1, k] = @elapsed (init_kernel(b, scalar; nthreads=nthreads, kwargs...); MPI.Barrier(MPI.COMM_WORLD))
-        times[2, k] = @elapsed (copy_kernel(c, a; nthreads=nthreads, kwargs...); MPI.Barrier(MPI.COMM_WORLD))
-        times[3, k] = @elapsed (update_kernel(a, scalar; nthreads=nthreads, kwargs...); MPI.Barrier(MPI.COMM_WORLD))
-        times[4, k] = @elapsed (triad_kernel(a, b, c, scalar; nthreads=nthreads, kwargs...); MPI.Barrier(MPI.COMM_WORLD))
-        times[5, k] = @elapsed (daxpy_kernel(a, b, scalar; nthreads=nthreads, kwargs...); MPI.Barrier(MPI.COMM_WORLD))
-        times[6, k] = @elapsed (striad_kernel(a, b, c, d; nthreads=nthreads, kwargs...); MPI.Barrier(MPI.COMM_WORLD))
-        times[7, k] = @elapsed (sdaxpy_kernel(a, b, c; nthreads=nthreads, kwargs...); MPI.Barrier(MPI.COMM_WORLD))
+        times[1, k] = @elapsed (init_kernel(b, scalar; nthreads=nthreads, thread_indices=thread_indices); MPI.Barrier(MPI.COMM_WORLD))
+        times[2, k] = @elapsed (copy_kernel(c, a; nthreads=nthreads, thread_indices=thread_indices); MPI.Barrier(MPI.COMM_WORLD))
+        times[3, k] = @elapsed (update_kernel(a, scalar; nthreads=nthreads, thread_indices=thread_indices); MPI.Barrier(MPI.COMM_WORLD))
+        times[4, k] = @elapsed (triad_kernel(a, b, c, scalar; nthreads=nthreads, thread_indices=thread_indices); MPI.Barrier(MPI.COMM_WORLD))
+        times[5, k] = @elapsed (daxpy_kernel(a, b, scalar; nthreads=nthreads, thread_indices=thread_indices); MPI.Barrier(MPI.COMM_WORLD))
+        times[6, k] = @elapsed (striad_kernel(a, b, c, d; nthreads=nthreads, thread_indices=thread_indices); MPI.Barrier(MPI.COMM_WORLD))
+        times[7, k] = @elapsed (sdaxpy_kernel(a, b, c; nthreads=nthreads, thread_indices=thread_indices); MPI.Barrier(MPI.COMM_WORLD))
     end
 
     # analysis / table output of results
@@ -208,44 +276,43 @@ function _run_kernels_mpi(;
         var"Min time"=Float64[],
         var"Max time"=Float64[],
     )
-    for j in 1:NBENCH
+    for j in 1:7
         # ignore the first run because of compilation
         mintime = @views minimum(times[j, 2:end])
         maxtime = @views maximum(times[j, 2:end])
         avgtime = @views mean(times[j, 2:end])
         if write_allocate
-            bytes = BENCHMARKS[j].words * BENCHMARKS[j].write_alloc_factor * sizeof(Float64) * N
+            bytes = BandwidthBenchmark.BENCHMARKS[j].words * BandwidthBenchmark.BENCHMARKS[j].write_alloc_factor * sizeof(Float64) * N
         else
-            bytes = BENCHMARKS[j].words * sizeof(Float64) * N
+            bytes = BandwidthBenchmark.BENCHMARKS[j].words * sizeof(Float64) * N
         end
-        flops = BENCHMARKS[j].flops * N
+        flops = BandwidthBenchmark.BENCHMARKS[j].flops * N
         data_rate = 1.0e-06 * bytes / mintime
         flop_rate = 1.0e-06 * flops / mintime
         push!(
-            results, [BENCHMARKS[j].label, data_rate, flop_rate, avgtime, mintime, maxtime]
+            results, [BandwidthBenchmark.BENCHMARKS[j].label, data_rate, flop_rate, avgtime, mintime, maxtime]
         )
     end
     verbose && pretty_table(results)
 
     # validation
-    validate(a, b, c, d, N, niter)
+    BandwidthBenchmark.validate(a, b, c, d, N, niter)
 
     return results
 end
 
 
 # Override core measurement functions for MPI mode
-function PerfTest.machineBenchmarks(mode::Type{PerfTest.MPIMode}, ctx :: Context) :: Expr
+function PerfTest.machineBenchmarks(mode::Type{PerfTest.MPIMode}, ctx::PerfTest.Context)::Expr
     quote
-	      # Block to create a separated scope
+        # Block to create a separated scope
         let
             PerfTest.Topology.getMachineTopology!()
             # First element L3, second element L2, third element L1
             _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES] = PerfTest.Topology.getCacheSizes()
-            $(ctx._global.uses_benchmarks == Set{Symbol}() ? quote 
-            end : quote
+            $(ctx._global.uses_benchmarks == Set{Symbol}() ? quote end : quote
                 measureCPUPeakFlops!($mode, _PRFT_GLOBALS)
-                measureMemBandwidth!($mode, _PRFT_GLOBALS) 
+                measureMemBandwidth!($mode, _PRFT_GLOBALS)
             end)
         end
     end
@@ -265,7 +332,7 @@ function PerfTest.measureCPUPeakFlops!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::
 
 
     # Sum peak flops across all ranks
-    _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK] = MPIShareAndReduce!(local_peakflops, op_sum, rank, size)
+    _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK] = reduceToMain(local_peakflops, op_sum)
 
     if PerfTest.main_rank(PerfTest.MPIMode)
         PerfTest.addLog("machine", "[MACHINE/MPI] CPU max attainable flops (sum of $size ranks) = $(_PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]) [FLOP/S]")
@@ -273,19 +340,19 @@ function PerfTest.measureCPUPeakFlops!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::
 end
 
 function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::PerfTest.GlobalSuiteData)
-    def = Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"]
+    def = PerfTest.Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"]
     if def == 0
         N = _PRFT_GLOBALS.builtins[:MEM_CACHE_SIZES][1] * 4
     else
-        N = Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"]
+        N = PerfTest.Configuration.CONFIG["machine_benchmarking"]["memory_bandwidth_test_buffer_size"]
     end
     rank = mpi_rank
     size = mpi_size
     # Run MPI-synchronized bandwidth benchmarks
     bench_data = _run_kernels_mpi(N=N, verbose=false)
     peakbandwidth_local = bench_data[!, 2] * 10^6  # Convert from MB/s to Byte/s
-    
-    peakbandwidth = MPIShareAndReduce!(peakbandwidth_local, op_sum, rank, size)
+
+    peakbandwidth = reduceToMain(peakbandwidth_local, op_sum)
     # in Bytes/sec
     # "Init"
     # "Copy"
@@ -295,7 +362,7 @@ function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::
     # "STriad"
     # "SDaxpy"
     if PerfTest.main_rank(PerfTest.MPIMode)
-        _PRFT_GLOBALS.builtins[:MEM_BENCH] = peakbandwidth
+        _PRFT_GLOBALS.builtins[:MEM_BENCH] = Float64.(peakbandwidth)
         _PRFT_GLOBALS.builtins[:MEM_BENCH_INIT] = peakbandwidth[1]
         _PRFT_GLOBALS.builtins[:MEM_BENCH_COPY] = peakbandwidth[2]
         _PRFT_GLOBALS.builtins[:MEM_BENCH_UPDATE] = peakbandwidth[3]
@@ -309,7 +376,26 @@ function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::
         _PRFT_GLOBALS.builtins[:MEM_STREAM_ADD] = peakbandwidth[4]
         _PRFT_GLOBALS.builtins[:MEM_STREAM_STRIAD] = peakbandwidth[6]
 
-        addLog("machine", "[MACHINE/MPI] CPU max attainable bandwidth (sum of $size ranks) = $(_PRFT_GLOBALS.builtins[:MEM_BENCH]) [Byte/s]")
+        PerfTest.addLog("machine", "[MACHINE/MPI] CPU max attainable bandwidth (sum of $size ranks) = $(_PRFT_GLOBALS.builtins[:MEM_BENCH]) [Byte/s]")
+    else
+        # Non-main ranks set the benchmark values to zero to avoid confusion
+        _PRFT_GLOBALS.builtins[:MEM_BENCH] = zeros(Float64, 7)
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_INIT] = 0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_COPY] = 0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_UPDATE] = 0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_TRIAD] = 0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_DAXPY] = 0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_STRIAD] = 0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_SDAXPY] = 0
+
+        _PRFT_GLOBALS.builtins[:MEM_STREAM_COPY] = 0
+        _PRFT_GLOBALS.builtins[:MEM_STREAM_ADD] = 0
+        _PRFT_GLOBALS.builtins[:MEM_STREAM_STRIAD] = 0
+    end
+    for (k, v) in _PRFT_GLOBALS.builtins
+        if typeof(v) in [Number, Vector{Number}, Char, Bool]
+            _PRFT_GLOBALS.builtins[k] = bcastFromMain(v; comm=MPI.COMM_WORLD)
+        end
     end
 end
 
@@ -328,29 +414,26 @@ function PerfTest.newMetricResult(::Type{PerfTest.MPIMode};
 end
 
 # Build primitive metrics with MPI reduction
-
-function PerfTest.buildPrimitiveMetrics!(::Type{PerfTest.MPIMode},
-    ts::PerfTest.PerfTestSet,
-    test_result::PerfTest.Test_Result)
+function PerfTest.buildPrimitiveMetrics!(::Type{PerfTest.MPIMode}, ts::PerfTest.PerfTestSet, test_result::PerfTest.Test_Result)
     rank = mpi_rank
     size = mpi_size
 
     # MEDIAN TIME - use MAX across ranks (slowest determines overall time)
     local_median_time = median(ts.benchmarks[test_result.name]).time / 1e9
-    test_result.primitives[:median_time] = MPIShareAndReduce!(local_median_time, op_max, rank, size)
+    test_result.primitives[:median_time] = reduceToMain(local_median_time, op_max)
 
     # MIN TIME - use MIN across ranks
     local_min_time = minimum(ts.benchmarks[test_result.name]).time / 1e9
-    test_result.primitives[:min_time] = MPIShareAndReduce!(local_min_time, op_min, rank, size)
+    test_result.primitives[:min_time] = reduceToMain(local_min_time, op_min)
 
     # Iterator count - should be equal among all ranks
     test_result.primitives[:iterator] = ts.iterator
 
-    test_result.primitives[:autoflop] = MPIShareAndReduce!(test_result.primitives[:autoflop], op_sum, rank, size)
+    test_result.primitives[:autoflop] = reduceToMain(test_result.primitives[:autoflop], op_sum)
 end
 
+# Nothing to do here (YET)
 function PerfTest.clean(mode::Type{PerfTest.MPIMode})
-    PerfTest.toggleMPI()
 end
 
 end # module PerfTest_MPIExt

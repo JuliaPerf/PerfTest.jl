@@ -74,7 +74,7 @@ if main_rank()
         PerfTest.p_yellow("[!]")
         println("Regression: No previous performance reference for this configuration has been found, measuring performance without evaluation.")
     end
-    regression_path = (Configuration.CONFIG["regression"])["custom_file"]
+    regression_path = (Configuration.CONFIG["regression"])["dedicated_reference_file"]
     if regression_path != "" && isfile(regression_path)
         regression_file = PerfTest.openDataFile(regression_path)
     else

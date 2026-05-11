@@ -15,6 +15,8 @@ function onPerfcmpDefinition(expr :: ExtendedExpr, ctx :: Context, info)
         override = false,
         params = params,
     ))
+
+    addLog("metrics", "[METHODOLOGY] Defined Performance Assertion on $([i.set_name for i in ctx._local.depth_record]) with expression $(info[Symbol("")])")
 end
 
 

@@ -5,7 +5,7 @@ using PerfTest
 @perftest_config "
 [regression]
 enabled = true
-use_bencher = true
+use_bencher = false
 "
 
 function testfun()

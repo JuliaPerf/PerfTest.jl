@@ -36,8 +36,10 @@ function transformTestset(input_expr::Expr, context::Context)
     # LOGINFO
     addLog("hierarchy", "[TESTSET] New Group: $([i.set_name for i in context._local.depth_record])")
 
-    # Launch regression methodology by default
-    onRegressionDefinition(quote end, context, Dict())
+    # Launch regression methodology by default for :median_time on root testset
+    if Configuration.CONFIG["regression"]["enabled"] && length(context._local.depth_record) == 1
+        onRegressionDefinition(quote end, context, Dict())
+    end
 
     outerset = length(context._local.depth_record) <= 1
 
@@ -129,12 +131,13 @@ function transformPerftest(input_expr::Expr, context::Context)
         buildPrimitiveMetrics!($mode, ts, test_res)
         $(buildCustomMetrics(context._local.custom_metrics))
 
-
         # Compute performance test based on enabled methodologies
-        $(buildMemTRPTMethodology(context))
-        $(buildRoofline(context))
-        $(buildPerfcmp(context))
-        $(buildRegression(context))
+        if main_rank($mode)
+            $(buildMemTRPTMethodology(context))
+            $(buildRoofline(context))
+            $(buildPerfcmp(context))
+            $(buildRegression(context))
+        end
 
     end
 end

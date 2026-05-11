@@ -1,5 +1,6 @@
 using MacroTools
-
+using Test
+using PerfTest
 @testset "Formula validation tests" begin
 
 
@@ -22,7 +23,7 @@ using MacroTools
         :aflops
     end
     PerfTest.transformFormula(form, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 1
+    @test PerfTest.num_errors(ctx) == 1
 
     # For now admitted, may be restricted in the future
     form = quote
@@ -30,7 +31,7 @@ using MacroTools
         :autoflop
     end
     PerfTest.transformFormula(form, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 1 =#
+    @test PerfTest.num_errors(ctx) == 1 =#
 
-    PerfTest.printErrors(ctx._global.errors)
+    PerfTest.printErrors(ctx)
 end
