@@ -42,10 +42,11 @@ function newBenchmarkGroup()::BenchmarkGroup
     return BenchmarkGroup()
 end
 
+mpi_and_not_main() :: Bool = !main_rank(Main.__PERFTEST__._GLOBAL_MODE)
 
 # Save test results or child test sets
 function Test.record(ts::PerfTestSet, t::Result; extra_data=nothing)
-    if !main_rank(mode)
+    if mpi_and_not_main()
         return ts
     end
 
@@ -87,7 +88,7 @@ if isdefined(Test, :TestCounts)
 
 
     function Test.finish(ts::PerfTestSet)
-        if !main_rank(mode)
+        if mpi_and_not_main()
             return ts
         end
 
@@ -127,7 +128,7 @@ if isdefined(Test, :TestCounts)
     Will print the overall result of the test suite execution 
     """
     function Test.print_test_results(ts::PerfTestSet)
-        if !main_rank(mode)
+        if mpi_and_not_main()
             return ts
         end
 
@@ -146,7 +147,7 @@ else
     # Julia 1.10 and below
 
     function Test.finish(ts::PerfTestSet)
-        if !main_rank(mode)
+        if mpi_and_not_main()
             return ts
         end
 
@@ -209,7 +210,7 @@ else
     Will print the overall result of the test suite execution 
     """
     function Test.print_test_results(ts::PerfTestSet)
-        if !main_rank(mode)
+        if mpi_and_not_main()
             return ts
         end
 

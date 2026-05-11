@@ -12,7 +12,7 @@ if !(PerfTest.Configuration.load_config() isa Nothing)
     istest(f) = endswith(f, ".jl") && startswith(basename(f), "t")
     testfiles = sort(filter(istest, vcat([joinpath.(root, files) for (root, dirs, files) in walkdir(testdir)]...)))
 
-    nfail = 0
+    global nfail = 0
     printstyled("Testing package PerfTest.jl\n"; bold=true, color=:white)
 
     for f in testfiles
