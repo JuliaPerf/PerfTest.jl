@@ -31,9 +31,10 @@ The following things can be appreciated in this example:
 
 ## How to use, a first PerfTest.jl recipe
 
-Lets assume we are a developer that wants to track performance regressions on the components of a package in development. We have the following module:
+Lets assume we are a developer that wants to track performance regressions on the components of a package in development. The files discussed here can be accessed in `examples/example_quickstart`. We have the following module:
 
 ```julia
+# module.jl
 module MyPackage
 
 # Add [a[1],a[2],...a[end]] and [b[end], b[end-1],...,b[1]] elementwise
@@ -47,11 +48,14 @@ end
 We want to track the performance of this package in order to detect performance regressions. To do so we build the following test recipe:
 
 ```julia
+# testfile.jl
 using Test,PerfTest
+
+include("module.jl")
 
 @perftest_config "
 [general]
-verbose = true
+verbose = 3
 [regression]
 dedicated_reference_file='reference.JLD2'
 "
@@ -70,7 +74,7 @@ dedicated_reference_file='reference.JLD2'
     A = [i for i in 1:N]
     B = [N-i for i in 1:N]
 
-    result = @perftest addReversed(A, B)
+    result = @perftest MyPackage.addReversed(A, B)
     @test sum(result) == N*N 
 end
 ```
@@ -81,14 +85,9 @@ end
     include("testfile.jl")
 ```
 
-Or if the file is in the test folder of the package:
+Or if the module is setup as its own package (not this example):
 ```julia
     using Pkg; Pkg.test()
-```
-
-Or alternatively:
-```julia
-    using Test; runtests("testfile.jl")
 ```
 
 ### Running the performance test side of the recipe:

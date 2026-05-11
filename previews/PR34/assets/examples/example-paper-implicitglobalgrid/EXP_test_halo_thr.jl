@@ -21,7 +21,7 @@ NTHREADS = 16
 # 256M Elements on STREAM Benchmark (2GB)
 @perftest_config "
 [general]
-verbose = true
+verbose = 3
 autoflops = false
 
 [regression]
