@@ -5,7 +5,7 @@ using PerfTest
 [regression]
 enabled = false
 [general]
-verbose = 3
+verbose = 0
 "
 
 function testfun(a :: Int)
