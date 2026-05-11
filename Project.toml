@@ -1,7 +1,7 @@
 name = "PerfTest"
 uuid = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
 authors = ["Dvegrod <dvegrodu@gmail.com>, Samuel Omlin <samuel.omlin@cscs.ch>, and contributors"]
-version = "0.2.1"
+version = "0.2.3"
 
 [deps]
 BandwidthBenchmark = "68eb07c1-04fd-4e62-9736-d6127c4c03c6"
