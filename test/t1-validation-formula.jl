@@ -14,9 +14,20 @@ using PerfTest
 
     r = PerfTest.transformFormula(form, ctx)
     @test r == MacroTools.prettify(quote
-	      a = 54
+        a = 54
         test_res.primitives[:autoflop] / test_res.primitives[:min_time] * a
     end)
+
+    form = quote
+        a.b = 54
+        a.c = :min_time
+    end
+    r = PerfTest.transformFormula(form, ctx)
+    @test r == MacroTools.prettify(quote
+        a.b = 54
+        a.c = test_res.primitives[:min_time]
+    end)
+
 
     #= # illegal symbol
     form = quote

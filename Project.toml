@@ -34,6 +34,7 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 PerfTest_MPIExt = "MPI"
 
 [compat]
+julia = "1, 1.11"
 BandwidthBenchmark = "0.2.0"
 BenchmarkTools = "1"
 Configurations = "0"
