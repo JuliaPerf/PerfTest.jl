@@ -2,6 +2,8 @@
 
 NOTE: This package is under active development, bugs may lurk around, if a bug is found please raise an issue so it can be adressed. Thanks :)
 
+NOTE 2: I'm working on updating the package for the new Julia 1.12, as of now it might fail on that version
+
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/dev)
 [![CI](https://github.com/JuliaPerf/PerfTest.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/JuliaPerf/PerfTest.jl/actions/workflows/CI.yml?query=branch%3Amain)
@@ -97,6 +99,12 @@ julia>]
 ## Questions, comments and discussions
 
 Please email: vegard@usi.ch or raise an issue.
+
+## Citing this software
+
+Daniel Vega Rodriguez, Samuel Omlin, Dimosthenis Pasadakis, and Olaf Schenk. 2026. Generating Architecture-Agnostic Performance Tests from Functional Unit Tests. ACM Trans. Model. Perform. Eval. Comput. Syst. 11, 1–2, Article 16 (June 2026), 24 pages. https://doi.org/10.1145/3801098
+
+A citation file (CITATION.cff) is available on the root of the repository.
 
 ## Your contributions
 
