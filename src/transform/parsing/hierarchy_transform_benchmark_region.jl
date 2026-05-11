@@ -107,7 +107,7 @@ function backTokenToContextUpdate!(input_expr::QuoteNode, context::Context)
     pop!(context._local.custom_metrics)
     pop!(context._local.enabled_methodologies)
 
-    addLog("hierarchy", "[BNCH] Exiting group")
+    addLog("hierarchy", "[TESTSET] Exiting group")
     return nothing;
 end
 

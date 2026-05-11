@@ -7,7 +7,7 @@ using PerfTest
 [regression]
 enabled = false
 [general]
-verbose = true
+verbose = 3
 "
 
 

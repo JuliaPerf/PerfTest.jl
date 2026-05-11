@@ -209,8 +209,8 @@ end
 
 
 function printAuxiliaries(metrics :: Dict{Symbol, Metric_Result}, tab :: Int)
-    println(@lpad(tab) * "Auxiliary results:")
-	  for (_,metric) in metrics
+    length(metrics) > 0 ? println(@lpad(tab) * "Auxiliary results:") : println()
+    for (_,metric) in metrics
         if metric.auxiliary
             PerfTest.auxiliarMetricPrint(metric, tab)
         end

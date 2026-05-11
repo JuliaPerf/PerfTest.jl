@@ -2,17 +2,17 @@
 roofline_validation = defineMacroParams([
     MacroParameter(
         :cpu_peak,
-        Float64,
+        Number,
         greaterThan0,
     ),
     MacroParameter(
         :membw_peak,
-        Float64,
+        Number,
         greaterThan0,
     ),
     MacroParameter(
         :target_opint,
-        Float64,
+        Number,
         greaterThan0,
     ),
     MacroParameter(
@@ -21,7 +21,7 @@ roofline_validation = defineMacroParams([
     ),
     MacroParameter(
         :target_ratio,
-        Float64,
+        Number,
         (x) -> 0. < x < 2.
     ),
     MacroParameter(
@@ -38,9 +38,9 @@ roofline_validation = defineMacroParams([
     ), # TODO
     MacroParameter(
         :mem_benchmark,
-        Symbol,
-        (x) -> x in [:MEM_STREAM_COPY,:MEM_STREAM_ADD],
-        :MEM_STREAM_COPY, #default
+        metricID(),
+        (x) -> metricID(x) in [:MEM_STREAM_COPY,:MEM_STREAM_ADD, :MEM_BENCH_STRIAD, :MEM_BENCH_SDAXPY],
+        :MEM_BENCH_SDAXPY, #default
     ),
     MacroParameter(
         Symbol(""),
@@ -59,6 +59,7 @@ This macro enables roofline modelling, if put just before a target declaration (
   - `target_opint` : a desired operational intensity for the target, this will turn operational intensity into a test metric
   - `actual_flops`: another formula that defines the actual performance of the test.
   - `target_ratio` : the acceptable ratio between the actual performance and the projected performance from the roofline, this will turn actual performance into a test metric.
+  - `mem_benchmark`: which benchmark to use for the roofline, the default is the Shoenauer DAXPY (:MEM_BENCH_DAXPY), custom benchmarks are supported. Other benchmarks: [:MEM_STREAM_COPY,:MEM_STREAM_ADD, :MEM_BENCH_STRIAD, :MEM_BENCH_SDAXPY]
 
 # Special symbols:
  - `:median_time` : will be substituted by the median time the target took to execute in the benchmark.

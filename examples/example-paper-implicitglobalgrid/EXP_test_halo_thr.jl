@@ -1,10 +1,7 @@
-# IMPORTANT: To replicate the same results as in the original paper, divide the GB/s values by 3
-# this difference is due to the STREAM benchmark policy, which counts each byte transferred thrice (write-allocate cache) and thus the target does as write_allocate
+# IMPORTANT: To replicate the same results as in the original paper, divide the GB/s values by 2
+# this difference is due to the benchmark policy, which counts each byte transferred twice (no write-allocate in copy in PerfTest 1.2.3 in PerfTest 1.2.1 this would be thrice instead)
 # in our example the policy is to measure throughput as the amount of bytes transferred on an execution which is a different policy
 # Nevertheless, the percentages remain constant and the test is valid regardless of the used criterion
-# NOTE: All tests of this file can be run with any number of processes.
-# Nearly all of the functionality can however be verified with one single process
-# (thanks to the usage of periodic boundaries in most of the full halo update tests).
 
 push!(LOAD_PATH, "../src")
 using Test
@@ -21,7 +18,7 @@ NTHREADS = 16
 # 256M Elements on STREAM Benchmark (2GB)
 @perftest_config "
 [general]
-verbose = true
+verbose = 3
 autoflops = false
 
 [regression]
@@ -74,7 +71,7 @@ dz = 1.0
                 i = 0
                 # For info in the x3 multiplier see beggining of file
                 @define_eff_memory_throughput ratio=0.9 begin
-                    (nx * ny * 8) * 3 * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
+                    (nx * ny * 8) * 2 * MPI.Comm_size(MPI.COMM_WORLD) / :median_time
                 end
                 @auxiliary_metric name="Time" units="s" begin
                     :median_time

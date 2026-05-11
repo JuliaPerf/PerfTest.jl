@@ -1,5 +1,6 @@
 using MacroTools
-
+using Test
+using PerfTest
 @testset "Formula validation tests" begin
 
 
@@ -13,8 +14,26 @@ using MacroTools
 
     r = PerfTest.transformFormula(form, ctx)
     @test r == MacroTools.prettify(quote
-	      a = 54
+        a = 54
         test_res.primitives[:autoflop] / test_res.primitives[:min_time] * a
+    end)
+
+    form = quote
+        a.b = 54
+        a.c = :min_time
+    end
+    r = PerfTest.transformFormula(form, ctx)
+    @test r == MacroTools.prettify(quote
+        a.b = 54
+        a.c = test_res.primitives[:min_time]
+    end)
+
+    form = quote
+        A.b(C.D)
+    end
+    r = PerfTest.transformFormula(form, ctx)
+    @test r == MacroTools.prettify(quote
+        A.b(C.D)
     end)
 
     #= # illegal symbol
@@ -22,7 +41,7 @@ using MacroTools
         :aflops
     end
     PerfTest.transformFormula(form, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 1
+    @test PerfTest.num_errors(ctx) == 1
 
     # For now admitted, may be restricted in the future
     form = quote
@@ -30,7 +49,7 @@ using MacroTools
         :autoflop
     end
     PerfTest.transformFormula(form, ctx)
-    @test PerfTest.num_errors(ctx._global.errors) == 1 =#
+    @test PerfTest.num_errors(ctx) == 1 =#
 
-    PerfTest.printErrors(ctx._global.errors)
+    PerfTest.printErrors(ctx)
 end

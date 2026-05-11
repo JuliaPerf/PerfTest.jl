@@ -1,4 +1,4 @@
-# This file is use as a simple way to precomile the transformation function
+# This file is use as a simple way to precompile the transformation function
 # Their contents have no meaning neither affect the other files 
 
 using Test

@@ -29,7 +29,7 @@ formula_rules = ASTRule[
             quote
                 test_res.primitives[$x]
             end
-        ) : x),
+        ) : SBMID(x.value)),
 ]
 
 
@@ -48,12 +48,38 @@ function exportVars(symbols::Set{Symbol}, context::Context)::Expr
     return expr
 end
 
-function transformFormula(form_expr :: ExtendedExpr, context :: Context) :: ExtendedExpr
-    x = MacroTools.prettify(MacroTools.postwalk(ruleSet(context, formula_rules), form_expr))
-    # There is the edge case of having just a basic type, the else branch deals with it
-    if x isa ExtendedExpr
-        return x
-    else
-        return :(:($$x))
+# A unique wrapper type to mark "do not transform this QuoteNode"
+# The thing is, transforming symbols can get quite messy cause some operators like a.b trigger it as well, so we need to mark them otherwise the fields will be treated as symbols.
+struct DotFieldNode
+    inner::QuoteNode
+end
+
+function transformFormula(form_expr::ExtendedExpr, context::Context)::ExtendedExpr
+
+    # prewalk: wrap QuoteNodes that are dot-access field names
+    protected = MacroTools.prewalk(form_expr) do node
+        if node isa Expr && node.head === :. &&
+           length(node.args) == 2 && node.args[2] isa QuoteNode
+            # Replace the QuoteNode child with our sentinel
+            Expr(:., node.args[1], DotFieldNode(node.args[2]))
+        else
+            node
+        end
     end
+
+    # Ordinary context independent transformations
+    walked = MacroTools.postwalk(ruleSet(context, formula_rules), protected)
+
+    # postwalk: unwrap sentinels back to QuoteNodes
+    result = MacroTools.postwalk(walked) do node
+        if node isa Expr && node.head === :. &&
+           length(node.args) == 2 && node.args[2] isa DotFieldNode
+            Expr(:., node.args[1], node.args[2].inner)
+        else
+            node
+        end
+    end
+
+    x = MacroTools.prettify(result)
+    return x isa ExtendedExpr ? x : :(:($$x))
 end

@@ -80,3 +80,12 @@ function defineCustomBenchmark(ctx::Context, info) :: Expr
     end
 
 end
+
+function isCustomMetricDefined(ctx::Context, name :: Symbol)
+    for custom_metric in Iterators.flatten(ctx._local.custom_metrics)
+        if custom_metric.symbol == name
+            return true
+        end
+    end
+    return false
+end

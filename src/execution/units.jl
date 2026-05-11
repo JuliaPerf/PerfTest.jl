@@ -56,4 +56,17 @@ function magnitudeAdjust(m::Metric_Result)::Metric_Result
     end
 end
 
-
+function absoluteMagnitude(m::Metric_Result)::Metric_Result
+    if !(m.value isa Number)
+        return m
+    end
+    return newMetricResult(
+        mode,
+        name = m.name,
+        units= m.units,
+        value = m.value * m.magnitude_mult,
+        auxiliary = m.auxiliary,
+        magnitude_prefix="",
+        magnitude_mult=1
+    )
+end

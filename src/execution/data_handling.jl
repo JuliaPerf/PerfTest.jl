@@ -13,6 +13,11 @@ end
 This method is used to save historical data of a performance test suite to a save file located in `path`.
 """
 function saveDataFile(path :: AbstractString, contents:: Perftest_Datafile_Root)
+    # If path has unexisting parent directories, create them
+    parent_dir = dirname(path)
+    if !isdir(parent_dir)
+        mkpath(parent_dir)
+    end
     return jldsave(path; contents)
 end
 
@@ -190,3 +195,4 @@ function get_metric_results(datafile::Perftest_Datafile_Root, metric_name::Abstr
     end
     return metric_results
 end
+

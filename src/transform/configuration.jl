@@ -1,6 +1,5 @@
 module Configuration
 
-
 using Base: DEFAULT_STABLE
 using TOML
 """
@@ -44,11 +43,11 @@ end
 
 
 """
-Recursively merge two dictionaries, with values from override_dict taking precedence.
+Recursively merge two configs, with values from override_config taking precedence.
 """
 function merge_configs(base_config::Dict, override_config::Dict)
 
-    function _mc(bc:: Dict, oc :: Dict) :: Dict
+    function _mc(bc::Dict, oc::Dict)::Dict
         local merged = deepcopy(bc)
 
         for (key, value) in oc
@@ -107,14 +106,13 @@ Load configuration from a TOML file.
 
 Args:
 - filepath: Path to the TOML file
-- schema: Optional schema for validation
 
 Returns:
 - Loaded configuration dictionary or nothing
 """
-function load_config() :: Union{Dict, Nothing}
+function load_config(filepath::AbstractString = "")::Union{Dict,Nothing}
     try
-        config = TOML.parsefile(CONFIG_FILE)
+        config = TOML.parsefile(filepath == "" ? CONFIG_FILE : filepath)
 
         if !validate_config(config, CONFIG_SHAPE)
             @error "Configuration validation failed"
@@ -125,34 +123,48 @@ function load_config() :: Union{Dict, Nothing}
 
         return CONFIG
     catch e
-        @info "Configuration not found, loading default configuration"
+        @info "Configuration not found or invalid, loading default configuration"
         save_config(DEFAULT)
         return DEFAULT
     end
 end
 
-function load_dummy_config() :: Union{Dict, Nothing}
+function load_config(config :: Dict)::Union{Dict,Nothing}
+    if !validate_config(config, CONFIG_SHAPE)
+        @error "Configuration validation failed"
+        return nothing
+    end
+
+    global CONFIG = config
+
+    return CONFIG
+end
+
+function load_dummy_config()::Union{Dict,Nothing}
     global CONFIG = PRECOMPILATION_CONFIG
     return PRECOMPILATION_CONFIG
 end
 
 CONFIG_FILE = "perftest_config.toml"
 
+
 CONFIG_SHAPE = Dict(
     "general" => Dict(
         "autoflops" => Bool,
+        "numas" => Union{String,Integer,Float64},
+        "threads_per_numa" => Union{String,Integer,Float64},
         "save_results" => Bool,
         "logs_enabled" => Bool,
         "save_folder" => String,
         "max_saved_results" => Int,
         "plotting" => Bool,
-        "verbose" => Bool,
+        "verbose" => Int,
         "recursive" => Bool,
         "safe_formulas" => Bool,
         "suppress_output" => Bool),
     "regression" => Dict(
         "enabled" => Bool,
-        "custom_file" => String,
+        "dedicated_reference_file" => String,
         "default_threshold" => Number,
         "use_bencher" => Bool,
     ),
@@ -185,20 +197,22 @@ CONFIG_SHAPE = Dict(
 
 DEFAULT = Dict(
     "general" => Dict(
-        "autoflops" => true,
+        "autoflops" => false,
+        "numas" => "single",
+        "threads_per_numa" => "single",
         "save_results" => true,
         "logs_enabled" => true,
         "save_folder" => ".perftests",
         "max_saved_results" => 20,
         "plotting" => true,
-        "verbose" => false,
+        "verbose" => 0,
         "recursive" => true,
         "suppress_output" => true,
         "safe_formulas" => false,
     ),
     "regression" => Dict(
         "enabled" => true,
-        "custom_file" => "",
+        "dedicated_reference_file" => "",
         "default_threshold" => 1.1,
         "use_bencher" => false,
     ),
@@ -232,6 +246,8 @@ DEFAULT = Dict(
 PRECOMPILATION_CONFIG = Dict(
     "general" => Dict(
         "autoflops" => false,
+        "numas" => 1,
+        "threads_per_numa" => 1,
         "save_results" => false,
         "logs_enabled" => false,
         "save_folder" => ".thisshouldnotexist",
@@ -244,7 +260,7 @@ PRECOMPILATION_CONFIG = Dict(
     ),
     "regression" => Dict(
         "enabled" => false,
-        "custom_file" => "",
+        "dedicated_reference_file" => "",
         "default_threshold" => 0.9,
         "use_bencher" => false,
     ),
@@ -283,7 +299,7 @@ end # module
 
 using TOML
 
-function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict) :: Expr
+function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
 
     # Parse, and merge
     string = info[Symbol("")]
@@ -295,11 +311,11 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
     Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
 
     if Configuration.CONFIG["general"]["verbose"] != old["general"]["verbose"]
-        addLog("general", "Verbosity level changed from $(old["general"]["verbose"] ? "HIGH" : "LOW" ) to $(old["general"]["verbose"] ? "LOW" : "HIGH")")
+        addLog("general", "Verbosity level changed from $(old["general"]["verbose"]) to $(Configuration.CONFIG["general"]["verbose"])")
     end
 
     io = IOBuffer()
-    TOML.print(nothing,io, Configuration.CONFIG)
+    TOML.print(nothing, io, Configuration.CONFIG)
     serialized_config = String(take!(io))
 
     return quote
@@ -309,11 +325,43 @@ function parseConfigurationMacro(_ :: ExtendedExpr, ctx :: Context, info :: Dict
     end
 end
 
+function parseThreadsMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
+    try
+        specs = info[Symbol("")]
+
+        return quote
+            let
+                specs = $specs
+                arrgmt_l = PerfTest.Topology.literallizeArrangement($specs)
+                arrgmt_e = PerfTest.Topology.isExecutableArrangement(arrgmt_l)
+                if arrgmt_e === nothing
+                    @warn "Ignoring pinning."
+                else
+                    try
+                        PerfTest.Topology.enforceThreadArrangement(arrgmt_e)
+                    catch e
+                        if Sys.iswindows() || Sys.isapple()
+                            @warn "Thread pinning is not supported on this OS. Ignoring specified arrangement."
+                        else
+                            @warn "Failed to enforce thread pinning: $e, ignoring specified arrangement."
+                        end
+                    end
+                end
+            end
+        end
+
+    catch
+        return quote
+            "INVALID THREAD ARRANGEMENT"
+        end
+    end
+end
+
 
 """
   Used on a generated test suite to import the configuration set during generation
 """
-function _perftest_config(config_string :: String)
+function _perftest_config(config_string::String)
     # Parse, and merge
     parsed = TOML.parse(config_string)
 

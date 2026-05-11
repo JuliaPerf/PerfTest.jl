@@ -1,4 +1,4 @@
-# Usage
+# Quickstart
 
 `PerfTest` provides a set of macros to instrument ordinary Julia test files with performance tests. The idea is to have the posibility of having a functional and a performance suite all in the same place.
 
@@ -8,7 +8,7 @@ The underlying idea of declaring performance tests can be boiled down the follow
 2. Tell PerfTest what is the target to be tested by using the macro @perftest
 3. Tell PerfTest how the target shall be tested, which metrics are interesting, which of those metrics values would be considered a failure, this can be declared using the metric and methodology macros (see Macros)
 
-The following dummy example embodies the paradigm of the package:
+The following dummy example presents how a recipe file looks like:
 
 ```julia
 using ExampleModule : innerProduct, Test, PerfTest   # Importing the target and test libraries
@@ -29,14 +29,95 @@ The following things can be appreciated in this example:
 2. The target of the perftest is the innerProduct function
 3. The performance test methodology is a roofline model, the developer expects innerProduct to perform at least at 50% of the maximum flop performance set by the roofline. The operational intensity is defined on the main block of the macro. :autoflop is a symbol that enables the use of an automatic flop count feature.
 
-## Execution
+## How to use, a first PerfTest.jl recipe
 
-To execute the functional test, simply run the file. 
+Lets assume we are a developer that wants to track performance regressions on the components of a package in development. The files discussed here can be accessed in `examples/example_quickstart`. We have the following module:
 
-To execute the performance test, pass the file path to `PerfTest.transform` and evaluate the resulting test suite. The result of transform can be also saved as a file (see `PerfTest.saveExprAsFile`) for later execution.
+```julia
+# module.jl
+module MyPackage
+
+# Add [a[1],a[2],...a[end]] and [b[end], b[end-1],...,b[1]] elementwise
+function addReversed(A :: Vector{<: Number}, B:: Vector{<: Number}) :: Vector{<:Number}
+   return [a + b for (a,b) in zip(A, reverse(B))]
+end
+
+end
+```
+
+We want to track the performance of this package in order to detect performance regressions. To do so we build the following test recipe:
+
+```julia
+# testfile.jl
+using Test,PerfTest
+
+include("module.jl")
+
+@perftest_config "
+[general]
+verbose = 3
+[regression]
+dedicated_reference_file='reference.JLD2'
+"
+
+@testset "addReversed tests" begin
+    N = 10
+    # We want the size to be bigger on the performance test
+    @on_perftest_exec begin
+        N = 1_000_000
+    end
+    # We set the regression checker, we dont specify a metric therefore the default (median time elapsed) is used
+    # low_is_bad=false time elapsed metrics are considered worse the bigger they are
+    # threshold = 1.05 the test will fail if the time is 105% of the reference or greater, in other words: @test time_elapsed < 1.05 * reference
+    @regression threshold=1.05 low_is_bad=false
+
+    A = [i for i in 1:N]
+    B = [N-i for i in 1:N]
+
+    result = @perftest MyPackage.addReversed(A, B)
+    @test sum(result) == N*N 
+end
+```
+
+### Running the functional test side of the recipe:
+
+```julia
+    include("testfile.jl")
+```
+
+Or if the module is setup as its own package (not this example):
+```julia
+    using Pkg; Pkg.test()
+```
+
+### Running the performance test side of the recipe:
+
+We are doing regression, so in case no reference has been made we will need to execute it at least twice. Once to record the reference, and after that whenever the developer wants to check for a performance regression.
+
+The first time PerfTest is run on a specific directory, a configuration file will be created with a set of default values. Configuration parameters can be set as well by the `@perftest_config` macro, as seen above. The macro takes the highest priority over any other configuration source.
+```julia
+    # This will record a successful performance suite
+    using PerfTest; runperftests("testfile.jl")
+```
+
+In between, the developer may add new changes to the implementation or checks out a different git branch.
+
+```julia
+    # This will compare the suite results against the reference, if the tests are sucessful the results become the reference.
+    using PerfTest; runperftests("testfile.jl")
+```
+
 
 For more information have a look at the [Examples](@ref) and see the [API reference](@ref) for details on the usage of `PerfTest`.
 
+## Main use cases of this package:
+
+This package supports both performance testing by regression checks and by performance methodologies, e.g roofline models. It is meant to cover the following two situations:
+
+    1. A developer wants to track potential regressions over the course of package development.
+    2. A developer wants to set machine-agnostic performance tests by using methodologies or custom metrics that are normalized by machine parameters, with the purpose of verifying that the package profits from the capabilities of the machines its been executed on.
+        2.1. During development.
+        2.2. During the whole software lifecycle, users can check if the package is properly set up in their machine.
 
 ## Installation
 

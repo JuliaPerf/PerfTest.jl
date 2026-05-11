@@ -73,7 +73,7 @@ perftest_macro_rule = ASTRule(
 )
 
 perftest_begin_macro_rule = ASTRule(
-    x -> @capture(x, @benchmark __) || (escCaptureGetblock(x, Symbol("@count_ops")) != nothing),
+    x -> @capture(x, @benchmark __) || (escCaptureGetblock(x, Symbol("@count_ops")) !== nothing),
     no_validation,
     (x, ctx, info) -> (ctx.env_flags.inside_target = true; x)
 )
@@ -117,6 +117,8 @@ back_macro_rule = ASTRule(
     (x, ctx, info) -> backTokenToContextUpdate!(x, ctx)
 )
 
+# SECOND PASS TRIGGER TOKENS
+
 prefix_macro_rule = ASTRule(
     x -> (x == :(:__PERFTEST_FW__)),
     no_validation,
@@ -137,6 +139,11 @@ config_macro_rule = ASTRule(
     (x, ctx, info) -> (parseConfigurationMacro(x, ctx, info))
 )
 
+threads_macro_rule = ASTRule(
+    x -> (@capture(x, @m_ __); m == Symbol("@perftest_threads")),
+    threads_validation,
+    (x, ctx, info) -> (parseThreadsMacro(x, ctx, info))
+)
 
 # CONDITIONAL EXECUTION
 
@@ -149,7 +156,9 @@ on_perftest_exec_rule = ASTRule(
 on_perftest_ignore_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@on_perftest_ignore")) !== nothing,
     on_perftest_ignore_validation,
-    (x, ctx, info) -> :(begin end)
+    (x, ctx, info) -> :(
+        begin end
+    )
 )
 
 # CUSTOM METRICS
@@ -158,6 +167,12 @@ define_memory_throughput_rule = ASTRule(
     define_eff_memory_throughput_validation,
     # Defined on metrics.jl
     (x, ctx, info) -> onMemoryThroughputDefinition(transformFormula(info[Symbol("")], ctx), ctx, info)
+)
+
+regression_macro_rule = ASTRule(
+    x -> @capture(x, @regression __),
+    validateBlocklessMacro(define_regression_validation),
+    (x, ctx, info) -> onRegressionDefinition(x, ctx, info)
 )
 
 define_metric_rule = ASTRule(
@@ -200,7 +215,7 @@ manual_macro_rule = ASTRule(
     (x, ctx, info) -> onPerfcmpDefinition(x, ctx, info)
 )
 
-function treeRunRecursive!(path::AbstractString, parent_context :: Context)::ExtendedExpr
+function treeRunRecursive!(path::AbstractString, parent_context::Context)::ExtendedExpr
     addLog("hierarchy", "[RECURSIVE] Recursivity is enabled, entering \"$path\"")
     # The transformation treats child files as if it were into the main one plugging their testsets into the global hierarchy
 
@@ -218,7 +233,7 @@ function treeRunRecursive!(path::AbstractString, parent_context :: Context)::Ext
 
 
     Configuration.CONFIG = pop!(Configuration.PARENT_CONFIGS)
-    addLog("hierarchy", "[RECURSIVE] \"$path\" has been processed, $(num_errors(ctx._global.errors)) errors found")
+    addLog("hierarchy", "[RECURSIVE] \"$path\" has been processed, $(num_errors(ctx)) errors found")
 
     return middle
 end
@@ -227,13 +242,15 @@ end
 recursive_rule = ASTRule(
     x -> @capture(x, include(path_)),
     always_true,
-    (x, ctx, info) -> (begin
-        if Configuration.CONFIG["general"]["recursive"]
-            @capture(x, include(path_))
-            measure_expr = treeRunRecursive!(joinpath(dirname(ctx._global.original_file_path), path), ctx)
-            measure_expr
-        else
-            quote end
+    (x, ctx, info) -> (
+        begin
+            if Configuration.CONFIG["general"]["recursive"]
+                @capture(x, include(path_))
+                measure_expr = treeRunRecursive!(joinpath(dirname(ctx._global.original_file_path), path), ctx)
+                measure_expr
+            else
+                quote end
+            end
         end
-    end)
+    )
 )
