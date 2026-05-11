@@ -100,7 +100,7 @@ The first time PerfTest is run on a specific directory, a configuration file wil
     using PerfTest; runperftests("testfile.jl")
 ```
 
-In between, the developer adds new changes to the implementation or checks out a different git branch.
+In between, the developer may add new changes to the implementation or checks out a different git branch.
 
 ```julia
     # This will compare the suite results against the reference, if the tests are sucessful the results become the reference.
