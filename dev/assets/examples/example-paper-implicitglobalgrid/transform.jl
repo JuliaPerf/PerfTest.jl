@@ -3,8 +3,7 @@ using Pkg
 
 Pkg.update()
 Pkg.instantiate()
-using Revise,PerfTest
-#PerfTest.toggleMPI()
+using PerfTest
 
 @info "Transforming expression"
 expr = PerfTest.transform(ARGS[1])
