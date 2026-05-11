@@ -132,7 +132,7 @@ if isdefined(Test, :TestCounts)
         end
 
         testcounts = Test.get_test_counts(ts)
-        passes, fails, errors, _, cp, cf, ce, _ = testcounts.passes, testcounts.fails, testcounts.errors, testcounts.broken, testcounts.cumulative_passes, testcounts.cumulative_fails, testcounts.cumulative_errors, testcounts.cumulative_broken 
+        passes, fails, errors, _, cp, cf, ce, _ = testcounts.passes, testcounts.fails, testcounts.errors, testcounts.broken, testcounts.cumulative_passes, testcounts.cumulative_fails, testcounts.cumulative_errors, testcounts.cumulative_broken
         print("Aggregate Results: $(passes + cp) PASSED, $(fails + cf) FAILED, $(errors+ce) ERRORS\n")
         err = get_test_errors(ts)
         for _error in err

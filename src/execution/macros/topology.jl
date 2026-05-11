@@ -23,6 +23,7 @@ threads_validation = defineMacroParams([
         Alternatively a list of integers can be passed which will be interpreted as a manual pinning.
 
         [!] As of now, the pinning is not MPI aware, (this will come in PerfTest v1.2.4) in MPI cases use the manual pinning, with the list of integers.
+        [!] This is a feature in development, more comprehensive features will be built over this later on (1.2.4).
 """
 macro perftest_threads(anything)
     return :(begin end)

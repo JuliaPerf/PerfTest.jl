@@ -28,6 +28,13 @@ using PerfTest
         a.c = test_res.primitives[:min_time]
     end)
 
+    form = quote
+        A.b(C.D)
+    end
+    r = PerfTest.transformFormula(form, ctx)
+    @test r == MacroTools.prettify(quote
+        A.b(C.D)
+    end)
 
     #= # illegal symbol
     form = quote

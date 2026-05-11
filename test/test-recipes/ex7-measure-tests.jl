@@ -60,7 +60,7 @@ enabled = false
         @testset "Roofline perfect" begin
             @on_perftest_exec begin
                 global _flops = _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]/10
-                global _opint = 1
+                global _opint = 10
             end
 
             @roofline actual_flops=_flops target_ratio=0.9 begin
@@ -115,7 +115,7 @@ enabled = false
         @testset "Roofline perfect" begin
             @on_perftest_exec begin
                 global _flops = _PRFT_GLOBALS.builtins[:CPU_FLOPS_PEAK]/10/2
-                global _opint = 1
+                global _opint = 10
             end
 
             @roofline actual_flops=_flops target_ratio=0.9 begin

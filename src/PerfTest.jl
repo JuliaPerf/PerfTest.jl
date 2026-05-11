@@ -278,7 +278,7 @@ end
             1 : general information about the transformation and execution process
             2 : detailed information about the transformation and execution process, logs are saved in a folder
             3 : debug level, very detailed information about the transformation and execution process
-        `clean  ::Bool = false`            : whether to leave the config file, the output test suite and the test results or delete everything after the suite has been executed, !!! including previously done results !!!.
+        `clean  ::Bool = false`            : whether to leave the config file, the output test suite and the test results or delete everything after the suite has been executed, !!! including previously done results and logs CAREFUL !!!.
         `config  ::Dict{String,Any} = {}`   : other configuration parameters to override the configuration file. Configuration priority: config macro > this argument > configuration file. See configuration for more info.
     
 
@@ -317,13 +317,16 @@ function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, 
         end
         if execute && mode == NormalMode
             addLog("general", "[PERFTEST] Executing performance testing suite $name")
-            include(name)
+            Main.include(name)
         end
     end
     if clean
         rm(name)
         rm("./perftest_config.toml")
         rm("./$(Configuration.CONFIG["general"]["save_folder"])", recursive=true)
+        if ispath("./.perftest_logs")
+            rm("./perftest_logs", recursive=true)
+        end
     end
 end
 
@@ -350,10 +353,12 @@ PrecompileTools.@compile_workload begin
         redirect_stdout(Base.DevNull()) do
             global init_dummy_flag = true
             x = PerfTest.transform(joinpath(dirname(pathof(PerfTest)), "transform/dummy.jl"))
-            rm("./$(Configuration.PRECOMPILATION_CONFIG["general"]["save_folder"])", recursive=true)
         end
     catch err
     finally
+        if ispath("./$(Configuration.PRECOMPILATION_CONFIG["general"]["save_folder"])")
+            rm("./$(Configuration.PRECOMPILATION_CONFIG["general"]["save_folder"])", recursive=true)
+        end
         global init_dummy_flag = false
     end
 end

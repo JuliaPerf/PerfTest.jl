@@ -92,7 +92,11 @@ function transformPerftest(input_expr::Expr, context::Context)
     # Return the transformed expression, in the following quote ts means the current testset
     return quote
         # Run the benchmark
-        ts.benchmarks[$name] = @PRFTBenchmark(($parsed_target), $(prop...))
+        $(if mode == NormalMode
+            quote ts.benchmarks[$name] = @PRFTBenchmark(($parsed_target), $(prop...)) end
+        else
+            quote ts.benchmarks[$name] = @PRFTBenchmark(($parsed_target; MPI.Barrier(MPI.COMM_WORLD)), $(prop...)) end
+        end)
 
         # Create Test_Result struct to save test data
         test_res = Test_Result($name)
