@@ -28,13 +28,14 @@ ThreadPinningCore = "6f48bc29-05ce-4cc8-baad-4adcba581a18"
 UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [weakdeps]
+LIKWID = "bf22376a-e803-4184-b2ed-56326e3bff83"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 
 [extensions]
+PerfTest_LIKWIDExt = "LIKWID"
 PerfTest_MPIExt = "MPI"
 
 [compat]
-julia = "1, 1.11"
 BandwidthBenchmark = "0.2.0"
 BenchmarkTools = "1"
 Configurations = "0"
@@ -50,3 +51,4 @@ PrecompileTools = "1.2"
 Suppressor = "0"
 ThreadPinningCore = "0.4"
 UnicodePlots = "3"
+julia = "1, 1.11"

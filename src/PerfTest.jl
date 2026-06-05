@@ -90,6 +90,9 @@ include("execution/retrieve.jl")
 include("execution/units.jl")
 include("execution/misc.jl")
 
+# Multithread suite launcher
+include("execution/launch_suite.jl")
+
 # Bencher Interface
 include("bencher/BencherREST.jl")
 
@@ -282,7 +285,7 @@ end
         `config  ::Dict{String,Any} = {}`   : other configuration parameters to override the configuration file. Configuration priority: config macro > this argument > configuration file. See configuration for more info.
     
 
-    # (!) Do not mistake this method for the macro with the same name, which is used to set test targets inside the recipe script.
+    # (!) Do not mistake this method for the perftest macro, which is used to set test targets inside the recipe script.
 
     # Example of a config parameter value:
         `{"regression" : {"enabled" : true}, "general" : {"recursive" : false}}`
@@ -290,7 +293,7 @@ end
 
     See the macro reference for more details about the recipe script format and the possible configurations.
 """
-function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, clean::Bool=false, config::Union{Dict,Nothing}=nothing)
+function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, clean::Bool=false, config::Union{Dict,Nothing}=nothing, interpreter_flags::AbstractString="", suite_flags::AbstractString="")
     # Load config file
     Configuration.load_config()
     # Override with config argument
@@ -317,7 +320,7 @@ function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, 
         end
         if execute && mode == NormalMode
             addLog("general", "[PERFTEST] Executing performance testing suite $name")
-            Main.include(name)
+            Launch.launchPerfTestSuite(name, interpreter_flags, suite_flags)
         end
     end
     if clean

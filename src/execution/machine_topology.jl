@@ -316,21 +316,6 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
         Integer(thread_spec)
     end
 
-    total_needed = literal_numas * literal_threads
-
-    # Check Julia thread count
-    if Threads.nthreads() < total_needed
-        reason *= "Not enough threads on the interpreter."
-        addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
-        return (0, 0)
-    elseif Threads.nthreads() > total_needed
-        reason *= "Too many threads on the interpreter ($(Threads.nthreads()) > $total_needed)."
-        addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
-        return (0, 0)
-    elseif reason != ""
-        addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($literal_numas, $literal_threads) cannot be applied on this Julia process. $reason Ignoring.")
-        return (0, 0)
-    end
     return (literal_numas, literal_threads)
 end
 
@@ -440,7 +425,19 @@ with the elements being the cores to allocate.
 function enforceThreadArrangement(arrgmt::Tuple{Integer,Integer})::Bool
     n_numas, n_threads = arrgmt
     total_needed = n_numas * n_threads
-
+    # Check Julia thread count
+    if Threads.nthreads() < total_needed
+        reason *= "Not enough threads on the interpreter."
+        addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($n_numas, $n_threads) cannot be applied on this Julia process. $reason Ignoring.")
+        return (0, 0)
+    elseif Threads.nthreads() > total_needed
+        reason *= "Too many threads on the interpreter ($(Threads.nthreads()) > $total_needed)."
+        addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($n_numas, $n_threads) cannot be applied on this Julia process. $reason Ignoring.")
+        return (0, 0)
+    elseif reason != ""
+        addLog("machine", "Specified thread arrangement $arrgmt -> literalized to ($n_numas, $n_threads) cannot be applied on this Julia process. $reason Ignoring.")
+        return (0, 0)
+    end
     # Check Julia thread count
     if Threads.nthreads() < total_needed
         @warn "enforceThreadArrangement: need $total_needed Julia thread(s) " *
