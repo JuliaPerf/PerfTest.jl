@@ -250,7 +250,6 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
     if Topology.hwloc_topology isa Nothing
         Topology.getMachineTopology!()
     end
-    reason = ""
 
     total_numas = Topology.numberOfNUMAS()
     threads_per_numa = Topology.threadsPerNuma()  # Vector{Integer}, one entry per NUMA
@@ -287,7 +286,7 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
             error("Invalid thread arrangement: if #numa is and integer, it shall be positive, got $numa_spec.")
         end
         if numa_spec > total_numas
-            reason *= ("Invalid thread arrangement: requested $numa_spec NUMA domain(s) but " *
+            error("Invalid thread arrangement: requested $numa_spec NUMA domain(s) but " *
                        "the host only has $total_numas.")
         end
         Integer(numa_spec)
@@ -309,7 +308,7 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
                   "got $thread_spec.")
         end
         if thread_spec > min_threads_in_selected
-            reason *= ("Invalid thread arrangement: requested $thread_spec thread(s) per NUMA but " *
+            error("Invalid thread arrangement: requested $thread_spec thread(s) per NUMA but " *
                        "the most constrained of the $literal_numas selected NUMA domain(s) only " *
                        "has $min_threads_in_selected available thread(s).")
         end
@@ -425,6 +424,7 @@ with the elements being the cores to allocate.
 function enforceThreadArrangement(arrgmt::Tuple{Integer,Integer})::Bool
     n_numas, n_threads = arrgmt
     total_needed = n_numas * n_threads
+    reason = ""
     # Check Julia thread count
     if Threads.nthreads() < total_needed
         reason *= "Not enough threads on the interpreter."
