@@ -12,6 +12,8 @@ using LinearAlgebra
 using BenchmarkTools
 using Base.Threads
 
+PerfTest.is_loaded(:Val{:PerfTest_MPIExt}) = true
+
 # Module-level MPI state
 mpi_rank = 0
 mpi_size = 1

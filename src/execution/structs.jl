@@ -68,6 +68,9 @@ This struct is used in the test suite to save a methodology result, which in tur
 end
 
 
+abstract type ExtensionData end
+struct NoExtensionData <: ExtensionData end
+
 """
 
 NOTE: SOME METRICS ARE REPEATED IN HERE AND INSIDE A METRIC RESULT, this redundancy is tolerated for now, the copy inside the methodology result might be substituted by a reference in the future.
@@ -78,12 +81,19 @@ struct Test_Result
     metrics :: Dict{Symbol,Metric_Result}
     auxiliar :: Dict{Symbol,Metric_Result}
     methodology_results :: Vector{Methodology_Result}
+    extensions :: ExtensionData
 
     Test_Result(name) = new(name,
                         Dict{Symbol,Metric_Result}(),
                         Dict{Symbol,Metric_Result}(),
                         Dict{Symbol,Metric_Result}(),
-                        Methodology_Result[])
+                        Methodology_Result[], NoExtensionData())
+    Test_Result(name, extensions) = new(name,
+                        Dict{Symbol,Metric_Result}(),
+                        Dict{Symbol,Metric_Result}(),
+                        Dict{Symbol,Metric_Result}(),
+                        Methodology_Result[],
+                        extensions)
 end
 
 

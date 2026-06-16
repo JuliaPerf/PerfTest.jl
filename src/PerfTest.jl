@@ -13,6 +13,10 @@ using BenchmarkTools
 using LinearAlgebra
 using Hwloc
 
+function is_loaded(ext::Symbol)
+    return false
+end
+
 var"@capture" = MacroTools.var"@capture"
 
 abstract type Mode end
