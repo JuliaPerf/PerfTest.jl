@@ -13,17 +13,10 @@ using BenchmarkTools
 using LinearAlgebra
 using Hwloc
 
-function is_loaded(ext::Symbol)
-    return false
-end
 
 var"@capture" = MacroTools.var"@capture"
 
-abstract type Mode end
-struct MPIMode <: Mode end
-struct NormalMode <: Mode end
-
-mode = NormalMode
+include("extension_stubs.jl")
 
 ### PARSING TIME
 

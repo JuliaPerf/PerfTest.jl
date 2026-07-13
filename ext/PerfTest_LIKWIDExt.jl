@@ -4,7 +4,7 @@ using LIKWID
 using PerfTest
 using DataStructures: OrderedDict
 
-PerfTest.is_loaded(:Val{:PerfTest_LIKWIDExt}) = true
+function PerfTest.is_loaded(::Val{:PerfTest_LIKWIDExt}) return true end
 
 # ----------------------------------------------------------------------------
 # Extension data type to store LIKWID results in Test_Result
@@ -13,15 +13,15 @@ struct LIKWIDExtensionData <: PerfTest.ExtensionData
     metrics :: OrderedDict
     events  :: OrderedDict
 end
+PerfTest.LIKWIDExtensionData(metrics, events) = LIKWIDExtensionData(OrderedDict(metrics), OrderedDict(events))
 
 # ----------------------------------------------------------------------------
 # perfmon entry point
 # ----------------------------------------------------------------------------
+
 # `expr` is the (quoted) user code, `groups` is the requested LIKWID group list.
-function PRFT_perfmon(expr, groups)
-    f = eval(:(() -> $expr))          # turn the captured expression into a thunk
-    return LIKWID.perfmon(f, groups; autopin = false, print = false)
-end
+PerfTest.perfmon(args...; kwargs...) = LIKWID.perfmon(args...; kwargs...)
+PerfTest.var"@PRFT_perfmon"(__source__::LineNumberNode, __module__::Module, groups,expr) = quote LIKWID.perfmon(() -> $expr, $groups; autopin = false, print = false) end
 
 # ============================================================================
 #  Specifier sets
@@ -122,10 +122,10 @@ const _flop_events_single = [
 ]
 
 # Build a `quote` that sums the chosen weighted events.
-function _flop_event_expr(test_res, events, group)
+function _flop_event_expr(events, group)
     terms = Expr[]
     for (ev, weight, _vec) in events
-        push!(terms, :(PerfTest.likwidEventsRetrieve($test_res, $(QuoteNode(group)),
+        push!(terms, :(PerfTest.likwidEventsRetrieve(test_res, $(QuoteNode(group)),
                                                       $(QuoteNode(ev))) .* $weight))
     end
     body = foldl((a, b) -> :($a .+ $b), terms)
@@ -142,7 +142,7 @@ Specifiers (any order):
   * vectorization: :scalar | :vector_128 | :vector_256 | :vector_512 | :vector
                    (omit ⇒ all widths summed)
 """
-function formulaGetFlop(test_res, properties)
+function PerfTest.formulaGetFlop(properties)
     spec = classify(properties,
                     :type => flop_submetrics_type,
                     :vec  => flop_submetrics_vectorize)
@@ -160,16 +160,18 @@ function formulaGetFlop(test_res, properties)
     events = ftype === :single ? _flop_events_single : _flop_events_double
     group  = ftype === :single ? :FLOPS_SP : :FLOPS_DP
 
+    push!(PerfTest.ctx._local.enabled_likwid_groups, group)
+
     if fvec === nothing || fvec === :vector
         # All widths (or all vector widths). Filter scalar out for :vector.
         chosen = fvec === :vector ?
                  filter(e -> e[3] !== :scalar, events) : events
-        return _flop_event_expr(test_res, chosen, group)
+        return _flop_event_expr( chosen, group)
     else
         chosen = filter(e -> e[3] === fvec, events)
         isempty(chosen) && error("No FLOP event for vectorization '$fvec' " *
                                   "and type '$ftype'.")
-        return _flop_event_expr(test_res, chosen, group)
+        return _flop_event_expr( chosen, group)
     end
 end
 
@@ -180,7 +182,7 @@ Floating-point operation *rate* (FLOP/s). Same specifiers as
 [`formulaGetFlop`](@ref); uses LIKWID's precomputed rate metrics when no
 vectorization breakdown is requested.
 """
-function formulaGetFlops(test_res, properties)
+function PerfTest.formulaGetFlops(properties)
     spec = classify(properties,
                     :type => flop_submetrics_type,
                     :vec  => flop_submetrics_vectorize)
@@ -190,9 +192,10 @@ function formulaGetFlops(test_res, properties)
 
     if fvec === nothing && haskey(_flop_metric_by_type, ftype)
         group, metric = _flop_metric_by_type[ftype]
-        return :(sum(PerfTest.likwidMetricsRetrieve($test_res,
+        push!(PerfTest.ctx._local.enabled_likwid_groups, Symbol(group))
+        return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
                                                      $(QuoteNode(Symbol(group))),
-                                                     $metric)) * 1e6)  # LIKWID reports MFLOP/s
+                                                     $metric)) * 1e6) # LIKWID reports MFLOP/s
     end
 
     error("Per-vectorization FLOP/s requires a timed reduction; request " *
@@ -232,7 +235,7 @@ Specifiers:
   * level: :l1 | :l2 | :l3 | :mem  (default :mem)
   * kind:  :read | :write | :read_write  (default :read_write)
 """
-function formulaGetBandwidth(test_res, properties)
+function PerfTest.formulaGetBandwidth(properties)
     spec  = classify(properties,
                      :level => bw_metrics_level,
                      :kind  => bw_metrics_kind)
@@ -246,7 +249,8 @@ function formulaGetBandwidth(test_res, properties)
 
     group  = _bw_group[level]
     metric = _bw_metric[(level, kind)]
-    return :(sum(PerfTest.likwidMetricsRetrieve($test_res,
+    push!(PerfTest.ctx._local.enabled_likwid_groups, group)
+    return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
                                                 $(QuoteNode(group)), $metric)))
 end
 
@@ -265,12 +269,12 @@ const _power_metric = Dict(
 """
     formulaGetEnergy(test_res, properties)
 
-Consumed energy in Joules. Specifier: :package (default) | :dram | :all.
+Consumed energy in Joules. Specifier: :package | :dram | :all (default).
 """
-function formulaGetEnergy(test_res, properties)
+function PerfTest.formulaGetEnergy( properties)
     spec = classify(properties, :part => energy_metrics_part)
-    part = something(spec[:part], :package)
-    return _energy_or_power(test_res, part, _energy_metric)
+    part = something(spec[:part], :all)
+    return _energy_or_power( part, _energy_metric)
 end
 
 """
@@ -278,20 +282,21 @@ end
 
 Average power draw in Watts. Specifier: :package (default) | :dram | :all.
 """
-function formulaGetPower(test_res, properties)
+function PerfTest.formulaGetPower( properties)
     spec = classify(properties, :part => energy_metrics_part)
-    part = something(spec[:part], :package)
-    return _energy_or_power(test_res, part, _power_metric)
+    part = something(spec[:part], :all)
+    return _energy_or_power( part, _power_metric)
 end
 
-function _energy_or_power(test_res, part, table)
+function _energy_or_power( part, table)
     if part === :all
-        terms = [:(sum(PerfTest.likwidMetricsRetrieve($test_res, :ENERGY, $m)))
+        terms = [:(sum(PerfTest.likwidMetricsRetrieve(test_res, :ENERGY, $m)))
                  for m in values(table)]
         return foldl((a, b) -> :($a + $b), terms)
     end
+    push!(PerfTest.ctx._local.enabled_likwid_groups, :ENERGY)
     haskey(table, part) || error("No energy/power metric for part '$part'.")
-    return :(sum(PerfTest.likwidMetricsRetrieve($test_res, :ENERGY,
+    return :(sum(PerfTest.likwidMetricsRetrieve(test_res, :ENERGY,
                                                 $(table[part]))))
 end
 
@@ -303,12 +308,12 @@ end
 
 Cache miss counts/ratios. Specifier: level (:l2 default | :l3).
 """
-function formulaGetMisses(test_res, properties)
+function PerfTest.formulaGetMisses( properties)
     spec  = classify(properties, :level => bw_metrics_level)
     level = something(spec[:level], :l2)
     metric = level === :l3 ? "L3 miss ratio" : "L2 miss ratio"
     group  = level === :l3 ? :L3CACHE : :L2CACHE
-    return :(sum(PerfTest.likwidMetricsRetrieve($test_res,
+    return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
                                                 $(QuoteNode(group)), $metric)))
 end
 
@@ -321,40 +326,36 @@ end
 GPU metrics via LIKWID's NVMON backend. Specifier list is forwarded as the
 metric name for now (extend as needed).
 """
-function formulaGetGPU(test_res, properties)
+function PerfTest.formulaGetGPU( properties)
     isempty(properties) &&
         error("Specify a GPU metric, e.g. :gpu with a metric specifier.")
     metric = String(properties[1])
-    return :(sum(PerfTest.likwidMetricsRetrieve($test_res, :GPU, $metric)))
+    return :(sum(PerfTest.likwidMetricsRetrieve(test_res, :GPU, $metric)))
 end
 
 # ============================================================================
 #  Alias dictionary (defined AFTER the functions it references)
 # ============================================================================
-const additional_metric_aliases = Dict{Symbol,Function}(
-    :flop   => formulaGetFlop,
-    :flop_s => formulaGetFlops,
-    :bw     => formulaGetBandwidth,
-    :energy => formulaGetEnergy,
-    :power  => formulaGetPower,
-    :gpu    => formulaGetGPU,
-    :miss   => formulaGetMisses,
-)
-for (k, v) in additional_metric_aliases
-    PerfTest.new_symbols[k] = v
-end
+PerfTest.newSymbols(::Val{:flop})    = PerfTest.formulaGetFlop
+PerfTest.newSymbols(::Val{:flops})  = PerfTest.formulaGetFlops
+PerfTest.newSymbols(::Val{:flop_s})  = PerfTest.formulaGetFlops
+PerfTest.newSymbols(::Val{:bw})     = PerfTest.formulaGetBandwidth
+PerfTest.newSymbols(::Val{:energy}) = PerfTest.formulaGetEnergy
+PerfTest.newSymbols(::Val{:power})  = PerfTest.formulaGetPower
+PerfTest.newSymbols(::Val{:gpu})    = PerfTest.formulaGetGPU
+PerfTest.newSymbols(::Val{:miss})   = PerfTest.formulaGetMisses
 
 """
-    resolveAlias(alias, test_res, properties)
+    resolveAlias(alias, test_res, properties) :: Expr
 
 Entry point for the shortcut nomenclature: given a main `alias` and a chain of
 specifier symbols `properties`, dispatch to the right formula function.
 """
-function resolveAlias(alias::Symbol, test_res, properties)
+function PerfTest.resolveAlias(alias::Symbol, properties)
     haskey(additional_metric_aliases, alias) ||
         error("Unknown metric alias ':$alias'. Known aliases: " *
               "$(collect(keys(additional_metric_aliases))).")
-    return additional_metric_aliases[alias](test_res, properties)
+    return additional_metric_aliases[alias]( properties)
 end
 
 # ============================================================================
@@ -362,13 +363,13 @@ end
 # ============================================================================
 function PerfTest.likwidEventsRetrieve(test_res, group, event_name)
     if test_res.extensions isa LIKWIDExtensionData
-        return _likwidThingsRetrieve(test_res.extensions.events, group, event_name)
+        return _likwidThingsRetrieve(test_res.extensions.events, group :: Union{String, Symbol}, event_name :: Union{String, Symbol})
     else
         throw(ArgumentError("Test result does not contain LIKWID extension data"))
     end
 end
 
-function PerfTest.likwidMetricsRetrieve(test_res, group, metric_name)
+function PerfTest.likwidMetricsRetrieve(test_res, group :: Union{String, Symbol}, metric_name :: Union{String, Symbol})
     if test_res.extensions isa LIKWIDExtensionData
         return _likwidThingsRetrieve(test_res.extensions.metrics, group, metric_name)
     else
@@ -376,7 +377,13 @@ function PerfTest.likwidMetricsRetrieve(test_res, group, metric_name)
     end
 end
 
-function _likwidThingsRetrieve(dict, group, name)
+function _likwidThingsRetrieve(dict, group :: Union{String, Symbol}, name :: Union{String, Symbol})
+    if group isa Symbol
+        group = String(group)
+    end
+    if name isa Symbol
+        name = String(name)
+    end
     haskey(dict, group) ||
         throw(ArgumentError("LIKWID group '$group' not found in test results"))
     group_data = dict[group]

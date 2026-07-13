@@ -130,8 +130,9 @@ mutable struct LocalContext
 
     custom_metrics::Vector{Vector{CustomMetric}}
     enabled_methodologies::Vector{Vector{MethodologyParameters}}
+    enabled_likwid_groups::Set{Symbol}
 
-    LocalContext() = new([], Set{Symbol}(), Vector{CustomMetric}[], Vector{MethodologyParameters}[])
+    LocalContext() = new([], Set{Symbol}(), Vector{CustomMetric}[], Vector{MethodologyParameters}[], Set{Symbol}())
 end
 
 mutable struct GlobalContext

@@ -104,6 +104,12 @@ if isdefined(Test, :TestCounts)
                     "\n"
                 )
                 print(" "^get_testset_depth() * "AT: $(ts.description)\n")
+                for outcome in ts.results
+                    if outcome isa Error
+                        print("ERRORED:\n")
+                        print(test_result)
+                    end
+                end
                 for methodology in test_result.methodology_results
                     printMethodology(methodology, get_testset_depth(), Configuration.CONFIG["general"]["plotting"])
                 end

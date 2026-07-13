@@ -98,13 +98,16 @@ function transformPerftest(input_expr::Expr, context::Context)
             quote ts.benchmarks[$name] = @PRFTBenchmark(($parsed_target; MPI.Barrier(MPI.COMM_WORLD)), $(prop...)) end
         end)
 
-        if PerfTest.is_loaded(:Perftest_LIKWIDExt)
-            metrics, events = PRFT_perfmon(expr, context._global.enabled_likwid_groups)
-            test_res = Test_result($name, LIKWIDExtensionData(metrics, events))
+        $(if true || PerfTest.is_loaded(:LIKWID)
+            addLog("general", "[LIKWID] Measuring target \"$(expr)\" with groups: $([g for g in context._local.enabled_likwid_groups])")
+            quote
+                metrics, events = PerfTest.perfmon(() -> $expr, $([String(i) for i in context._local.enabled_likwid_groups]); autopin=false, print=false)
+                test_res = Test_Result($name, PerfTest.LIKWIDExtensionData(metrics, events))
+            end
         else
             # Create Test_Result struct to save test data
-            test_res = Test_Result($name)
-        end
+            quote test_res = Test_Result($name) end
+        end)
 
         ts.test_results[$name] = test_res
         # Regression logic
