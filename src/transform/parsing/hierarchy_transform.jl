@@ -98,16 +98,31 @@ function transformPerftest(input_expr::Expr, context::Context)
             quote ts.benchmarks[$name] = @PRFTBenchmark(($parsed_target; MPI.Barrier(MPI.COMM_WORLD)), $(prop...)) end
         end)
 
-        $(if true || PerfTest.is_loaded(:LIKWID)
+        extensions = PerfTest.ExtensionData[]
+        $(if PerfTest.is_loaded(:LIKWID)
             addLog("general", "[LIKWID] Measuring target \"$(expr)\" with groups: $([g for g in context._local.enabled_likwid_groups])")
             quote
                 metrics, events = PerfTest.perfmon(() -> $expr, $([String(i) for i in context._local.enabled_likwid_groups]); autopin=false, print=false)
-                test_res = Test_Result($name, PerfTest.LIKWIDExtensionData(metrics, events))
+                push!(extensions, PerfTest.LIKWIDExtensionData(metrics, events))
             end
         else
-            # Create Test_Result struct to save test data
-            quote test_res = Test_Result($name) end
+            quote
+                push!(extensions, PerfTest.NoExtensionData())
+            end
         end)
+        $(if true || PerfTest.is_loaded(:CUDA)
+            addLog("general", "[CUDA] Measuring target \"$(expr)\"")
+            quote
+                @info PerfTest.cuda_devices()
+                energy, power = $(PerfTest.gpuPowerMeasure(expr))
+                push!(extensions, PerfTest.CUDAExtensionData(energy, power))
+            end
+        else
+            quote
+                push!(extensions, PerfTest.NoExtensionData())
+            end
+        end)
+        test_res = Test_Result($name, extensions)
 
         ts.test_results[$name] = test_res
         # Regression logic

@@ -4,7 +4,7 @@ using LIKWID
 using PerfTest
 using DataStructures: OrderedDict
 
-function PerfTest.is_loaded(::Val{:PerfTest_LIKWIDExt}) return true end
+function PerfTest.is_loaded(::Val{:LIKWID}) return true end
 
 # ----------------------------------------------------------------------------
 # Extension data type to store LIKWID results in Test_Result
@@ -321,7 +321,7 @@ end
 #  GPU formula (placeholder; depends on NVMON availability)
 # ============================================================================
 """
-    formulaGetGPU(test_res, properties)
+TODO    formulaGetGPU(test_res, properties)
 
 GPU metrics via LIKWID's NVMON backend. Specifier list is forwarded as the
 metric name for now (extend as needed).
@@ -342,7 +342,6 @@ PerfTest.newSymbols(::Val{:flop_s})  = PerfTest.formulaGetFlops
 PerfTest.newSymbols(::Val{:bw})     = PerfTest.formulaGetBandwidth
 PerfTest.newSymbols(::Val{:energy}) = PerfTest.formulaGetEnergy
 PerfTest.newSymbols(::Val{:power})  = PerfTest.formulaGetPower
-PerfTest.newSymbols(::Val{:gpu})    = PerfTest.formulaGetGPU
 PerfTest.newSymbols(::Val{:miss})   = PerfTest.formulaGetMisses
 
 """
@@ -362,19 +361,21 @@ end
 #  Retrieval primitives (native LIKWID names)
 # ============================================================================
 function PerfTest.likwidEventsRetrieve(test_res, group, event_name)
-    if test_res.extensions isa LIKWIDExtensionData
-        return _likwidThingsRetrieve(test_res.extensions.events, group :: Union{String, Symbol}, event_name :: Union{String, Symbol})
-    else
-        throw(ArgumentError("Test result does not contain LIKWID extension data"))
+    for extension in test_res.extensions
+        if extension isa LIKWIDExtensionData
+            return _likwidThingsRetrieve(extension.events, group :: Union{String, Symbol}, event_name :: Union{String, Symbol})
+        end
     end
+    throw(ArgumentError("Test result does not contain LIKWID extension data"))
 end
 
 function PerfTest.likwidMetricsRetrieve(test_res, group :: Union{String, Symbol}, metric_name :: Union{String, Symbol})
-    if test_res.extensions isa LIKWIDExtensionData
-        return _likwidThingsRetrieve(test_res.extensions.metrics, group, metric_name)
-    else
-        throw(ArgumentError("Test result does not contain LIKWID extension data"))
+    for extension in test_res.extensions
+        if extension isa LIKWIDExtensionData
+            return _likwidThingsRetrieve(extension.metrics, group, metric_name)
+        end
     end
+    throw(ArgumentError("Test result does not contain LIKWID extension data"))
 end
 
 function _likwidThingsRetrieve(dict, group :: Union{String, Symbol}, name :: Union{String, Symbol})

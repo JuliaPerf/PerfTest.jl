@@ -81,13 +81,13 @@ struct Test_Result
     metrics :: Dict{Symbol,Metric_Result}
     auxiliar :: Dict{Symbol,Metric_Result}
     methodology_results :: Vector{Methodology_Result}
-    extensions :: ExtensionData
+    extensions :: Vector{ExtensionData}
 
     Test_Result(name) = new(name,
                         Dict{Symbol,Metric_Result}(),
                         Dict{Symbol,Metric_Result}(),
                         Dict{Symbol,Metric_Result}(),
-                        Methodology_Result[], NoExtensionData())
+                        Methodology_Result[], ExtensionData[])
     Test_Result(name, extensions) = new(name,
                         Dict{Symbol,Metric_Result}(),
                         Dict{Symbol,Metric_Result}(),
