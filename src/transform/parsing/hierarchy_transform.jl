@@ -87,6 +87,25 @@ function transformPerftest(input_expr::Expr, context::Context)
     num = (context._local.depth_record[end].test_count += 1)
     name = "Test $num"
 
+    # Isolate setup property
+    setup_expr = quote end
+    for pair in prop
+        if pair.head == :(=)
+            if pair.args[1] == :setup
+                setup_expr = pair.args[2]
+            end
+        end
+    end
+    # Isolate teardown property
+    teardown_expr = quote end
+    for pair in prop
+        if pair.head == :(=)
+            if pair.args[1] == :teardown
+                teardown_expr = pair.args[2]
+            end
+        end
+    end
+
     # LOGINFO
     addLog("hierarchy", "[PERFTEST] New Test: $name \"$expr\" @ $([i.set_name for i in context._local.depth_record])")
     # Return the transformed expression, in the following quote ts means the current testset
@@ -99,6 +118,7 @@ function transformPerftest(input_expr::Expr, context::Context)
         end)
 
         extensions = PerfTest.ExtensionData[]
+        $setup_expr
         $(if PerfTest.is_loaded(:LIKWID)
             addLog("general", "[LIKWID] Measuring target \"$(expr)\" with groups: $([g for g in context._local.enabled_likwid_groups])")
             quote
@@ -110,6 +130,8 @@ function transformPerftest(input_expr::Expr, context::Context)
                 push!(extensions, PerfTest.NoExtensionData())
             end
         end)
+        $teardown_expr
+        $setup_expr
         $(if true || PerfTest.is_loaded(:CUDA)
             addLog("general", "[CUDA] Measuring target \"$(expr)\"")
             quote
@@ -122,6 +144,7 @@ function transformPerftest(input_expr::Expr, context::Context)
                 push!(extensions, PerfTest.NoExtensionData())
             end
         end)
+        $teardown_expr
         test_res = Test_Result($name, extensions)
 
         ts.test_results[$name] = test_res

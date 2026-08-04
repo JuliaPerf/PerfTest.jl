@@ -6,6 +6,8 @@ using PerfTest
 @perftest_config "
 [regression]
 enabled = false
+[general]
+verbose = 3
 "
 
 @testset "Time Measurements" begin
@@ -125,4 +127,6 @@ enabled = false
             @perftest sleep(0.1)
         end
     end
+
+    @info TS
 end

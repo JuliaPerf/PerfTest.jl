@@ -1,7 +1,7 @@
 using Test
 using PerfTest
 
-view = false
+view = true
 
 @testset "Measure - Full pass" begin
 
@@ -48,9 +48,10 @@ view = false
 
     # Cleanup
     try
-        rm("_t4_tmp_t4_tmp.jl")
+        error("a")
         rm(".perftests/ex7-measure-tests.jl_PERFORMANCE.JLD2")
         rm(".perftests", recursive=true)
+        rm("_t4_tmp_t4_tmp.jl")
     catch
         @warn "Automatic file cleanup failed."
     end
