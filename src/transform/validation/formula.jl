@@ -35,7 +35,7 @@ function SBMID(metric :: metricID())
         test_res.metrics[$(QuoteNode(sym))].value : 
         haskey(test_res.auxiliar,$(QuoteNode(sym))) ?
         test_res.auxiliar[$(QuoteNode(sym))].value :
-        $(newSymbols(Val(:flops))(Symbol[])))
+        $(newSymbols(Val(sym))(Symbol[])))
     end 
 end
 

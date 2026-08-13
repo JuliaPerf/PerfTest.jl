@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#SBATCH --job-name=compilation     # Name of the job
+#SBATCH --output=output_%j.log      # Standard output and error log
+#SBATCH --error=error_%j.log        # Standard error log
+#SBATCH --time=4:00:00              # Time limit hrs:min:sec
+#SBATCH --nodes=1                   # Number of nodes
+#SBATCH --ntasks=1                  # Total number of tasks
+#SBATCH --nodelist=medusa               # Specify the node name
 # =============================================================================
 #  Build a CUDA-enabled llama.cpp so PerfTest.jl can measure GPU energy.
 #
@@ -6,19 +13,23 @@
 #  custom CUDA build is REQUIRED for this case study.
 #
 #  Usage:
-#     ./build_llama_cuda.sh [LLAMA_COMMIT]
+#     ./build_llama_cuda.sh [SRC_DIR] [LLAMA_COMMIT]
 #
 #  On success prints the LLAMA_CPP_LIB path to export before running the study.
 # =============================================================================
 set -euo pipefail
 
+export TMPDIR=$WORK/nvcctmp
+
 # Pin a commit for reproducibility. Record whatever you actually build in the
 # README results table. Override by passing an argument.
-LLAMA_COMMIT="${1:-master}"
+LLAMA_COMMIT="${2:-master}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC_DIR="${HERE}/llama.cpp"
-BUILD_DIR="${SRC_DIR}/build"
+SRC_DIR="$WORK/llama.cpp"
+BUILD_DIR="${SRC_DIR}/build/${HOSTNAME}"
+
+echo $BUILD_DIR
 
 if [[ ! -d "${SRC_DIR}" ]]; then
     git clone https://github.com/ggml-org/llama.cpp.git "${SRC_DIR}"
@@ -34,7 +45,7 @@ cmake -S "${SRC_DIR}" -B "${BUILD_DIR}" \
     -DGGML_CUDA=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLAMA_CURL=OFF \
-    -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH:-80}"
+    -DCMAKE_CUDA_ARCHITECTURES="75;80;86;89;90"
 
 cmake --build "${BUILD_DIR}" --config Release -j"$(nproc)"
 

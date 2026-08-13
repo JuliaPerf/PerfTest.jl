@@ -55,6 +55,9 @@ PerfTest.newSymbols(::Val{:gpue})  = PerfTest.formulaGetGPUEnergy
 PerfTest.newSymbols(::Val{:gpup})  = PerfTest.formulaGetGPUPower
 
 function PerfTest.formulaGetGPUEnergy(properties)
+    if length(properties) == 0
+        return quote sum(test_res.extensions[2].energy) end
+    end
     s = String(properties[1])
     if match(r"^dev[0-9]+$", s) !== nothing
         return quote test_res.extensions[2].energy end
@@ -64,6 +67,9 @@ function PerfTest.formulaGetGPUEnergy(properties)
 end
 
 function PerfTest.formulaGetGPUPower(properties)
+    if length(properties) == 0
+        return quote sum(test_res.extensions[2].power) end
+    end
     s = String(properties[1])
     if match(r"^dev[0-9]+$", s) !== nothing
         return quote test_res.extensions[2].power end

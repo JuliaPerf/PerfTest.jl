@@ -44,15 +44,15 @@ enabled = true
 "
 
 # Directory holding the GGUF files, one per quantization level.
-const MODEL_DIR = get(ENV, "LLAMA_MODEL_DIR", joinpath(@__DIR__, "models"))
+const MODEL_DIR = get(ENV, "MODEL_DIR", joinpath(@__DIR__, "models"))
 
 # Base model name; the quant tag is appended to form the filename.
 # e.g. "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
-const MODEL_BASE = get(ENV, "LLAMA_MODEL_BASE", "Qwen2.5-7B-Instruct")
+const MODEL_BASE = get(ENV, "MODEL_BASE", "Qwen2.5-7B-Instruct")
 
 # Quantization levels to sweep (highest fidelity first). F16 is the quality
 # baseline. Edit to match the GGUF files you actually downloaded/produced.
-const QUANTS = ["f16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"]
+const QUANTS = ["Q8_K_M", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"]
 
 # Fixed workload. Deterministic (greedy) decoding, fixed token budget so that
 # "energy per token" is comparable across quants.
@@ -75,7 +75,7 @@ const PERPLEXITY = Dict{String,Float64}(
 # Sweep
 # -----------------------------------------------------------------------------
 @testset "Llama.cpp energy efficiency vs quantization" begin
-    @testset "quant = $q" for q in QUANTS
+    @testset "quant = " for q in QUANTS
 
         # Skip quants whose GGUF is not present, so the suite still runs on a
         # partial model set.
@@ -83,7 +83,7 @@ const PERPLEXITY = Dict{String,Float64}(
             # (plain source run: nothing to do)
         end
 
-        s = nothing
+        global s = nothing
         n_prompt = 0
         # Heavy setup only happens in the generated perf suite.
         @on_perftest_exec begin
@@ -101,7 +101,7 @@ const PERPLEXITY = Dict{String,Float64}(
         end
 
         # Export locals so the metric formulas below can reference them.
-        @export_vars N_GEN n_prompt q
+        @info N_GEN,n_prompt,q
 
         # ---- Custom metrics -------------------------------------------------
         # Headline: Joules per generated token (whole-request energy / tokens).
@@ -109,17 +109,17 @@ const PERPLEXITY = Dict{String,Float64}(
         # For a short prompt and N_GEN >> prompt this ≈ decode J/token; measure
         # prefill_only! separately to attribute the split exactly.
         @auxiliary_metric name="Energy/token" units="J/token" begin
-            :gpue.dev0 / N_GEN
+            :gpue / N_GEN
         end
 
         # Energy efficiency: generated tokens per Joule.
         @auxiliary_metric name="Efficiency" units="token/J" begin
-            N_GEN / :gpue.dev0
+            N_GEN / :gpue
         end
 
         # Average GPU power during decode.
         @auxiliary_metric name="Avg power" units="W" begin
-            :gpup.dev0
+            :gpup
         end
 
         # Decode throughput for context.
@@ -137,7 +137,7 @@ const PERPLEXITY = Dict{String,Float64}(
         # the budget of Joules per generated token. Tune to your GPU/model.
         # low_is_bad=false => bigger is worse (energy).
         @define_test_metric name="Energy budget" units="J/token" reference=0.5 low_is_bad=false begin
-            :gpue.dev0 / N_GEN
+            :gpue / N_GEN
         end
 
         # ---- The measured target -------------------------------------------
@@ -147,7 +147,7 @@ const PERPLEXITY = Dict{String,Float64}(
         # teardown is needed (and would not help the energy probe anyway — see
         # LlamaFFI.jl). Energy is auto-measured by the CUDA extension around this
         # call; :gpue.dev0 / N_GEN is the headline Joules-per-token.
-        @perftest samples=3 seconds=120 LlamaFFI.generate!(s, PROMPT, N_GEN)
+        @perftest samples=1 evals=1 seconds=120 LlamaFFI.generate!(s, PROMPT, N_GEN)
 
         # To isolate decode from prefill energy, also measure prefill_only! as a
         # second target and subtract; both are idempotent:
@@ -155,7 +155,7 @@ const PERPLEXITY = Dict{String,Float64}(
 
         # Teardown
         @on_perftest_exec begin
-            s === nothing || LlamaFFI.close_session(s)
+            s === nothing || LlamaFFI.destroy!(s)
         end
     end
 end

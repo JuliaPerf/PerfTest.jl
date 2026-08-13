@@ -10,7 +10,7 @@ WHY A CUSTOM BUILD?
 The registered `llama_cpp_jll` artifact ships **CPU-only** binaries (no
 `libggml_cuda`, no CUDA dependency). To measure GPU energy of llama.cpp inference
 you MUST build llama.cpp yourself with `-DGGML_CUDA=ON` and point this module at
-the resulting `libllama.so` via the `LLAMA_CPP_LIB` environment variable
+the resulting `libllama.so` via the `LLAMA_LIB` environment variable
 (see `build_llama_cuda.sh`).
 
 STATUS: PRELIMINARY DRAFT
@@ -47,11 +47,11 @@ so we can probe for version-dependent symbols with [`sym`](@ref).
 """
 function lib()
     if isempty(LIBLLAMA[])
-        path = get(ENV, "LLAMA_CPP_LIB", "")
+        path = get(ENV, "LLAMA_LIB", "")
         isempty(path) && error(
-            "Set LLAMA_CPP_LIB to your CUDA-enabled libllama (e.g. " *
+            "Set LLAMA_LIB to your CUDA-enabled libllama (e.g. " *
             "/path/to/llama.cpp/build/bin/libllama.so). See build_llama_cuda.sh.")
-        isfile(path) || error("LLAMA_CPP_LIB does not point to a file: $path")
+        isfile(path) || error("LLAMA_LIB does not point to a file: $path")
         # Load with RTLD_GLOBAL so the ggml/ggml-cuda backends resolve.
         LIBHANDLE[] = Libdl.dlopen(path, Libdl.RTLD_LAZY | Libdl.RTLD_GLOBAL)
         LIBLLAMA[] = path
@@ -62,12 +62,12 @@ end
 "Resolve a symbol pointer, or C_NULL if this llama.cpp build does not export it."
 function sym(name::Symbol)
     lib()
-    return Libdl.dlsym(LIBHANDLE[], name; throw_error = false)
+    return Libdl.dlsym(LIBHANDLE[], name; throw_error=false)
 end
 
 # llama_token is int32
 const LlamaToken = Int32
-const LlamaPos   = Int32
+const LlamaPos = Int32
 const LlamaSeqId = Int32
 
 # ---------------------------------------------------------------------------
@@ -78,61 +78,76 @@ const LlamaSeqId = Int32
 # size must exactly match the header of the commit you build.
 
 struct LlamaModelParams
-    devices               :: Ptr{Cvoid}   # ggml_backend_dev_t *
-    tensor_buft_overrides :: Ptr{Cvoid}   # const llama_model_tensor_buft_override *
-    n_gpu_layers          :: Cint
-    split_mode            :: Cint          # enum llama_split_mode
-    main_gpu              :: Cint
-    tensor_split          :: Ptr{Cfloat}
-    progress_callback     :: Ptr{Cvoid}
-    progress_callback_ud  :: Ptr{Cvoid}
-    kv_overrides          :: Ptr{Cvoid}
-    vocab_only            :: Bool
-    use_mmap              :: Bool
-    use_mlock             :: Bool
-    check_tensors         :: Bool
+    devices::Ptr{Cvoid}   # ggml_backend_dev_t *
+    tensor_buft_overrides::Ptr{Cvoid}   # const llama_model_tensor_buft_override *
+    n_gpu_layers::Cint
+    split_mode::Cint          # enum llama_split_mode
+    load_mode::Cint          # enum llama_load_mode
+    main_gpu::Cint
+    tensor_split::Ptr{Cfloat}
+    progress_callback::Ptr{Cvoid}
+    progress_callback_ud::Ptr{Cvoid}
+    kv_overrides::Ptr{Cvoid}
+    vocab_only::Bool
+    check_tensors::Bool
+    use_extra_bufts::Bool
+    no_host::Bool
+    no_alloc::Bool
+    load_mtp::Bool
 end
 
+# enum llama_flash_attn_type
+const LLAMA_FLASH_ATTN_TYPE_DISABLED = Cint(0)
+const LLAMA_FLASH_ATTN_TYPE_ENABLED = Cint(1)
+
 struct LlamaContextParams
-    n_ctx               :: Cuint
-    n_batch             :: Cuint
-    n_ubatch            :: Cuint
-    n_seq_max           :: Cuint
-    n_threads           :: Cint
-    n_threads_batch     :: Cint
-    rope_scaling_type   :: Cint
-    pooling_type        :: Cint
-    attention_type      :: Cint
-    rope_freq_base      :: Cfloat
-    rope_freq_scale     :: Cfloat
-    yarn_ext_factor     :: Cfloat
-    yarn_attn_factor    :: Cfloat
-    yarn_beta_fast      :: Cfloat
-    yarn_beta_slow      :: Cfloat
-    yarn_orig_ctx       :: Cuint
-    defrag_thold        :: Cfloat
-    cb_eval             :: Ptr{Cvoid}
-    cb_eval_ud          :: Ptr{Cvoid}
-    type_k              :: Cint
-    type_v              :: Cint
-    logits_all          :: Bool
-    embeddings          :: Bool
-    offload_kqv         :: Bool
-    flash_attn          :: Bool
-    no_perf             :: Bool
-    abort_callback      :: Ptr{Cvoid}
-    abort_callback_data :: Ptr{Cvoid}
+    n_ctx::Cuint
+    n_batch::Cuint
+    n_ubatch::Cuint
+    n_seq_max::Cuint
+    n_rs_seq::Cuint
+    n_outputs_max::Cuint
+    n_threads::Cint
+    n_threads_batch::Cint
+    ctx_type::Cint            # enum llama_context_type
+    rope_scaling_type::Cint
+    pooling_type::Cint
+    attention_type::Cint
+    flash_attn_type::Cint            # enum llama_flash_attn_type
+    rope_freq_base::Cfloat
+    rope_freq_scale::Cfloat
+    yarn_ext_factor::Cfloat
+    yarn_attn_factor::Cfloat
+    yarn_beta_fast::Cfloat
+    yarn_beta_slow::Cfloat
+    yarn_orig_ctx::Cuint
+    defrag_thold::Cfloat
+    cb_eval::Ptr{Cvoid}
+    cb_eval_ud::Ptr{Cvoid}
+    type_k::Cint
+    type_v::Cint
+    abort_callback::Ptr{Cvoid}
+    abort_callback_data::Ptr{Cvoid}
+    embeddings::Bool
+    offload_kqv::Bool
+    no_perf::Bool
+    op_offload::Bool
+    swa_full::Bool
+    kv_unified::Bool
+    samplers::Ptr{Cvoid}      # struct llama_sampler_seq_config *
+    n_samplers::Csize_t
+    ctx_other::Ptr{Cvoid}      # struct llama_context *
 end
 
 # llama_batch is isbits (all pointers), so it can be returned/passed by value.
 struct LlamaBatch
-    n_tokens :: Cint
-    token    :: Ptr{LlamaToken}
-    embd     :: Ptr{Cfloat}
-    pos      :: Ptr{LlamaPos}
-    n_seq_id :: Ptr{Cint}
-    seq_id   :: Ptr{Ptr{LlamaSeqId}}
-    logits   :: Ptr{Int8}
+    n_tokens::Cint
+    token::Ptr{LlamaToken}
+    embd::Ptr{Cfloat}
+    pos::Ptr{LlamaPos}
+    n_seq_id::Ptr{Cint}
+    seq_id::Ptr{Ptr{LlamaSeqId}}
+    logits::Ptr{Int8}
 end
 
 # ---------------------------------------------------------------------------
@@ -155,27 +170,34 @@ context_default_params() = ccall((:llama_context_default_params, lib()), LlamaCo
 Load a GGUF model with the requested number of layers offloaded to the GPU.
 `n_gpu_layers=999` means "offload everything".
 """
-function load_model(path::AbstractString; n_gpu_layers::Integer = 999)
+function load_model(path::AbstractString; n_gpu_layers::Integer=999)
     p = model_default_params()
+    # mparams.split_mode = LLAMA_SPLIT_MODE_NONE; // don't spread model across GPUs
+    # mparams.main_gpu   = 1;                     // use device index 1 only
+    # mparams.n_gpu_layers = 999;                 // offload all layers to that GPU
     p = LlamaModelParams(
-        p.devices, p.tensor_buft_overrides, Cint(n_gpu_layers), p.split_mode,
-        p.main_gpu, p.tensor_split, p.progress_callback, p.progress_callback_ud,
-        p.kv_overrides, p.vocab_only, p.use_mmap, p.use_mlock, p.check_tensors)
+        p.devices, p.tensor_buft_overrides, Cint(n_gpu_layers), Cint(0), p.load_mode,
+        Cint(0), p.tensor_split, p.progress_callback, p.progress_callback_ud,
+        p.kv_overrides, p.vocab_only, p.check_tensors, p.use_extra_bufts, p.no_host,
+        p.no_alloc, p.load_mtp)
     m = ccall((:llama_model_load_from_file, lib()), Ptr{Cvoid}, (Cstring, LlamaModelParams), path, p)
     m == C_NULL && error("Failed to load model: $path")
     return m
 end
 
-function new_context(model::Ptr{Cvoid}; n_ctx::Integer = 4096, n_batch::Integer = 2048,
-                     flash_attn::Bool = true, n_threads::Integer = Sys.CPU_THREADS)
+function new_context(model::Ptr{Cvoid}; n_ctx::Integer=4096, n_batch::Integer=2048,
+    flash_attn::Bool=true, n_threads::Integer=Sys.CPU_THREADS)
     p = context_default_params()
     p = LlamaContextParams(
-        Cuint(n_ctx), Cuint(n_batch), p.n_ubatch, p.n_seq_max, Cint(n_threads),
-        Cint(n_threads), p.rope_scaling_type, p.pooling_type, p.attention_type,
+        Cuint(n_ctx), Cuint(n_batch), p.n_ubatch, p.n_seq_max, p.n_rs_seq, p.n_outputs_max,
+        Cint(n_threads), Cint(n_threads), p.ctx_type, p.rope_scaling_type, p.pooling_type,
+        p.attention_type,
+        flash_attn ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED,
         p.rope_freq_base, p.rope_freq_scale, p.yarn_ext_factor, p.yarn_attn_factor,
         p.yarn_beta_fast, p.yarn_beta_slow, p.yarn_orig_ctx, p.defrag_thold,
-        p.cb_eval, p.cb_eval_ud, p.type_k, p.type_v, p.logits_all, p.embeddings,
-        p.offload_kqv, flash_attn, p.no_perf, p.abort_callback, p.abort_callback_data)
+        p.cb_eval, p.cb_eval_ud, p.type_k, p.type_v, p.abort_callback, p.abort_callback_data,
+        p.embeddings, p.offload_kqv, p.no_perf, p.op_offload, p.swa_full, p.kv_unified,
+        p.samplers, p.n_samplers, p.ctx_other)
     ctx = ccall((:llama_init_from_model, lib()), Ptr{Cvoid}, (Ptr{Cvoid}, LlamaContextParams), model, p)
     ctx == C_NULL && error("Failed to create context")
     return ctx
@@ -192,13 +214,13 @@ model_size_bytes(model::Ptr{Cvoid}) = Int(ccall((:llama_model_size, lib()), UInt
 # Tokenization
 # ---------------------------------------------------------------------------
 
-function tokenize(vocab::Ptr{Cvoid}, text::AbstractString; add_special::Bool = true,
-                  parse_special::Bool = true)
+function tokenize(vocab::Ptr{Cvoid}, text::AbstractString; add_special::Bool=true,
+    parse_special::Bool=true)
     cap = ncodeunits(text) + 16
     toks = Vector{LlamaToken}(undef, cap)
     n = ccall((:llama_tokenize, lib()), Cint,
-              (Ptr{Cvoid}, Cstring, Cint, Ptr{LlamaToken}, Cint, Bool, Bool),
-              vocab, text, ncodeunits(text), toks, cap, add_special, parse_special)
+        (Ptr{Cvoid}, Cstring, Cint, Ptr{LlamaToken}, Cint, Bool, Bool),
+        vocab, text, ncodeunits(text), toks, cap, add_special, parse_special)
     n < 0 && error("tokenize: buffer too small (needed $(-n))")
     return toks[1:n]
 end
@@ -214,7 +236,7 @@ is_eog(vocab::Ptr{Cvoid}, tok::LlamaToken) =
 # position `pos0`, only the last token's logits requested if `logits_last`.
 batch_get_one(tokens::Vector{LlamaToken}) =
     ccall((:llama_batch_get_one, lib()), LlamaBatch, (Ptr{LlamaToken}, Cint),
-          tokens, Cint(length(tokens)))
+        tokens, Cint(length(tokens)))
 
 function decode!(ctx::Ptr{Cvoid}, batch::LlamaBatch)
     rc = ccall((:llama_decode, lib()), Cint, (Ptr{Cvoid}, LlamaBatch), ctx, batch)
@@ -242,17 +264,19 @@ Holds a loaded model + context and cached vocab size. Create once per
 quantization level, reuse for warmup + measurement runs.
 """
 mutable struct Session
-    model :: Ptr{Cvoid}
-    ctx   :: Ptr{Cvoid}
-    vocab :: Ptr{Cvoid}
-    nvoc  :: Int
+    model::Ptr{Cvoid}
+    ctx::Ptr{Cvoid}
+    vocab::Ptr{Cvoid}
+    nvoc::Int
 end
 
-function open_session(gguf_path::AbstractString; n_gpu_layers = 999, n_ctx = 4096,
-                      flash_attn = true)
+binit = false
+
+function open_session(gguf_path::AbstractString; n_gpu_layers=999, n_ctx=4096,
+    flash_attn=true)
     backend_init()
-    model = load_model(gguf_path; n_gpu_layers = n_gpu_layers)
-    ctx   = new_context(model; n_ctx = n_ctx, flash_attn = flash_attn)
+    model = load_model(gguf_path; n_gpu_layers=n_gpu_layers)
+    ctx = new_context(model; n_ctx=n_ctx, flash_attn=flash_attn)
     vocab = get_vocab(model)
     return Session(model, ctx, vocab, n_vocab(vocab))
 end
@@ -260,6 +284,7 @@ end
 function close_session(s::Session)
     free_context(s.ctx)
     free_model(s.model)
+    backend_free()
     return nothing
 end
 
@@ -306,6 +331,65 @@ function reset!(s::Session)
     end
     return nothing
 end
+
+# ---------------------------------------------------------------------------
+# Model/context free  (⚠ API name for model-free also varies across versions)
+# ---------------------------------------------------------------------------
+#   newer : llama_model_free(model)
+#   older : llama_free_model(model)
+const _MODEL_FREE_KIND = Ref{Symbol}(:unresolved)
+
+function _resolve_model_free()
+    if sym(:llama_model_free) != C_NULL
+        _MODEL_FREE_KIND[] = :new
+    elseif sym(:llama_free_model) != C_NULL
+        _MODEL_FREE_KIND[] = :old
+    else
+        error("No known model-free symbol found in libllama; check your version.")
+    end
+    return _MODEL_FREE_KIND[]
+end
+
+"""
+    destroy!(s::Session)
+
+Free the context (KV cache + compute buffers) and the model (tensor weight
+buffers) that were allocated on the GPU for this Session. `reset!` alone only
+clears KV-cache *contents*; it never releases the VRAM allocations, which is
+why memory climbs across models unless this is called too.
+
+`s.vocab` is *not* freed here — it's a pointer owned by the model
+(`llama_model_get_vocab`), not a separate allocation, and becomes invalid
+automatically once `s.model` is freed.
+
+Safe to call multiple times; no-ops once fields are already null.
+"""
+function destroy!(s::Session)
+    # Context first — must be freed before the model it references.
+    if s.ctx != C_NULL
+        ccall((:llama_free, lib()), Cvoid, (Ptr{Cvoid},), s.ctx)
+        s.ctx = C_NULL
+    end
+
+    if s.model != C_NULL
+        _MODEL_FREE_KIND[] == :unresolved && _resolve_model_free()
+        if _MODEL_FREE_KIND[] == :new
+            ccall((:llama_model_free, lib()), Cvoid, (Ptr{Cvoid},), s.model)
+        else
+            ccall((:llama_free_model, lib()), Cvoid, (Ptr{Cvoid},), s.model)
+        end
+        s.model = C_NULL
+    end
+
+    # vocab pointer is borrowed from the model — just null it out, don't free.
+    s.vocab = C_NULL
+    s.nvoc = 0
+
+    GC.gc()   # drop any lingering Julia-side refs before the next model loads
+
+    return nothing
+end
+
 
 """
     prefill!(s, prompt) -> (last_token, n_prompt_tokens)

@@ -1,10 +1,4 @@
 [deps]
-PerfTest = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-
-# Optional, only used by plot_results.jl for post-processing / figures.
-# Uncomment if you want to generate the Pareto plot from the persisted results.
-# DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-# CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-# CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-# JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LIKWID = "bf22376a-e803-4184-b2ed-56326e3bff83"
+PerfTest = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
