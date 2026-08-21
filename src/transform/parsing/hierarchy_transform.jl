@@ -145,6 +145,20 @@ function transformPerftest(input_expr::Expr, context::Context)
             end
         end)
         $teardown_expr
+        $setup_expr
+        $(if PerfTest.is_loaded(:AMDGPU)
+            addLog("general", "[AMDGPU] Measuring target \"$(expr)\"")
+            quote
+                @info PerfTest.amdgpu_devices()
+                energy, power = $(PerfTest.gpuPowerMeasureAMD(expr))
+                push!(extensions, PerfTest.AMDGPUExtensionData(energy, power))
+            end
+        else
+            quote
+                push!(extensions, PerfTest.NoExtensionData())
+            end
+        end)
+        $teardown_expr
         test_res = Test_Result($name, extensions)
 
         ts.test_results[$name] = test_res

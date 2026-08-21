@@ -22,6 +22,12 @@ function cuda_devices end
 function CUDAExtensionData end
 function read_joule end
 
+function gpuPowerMeasureAMD end
+function formulaGetAMDGPUEnergy end
+function formulaGetAMDGPUPower end
+function amdgpu_devices end
+function AMDGPUExtensionData end
+
 function is_loaded(ext::Symbol)
     return is_loaded(Val(ext))
 end

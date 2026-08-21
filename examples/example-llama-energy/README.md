@@ -54,7 +54,10 @@ the F16 baseline (y), one point per quantization level
   `nvmlDeviceGetTotalEnergyConsumption` is supported on Volta+ datacenter cards;
   many consumer GeForce cards do **not** expose the cumulative energy counter.
 - **A CUDA build of llama.cpp.** The registered `llama_cpp_jll` is **CPU-only**
-  (no `libggml_cuda`), so it cannot be used here.
+  (no `libggml_cuda`), so it cannot be used here. `build_llama_cuda.sh` also
+  builds the `llama-perplexity` tool used for the quality axis (see below).
+- A fixed text corpus for the quality axis (e.g. a WikiText-2 slice) — see
+  "Quality axis" for how to fetch one.
 - A checkout of PerfTest.jl with the CUDA extension enabled.
 
 ## Reproduction
@@ -65,6 +68,7 @@ CUDA_ARCH=80 ./build_llama_cuda.sh
 export LLAMA_CPP_LIB=/abs/path/to/llama.cpp/build/bin/libllama.so
 
 # 2. Get the weights (A = download prebuilt, B = quantize from an F16 base)
+#    and the WikiText-2 corpus used for the quality axis.
 export LLAMA_MODEL_DIR=$PWD/models
 export LLAMA_MODEL_BASE=Qwen2.5-7B-Instruct
 ./get_models.sh A
@@ -96,12 +100,57 @@ julia --project=. plot_results.jl
 
 ### Quality axis
 
-Two ways to obtain perplexity (fill `PERPLEXITY` in the recipe):
+Two ways to obtain perplexity were considered:
 
-- **Level A (simple):** run the CUDA-built `llama-perplexity` once per quant on a
-  fixed corpus (e.g. a WikiText-2 slice) and paste the numbers in.
-- **Level B (in-process):** compute perplexity through the same FFI by summing the
-  log-probs of gold next-tokens. Cleaner, more work.
+- **Level A (offline, used by the recipe):** shell out to the CUDA-built
+  `llama-perplexity` tool once per quant against a fixed corpus (e.g. a
+  WikiText-2 slice), and parse its `Final estimate: PPL = ...` line.
+  `llama_energy_test.jl`'s `run_llama_perplexity` does this in setup, before
+  the in-process `LlamaFFI` session opens (so the two CUDA contexts never
+  share the GPU at once), and reports the result via the `Perplexity`
+  auxiliary metric.
+- **Level B (in-process, dropped):** teacher-force text through `LlamaFFI`
+  directly and exponentiate the average negative log-likelihood of the gold
+  next-tokens. This was tried first, using the ~30-token `PROMPT` as the eval
+  text, and produced non-monotonic, noisy perplexity across quants (e.g. some
+  quantized levels scoring *better* than F16). A sample that small can't
+  average out per-token noise from quantization — real perplexity evaluation
+  needs a corpus of thousands of tokens, which is exactly what
+  `llama-perplexity`'s sliding-window evaluation provides. Level A was kept
+  instead of reimplementing that chunking in `LlamaFFI.jl`.
+
+`get_models.sh` fetches the corpus automatically (`fetch_ppl_corpus`, run
+regardless of the `A`/`B` model option). The HF dataset repo now ships that
+split as Parquet only (the old `.raw`/`.zip` files are gone —
+[wikitext-2-raw-v1](https://huggingface.co/datasets/Salesforce/wikitext/tree/main/wikitext-2-raw-v1)),
+so `fetch_ppl_corpus` downloads `test-00000-of-00001.parquet` and reassembles
+it into a plain-text file (one physical line per row) using Julia +
+Parquet2.jl in a throwaway temp environment — it doesn't touch
+`Project.toml`/`Manifest.toml`. To fetch it standalone:
+
+```bash
+mkdir -p wikitext-2-raw
+curl -L -o wikitext-2-raw/test-00000-of-00001.parquet \
+    https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-2-raw-v1/test-00000-of-00001.parquet
+julia --startup-file=no -e '
+    import Pkg; Pkg.activate(; temp=true); Pkg.add(["Parquet2", "Tables"])
+    using Parquet2, Tables
+    ds = Parquet2.Dataset(ARGS[1])
+    open(ARGS[2], "w") do io
+        for row in Tables.rows(ds)
+            text = coalesce(row.text, "")
+            print(io, text)
+            endswith(text, "\n") || print(io, "\n")
+        end
+    end
+' wikitext-2-raw/test-00000-of-00001.parquet wikitext-2-raw/wiki.test.raw
+```
+
+`run_llama_perplexity` looks for `llama-perplexity` next to `$LLAMA_LIB`
+(override with `LLAMA_PERPLEXITY_BIN`) and the corpus at
+`wikitext-2-raw/wiki.test.raw` next to this recipe (override with
+`PPL_CORPUS`). If either is missing it `@warn`s and reports `NaN` rather than
+failing the sweep.
 
 ## How the recipe measures energy
 
@@ -164,5 +213,4 @@ there instead.
 ## Open questions being finalised
 
 - Model choice (Qwen2.5-7B, Apache-2.0 vs Llama-3.1-8B) and quant set.
-- Quality metric: offline `llama-perplexity` (Level A) vs in-process (Level B).
 - Whether to also demo **energy-regression testing** in CI.
