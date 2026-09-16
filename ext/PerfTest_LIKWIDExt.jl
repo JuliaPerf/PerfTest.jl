@@ -121,12 +121,15 @@ const _flop_events_single = [
     (:FP_ARITH_INST_RETIRED_512B_PACKED_SINGLE, 16, :vector_512),
 ]
 
-# Build a `quote` that sums the chosen weighted events.
+# Build a `quote` that sums the chosen weighted events. Widths the current
+# architecture doesn't support (e.g. AVX-512 on a CPU without it) are
+# retrieved with `required=false`, so they contribute 0 instead of failing
+# the whole sum.
 function _flop_event_expr(events, group)
     terms = Expr[]
     for (ev, weight, _vec) in events
         push!(terms, :(PerfTest.likwidEventsRetrieve(test_res, $(QuoteNode(group)),
-            $(QuoteNode(ev))) .* $weight))
+            $(QuoteNode(ev)); required=false) .* $weight))
     end
     body = foldl((a, b) -> :($a .+ $b), terms)
     return :(sum($body))
@@ -313,6 +316,7 @@ function PerfTest.formulaGetMisses(properties)
     level = something(spec[:level], :l2)
     metric = level === :l3 ? "L3 miss ratio" : "L2 miss ratio"
     group = level === :l3 ? :L3CACHE : :L2CACHE
+    push!(PerfTest.ctx._local.enabled_likwid_groups, level === :l3 ? :L3CACHE : :L2CACHE)
     return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
         $(QuoteNode(group)), $metric)))
 end
@@ -360,10 +364,10 @@ end
 # ============================================================================
 #  Retrieval primitives (native LIKWID names)
 # ============================================================================
-function PerfTest.likwidEventsRetrieve(test_res, group, event_name)
+function PerfTest.likwidEventsRetrieve(test_res, group, event_name; required::Bool=true)
     for extension in test_res.extensions
         if extension isa LIKWIDExtensionData
-            return _likwidThingsRetrieve(extension.events, group::Union{String,Symbol}, event_name::Union{String,Symbol})
+            return _likwidThingsRetrieve(extension.events, group::Union{String,Symbol}, event_name::Union{String,Symbol}; required=required)
         end
     end
     throw(ArgumentError("Test result does not contain LIKWID extension data"))
@@ -378,7 +382,7 @@ function PerfTest.likwidMetricsRetrieve(test_res, group::Union{String,Symbol}, m
     throw(ArgumentError("Test result does not contain LIKWID extension data"))
 end
 
-function _likwidThingsRetrieve(dict, group::Union{String,Symbol}, name::Union{String,Symbol})
+function _likwidThingsRetrieve(dict, group::Union{String,Symbol}, name::Union{String,Symbol}; required::Bool=true)
     if group isa Symbol
         group = String(group)
     end
@@ -389,13 +393,14 @@ function _likwidThingsRetrieve(dict, group::Union{String,Symbol}, name::Union{St
         throw(ArgumentError("LIKWID group '$group' not found in test results"))
     group_data = dict[group]
     ret_val = []
-    @info group_data
     for thread_id in keys(group_data)
         if haskey(group_data[thread_id], name)
             push!(ret_val, group_data[thread_id][name])
-        else
+        elseif required
             throw(ArgumentError("Event/Metric '$name' not found in LIKWID " *
                 "group '$group' (at least for thread '$thread_id')"))
+        else
+            push!(ret_val, 0)
         end
     end
     return ret_val

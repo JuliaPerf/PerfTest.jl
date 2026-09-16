@@ -45,12 +45,30 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
             throwParseError!("Metric $metric is not available in the current context.", ctx)
         end
     end
-    push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
-        id=:regression,
-        name="Metric regression tracking",
-        override=false,
-        params=info,
-    ))
+    existing_idx = findfirst(m -> m.id == :regression, ctx._local.enabled_methodologies[end])
+    if existing_idx === nothing
+        push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
+            id=:regression,
+            name="Metric regression tracking",
+            override=false,
+            params=info,
+        ))
+    else
+        # Extend in place: a second entry in the same scope would lose to the first under captureMethodologyInfo's first-key-wins merge.
+        existing_params = ctx._local.enabled_methodologies[end][existing_idx].params
+        for (metric, threshold, low_is_bad) in zip(info[:metrics], info[:threshold], info[:low_is_bad])
+            metric_idx = findfirst(==(metric), existing_params[:metrics])
+            if metric_idx === nothing
+                push!(existing_params[:metrics], metric)
+                push!(existing_params[:threshold], threshold)
+                push!(existing_params[:low_is_bad], low_is_bad)
+            else
+                # Same metric declared again: drop the old parameters, keep the new ones.
+                existing_params[:threshold][metric_idx] = threshold
+                existing_params[:low_is_bad][metric_idx] = low_is_bad
+            end
+        end
+    end
 
     addLog("metrics", "[METHODOLOGY] Defined REGRESSION on $([i.set_name for i in ctx._local.depth_record]) METRICS: $(info[:metrics]) TH: $(info[:threshold]) LOW_IS_BAD: $(info[:low_is_bad])")
 end

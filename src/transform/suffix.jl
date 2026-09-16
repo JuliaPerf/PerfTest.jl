@@ -154,7 +154,7 @@ function perftestsuffix(context :: Context)
     return quote
         if main_rank($mode)
 
-            @info TS
+            #@info TS
 
             testresdict = Dict{String,Union{Dict,Test_Result}}()
             if TS isa Vector
