@@ -132,7 +132,7 @@ function transformPerftest(input_expr::Expr, context::Context)
         end)
         $teardown_expr
         $setup_expr
-        $(if true || PerfTest.is_loaded(:CUDA)
+        $(if PerfTest.is_loaded(:CUDA)
             addLog("general", "[CUDA] Measuring target \"$(expr)\"")
             quote
                 @info PerfTest.cuda_devices()

@@ -28,7 +28,7 @@ If the macro is evaluated it does not modify the target at all. The effects of t
 This macro is sensitive to context since other adjacent macros can change how the target will be evaluated.
         
 ```julia
-@perftest expression [parameters...]
+@perftest [parameters...] expression
 ```
 
 Run a performance test on a given target expression.
@@ -71,27 +71,36 @@ You can pass the following keyword arguments to configure the execution process:
 
 ## With setup and teardown
 
+Keyword parameters must come *before* the target expression, which is
+always the last argument:
+
 ```julia
- @perftest sort!(data) setup=(data=rand(100)) teardown=(data=nothing)
+ @perftest setup=(data=rand(100)) teardown=(data=nothing) sort!(data)
 ```
 
 ## With custom parameters
 
 ```julia
 # Run with a 3-second time budget
- @perftest sin(x) setup=(x=rand()) seconds=3
+ @perftest setup=(x=rand()) seconds=3 sin(x)
 
 # Limit to 100 samples with 10 evaluations each
- @perftest myfunction(data) samples=100 evals=10
+ @perftest samples=100 evals=10 myfunction(data)
 
 # Disable garbage collection before each sample
- @perftest allocating_function() gcsample=false gctrial=false
+ @perftest gcsample=false gctrial=false allocating_function()
 ```
 
 # See Also
 
 - [BenchmarkTools.jl Documentation](https://juliaci.github.io/BenchmarkTools.jl/dev/) for more details on the underlying `@benchmark` macro and its parameters.
 """
-macro perftest(anything)
-    return esc(anything)
+macro perftest(args...)
+    isempty(args) && error("@perftest requires a target expression")
+    target = args[end]
+    for kw in args[1:end-1]
+        (kw isa Expr && kw.head === :(=)) ||
+            error("@perftest: expected a `key=value` parameter before the target expression, got `$kw`")
+    end
+    return esc(target)
 end
