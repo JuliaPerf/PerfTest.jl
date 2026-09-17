@@ -20,7 +20,39 @@ PerfTest.LIKWIDExtensionData(metrics, events) = LIKWIDExtensionData(OrderedDict(
 # ----------------------------------------------------------------------------
 
 # `expr` is the (quoted) user code, `groups` is the requested LIKWID group list.
-PerfTest.perfmon(args...; kwargs...) = LIKWID.perfmon(args...; kwargs...)
+# Recursively median-merges `nsamples` LIKWID result dicts (metrics or events) into one,
+# walking LIKWID's actual return shape (group => per-thread Vector => name => Float64)
+# down to its scalar leaves regardless of exact nesting.
+function _merge_likwid_samples(samples::Vector)
+    first_sample = first(samples)
+    if first_sample isa AbstractDict
+        result = empty(first_sample)
+        for k in keys(first_sample)
+            result[k] = _merge_likwid_samples([s[k] for s in samples])
+        end
+        return result
+    elseif first_sample isa AbstractVector
+        return [_merge_likwid_samples([s[i] for s in samples]) for i in eachindex(first_sample)]
+    else
+        return PerfTest._sample_median(Float64.(samples))
+    end
+end
+
+# `nsamples` repeats the whole multi-group perfmon call (LIKWID only allows one active
+# group at a time, so each call already does one execution per group -- looping the call
+# itself N times gives N samples per group, i.e. N*length(groups) total executions).
+function PerfTest.perfmon(f, groups; nsamples::Integer=1, kwargs...)
+    nsamples = max(1, nsamples)
+    if nsamples == 1
+        return LIKWID.perfmon(f, groups; kwargs...)
+    end
+    metric_samples = Vector{Any}(undef, nsamples)
+    event_samples = Vector{Any}(undef, nsamples)
+    for i in 1:nsamples
+        metric_samples[i], event_samples[i] = LIKWID.perfmon(f, groups; kwargs...)
+    end
+    return _merge_likwid_samples(metric_samples), _merge_likwid_samples(event_samples)
+end
 PerfTest.var"@PRFT_perfmon"(__source__::LineNumberNode, __module__::Module, groups, expr) = quote LIKWID.perfmon(() -> $expr, $groups; autopin=false, print=false) end
 
 # ============================================================================

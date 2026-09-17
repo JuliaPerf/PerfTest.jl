@@ -133,7 +133,7 @@ function transformPerftest(input_expr::Expr, context::Context)
         $(if PerfTest.is_loaded(:LIKWID)
             addLog("general", "[LIKWID] Measuring target \"$(expr)\" with groups: $([g for g in context._local.enabled_likwid_groups])")
             quote
-                metrics, events = PerfTest.perfmon(() -> $expr, $([String(i) for i in context._local.enabled_likwid_groups]); autopin=false, print=false)
+                metrics, events = PerfTest.perfmon(() -> $expr, $([String(i) for i in context._local.enabled_likwid_groups]); autopin=false, print=false, nsamples=length(ts.benchmarks[$name]))
                 push!(extensions, PerfTest.LIKWIDExtensionData(metrics, events))
             end
         else
@@ -147,7 +147,7 @@ function transformPerftest(input_expr::Expr, context::Context)
             addLog("general", "[CUDA] Measuring target \"$(expr)\"")
             quote
                 @info PerfTest.cuda_devices()
-                energy, power = $(PerfTest.gpuPowerMeasure(expr))
+                energy, power = $(PerfTest.gpuPowerMeasure(expr, name))
                 push!(extensions, PerfTest.CUDAExtensionData(energy, power))
             end
         else
@@ -161,7 +161,7 @@ function transformPerftest(input_expr::Expr, context::Context)
             addLog("general", "[AMDGPU] Measuring target \"$(expr)\"")
             quote
                 @info PerfTest.amdgpu_devices()
-                energy, power = $(PerfTest.gpuPowerMeasureAMD(expr))
+                energy, power = $(PerfTest.gpuPowerMeasureAMD(expr, name))
                 push!(extensions, PerfTest.AMDGPUExtensionData(energy, power))
             end
         else

@@ -55,22 +55,28 @@ function PerfTest.read_joule(d::UInt32)
     energy[] * counter_resolution[] / 1e6 # microjoules -> joules
 end
 
-function PerfTest.gpuPowerMeasureAMD(e :: Expr)
+function PerfTest.gpuPowerMeasureAMD(e :: Expr, name)
     return quote
         begin
-            AMDGPU.synchronize()
-            pre = []
-            post = []
-            for d in PerfTest.amdgpu_devices()
-                push!(pre, PerfTest.read_joule(d))
+            devs = PerfTest.amdgpu_devices()
+            nsamples = max(1, length(ts.benchmarks[$name]))
+            energy_samples = Vector{Vector{Float64}}()
+            for _s in 1:nsamples
+                AMDGPU.synchronize()
+                pre = []
+                for d in devs
+                    push!(pre, PerfTest.read_joule(d))
+                end
+                # Execute
+                $(e)
+                AMDGPU.synchronize()
+                post = []
+                for d in devs
+                    push!(post, PerfTest.read_joule(d))
+                end
+                push!(energy_samples, Float64.(post .- pre))
             end
-            # Execute
-            $(e)
-            AMDGPU.synchronize()
-            for d in PerfTest.amdgpu_devices()
-                push!(post, PerfTest.read_joule(d))
-            end
-            energy = post .- pre
+            energy = [PerfTest._sample_median([energy_samples[s][d] for s in 1:nsamples]) for d in eachindex(devs)]
             power = energy
             @info energy, power
             energy, power

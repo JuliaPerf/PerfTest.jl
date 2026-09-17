@@ -4,6 +4,7 @@ There are a couple of things to keep into consideration when using the package:
 
 1. GPU testing is technically supported, but it requires more effort from the developer to set up since the automatic measurements apart from time elapsed do not apply to GPUs (as of now).
 2. The automatic flop counting feature works exclusively for Julia native functions, it can not measure the flops in C calls given the limitations of the subjacent package [CountFlops.jl]
+3. LIKWID and GPU (CUDA/AMDGPU) energy/power measurements are repeated to match the actual number of samples `BenchmarkTools` took for the same test (median-aggregated), so their cost scales with whatever `samples=`/`seconds=`/`evals=` the test uses — tune those explicitly on tests using these extensions if you don't want extension sampling to inherit `BenchmarkTools`' adaptive defaults.
 
 
 ## Features to be expected in the next versions:

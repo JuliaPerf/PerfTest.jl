@@ -28,23 +28,29 @@ PerfTest.cuda_devices() = [i for i in CUDA.NVML.devices()]
 
 PerfTest.read_joule(d::CUDA.NVML.Device) = CUDA.NVML.energy_consumption(d)
 
-function PerfTest.gpuPowerMeasure(e :: Expr)
+function PerfTest.gpuPowerMeasure(e :: Expr, name)
     return quote
         begin
-            CUDA.synchronize()
-            pre = []
-            post = []
-            for d in PerfTest.cuda_devices()
-                push!(pre, PerfTest.read_joule(d))
-            end         
-            # Execute
-            $(e)
-            CUDA.synchronize()
-            for d in PerfTest.cuda_devices()
-                push!(post, PerfTest.read_joule(d))
+            devs = PerfTest.cuda_devices()
+            nsamples = max(1, length(ts.benchmarks[$name]))
+            energy_samples = Vector{Vector{Float64}}()
+            for _s in 1:nsamples
+                CUDA.synchronize()
+                pre = []
+                for d in devs
+                    push!(pre, PerfTest.read_joule(d))
+                end
+                # Execute
+                $(e)
+                CUDA.synchronize()
+                post = []
+                for d in devs
+                    push!(post, PerfTest.read_joule(d))
+                end
+                push!(energy_samples, Float64.(post .- pre))
             end
-            energy = post .- pre
-            power = energy 
+            energy = [PerfTest._sample_median([energy_samples[s][d] for s in 1:nsamples]) for d in eachindex(devs)]
+            power = energy
             @info energy, power
             energy, power
         end

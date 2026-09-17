@@ -257,6 +257,12 @@ end
 
 
 
+function _sample_median(v::AbstractVector{<:Real})
+    s = sort(v)
+    n = length(s)
+    return iseven(n) ? (s[n ÷ 2] + s[n ÷ 2 + 1]) / 2 : s[(n + 1) ÷ 2]
+end
+
 function buildPrimitiveMetrics!(::Type{NormalMode}, ts::PerfTestSet, test_result::Test_Result)
     # Get testset
     test_result.primitives[:median_time] = median(ts.benchmarks[test_result.name]).time / 1e9
