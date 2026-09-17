@@ -283,7 +283,8 @@ function extractTestResults(ts::PerfTestSet)::Dict{String,Union{Dict,Test_Result
     for t in ts.results
         if isa(t, Test.Result)
         else
-            dict[t.description] = extractTestResults(t)
+            key = (t isa PerfTestSet && t.iterator !== nothing) ? t.description * "_" * string(t.iterator) : t.description
+            dict[key] = extractTestResults(t)
         end
     end
     for (k, v) in ts.test_results

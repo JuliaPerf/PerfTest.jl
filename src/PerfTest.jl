@@ -257,7 +257,7 @@ function treeRun(path::AbstractString; config=nothing)
         saveLogFolder()
     end
 
-    return MacroTools.prettify(module_full)
+    return rewrapDoBlockBodies(MacroTools.prettify(module_full))
 end
 
 

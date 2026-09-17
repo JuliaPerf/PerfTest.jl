@@ -35,9 +35,15 @@ function validateMacro(macro_param :: Dict{Symbol, MacroParameter})
                 ($a = $b) => begin
                     if haskey(macro_param, a)
                         param_info = macro_param[a]
-                        if param_info.type >: typeof(b)
-                            if param_info.param_validation_function(b)
-                                parsed_params[a] = b
+                        matched, value = if param_info.type >: typeof(b)
+                            true, b
+                        else
+                            resolved = resolveLiteral(b)
+                            typeMatches(param_info.type, resolved) ? (true, resolved) : (false, b)
+                        end
+                        if matched
+                            if param_info.param_validation_function(value)
+                                parsed_params[a] = value
                                 push!(checklist, a)
                             else
                                 # Invalid parameter value
@@ -126,9 +132,15 @@ function validateBlocklessMacro(macro_param::Dict{Symbol,MacroParameter})
                 ($a = $b) => begin
                     if haskey(macro_param, a)
                         param_info = macro_param[a]
-                        if param_info.type >: typeof(b)
-                            if param_info.param_validation_function(b)
-                                parsed_params[a] = b
+                        matched, value = if param_info.type >: typeof(b)
+                            true, b
+                        else
+                            resolved = resolveLiteral(b)
+                            typeMatches(param_info.type, resolved) ? (true, resolved) : (false, b)
+                        end
+                        if matched
+                            if param_info.param_validation_function(value)
+                                parsed_params[a] = value
                                 push!(checklist, a)
                             else
                                 # Invalid parameter value

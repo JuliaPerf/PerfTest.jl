@@ -93,3 +93,47 @@ using Test, PerfTest
     #PerfTest.printErrors(ctx)
 
 end
+
+@testset "Macro validation - Union{T,Vector{T}} parameters" begin
+
+    ctx = PerfTest.Context(PerfTest.GlobalContext("path", PerfTest.VecErrorCollection(), PerfTest.formula_symbols))
+
+    params = Dict{Symbol,PerfTest.MacroParameter}(
+        :metrics => PerfTest.MacroParameter(:metrics, Union{Symbol,String,Vector{Union{Symbol,String}}}, (x) -> true),
+    )
+
+    f = PerfTest.validateBlocklessMacro(params)
+
+    # VALID: quoted-symbol scalar
+    expr = quote
+        @macro metrics = :a
+    end
+    parsed = f(expr, ctx)
+    @test PerfTest.num_errors(ctx) == 0
+    @test parsed[:metrics] == :a
+
+    # VALID: vector literal of quoted symbols
+    expr = quote
+        @macro metrics = [:a, :b]
+    end
+    parsed = f(expr, ctx)
+    @test PerfTest.num_errors(ctx) == 0
+    @test parsed[:metrics] == [:a, :b]
+
+    # VALID: vector literal of strings
+    expr = quote
+        @macro metrics = ["a", "b"]
+    end
+    parsed = f(expr, ctx)
+    @test PerfTest.num_errors(ctx) == 0
+    @test parsed[:metrics] == ["a", "b"]
+
+    # INVALID: vector literal with a wrongly-typed element must still fail
+    expr = quote
+        @macro metrics = [:a, 3]
+    end
+    parsed = f(expr, ctx)
+    @test PerfTest.num_errors(ctx) == 1
+    @test !haskey(parsed, :metrics)
+
+end

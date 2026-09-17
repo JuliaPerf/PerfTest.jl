@@ -186,6 +186,41 @@ abort_if_invalid(transform) = (x, ctx, info) -> !(info isa Nothing || !info) ? (
 checkType(type :: Type) = (x) -> x isa type
 
 """
+  Resolves simple literal AST forms into real Julia values: a quoted symbol
+  (`QuoteNode`) becomes the symbol/value it quotes, and a vector literal
+  (`Expr(:vect, ...)`) becomes a real `Vector` of its (recursively resolved)
+  elements. Any other expression (e.g. a function call or formula) is
+  returned unchanged, since those parameters are meant to keep the raw AST.
+"""
+resolveLiteral(x::QuoteNode) = x.value
+resolveLiteral(x::Expr) = x.head === :vect ? Any[resolveLiteral(e) for e in x.args] : x
+resolveLiteral(x) = x
+
+"""
+  Flattens a (possibly nested) Union type into a tuple of its member types.
+"""
+unionMembers(t::Type) = t isa Union ? (unionMembers(t.a)..., unionMembers(t.b)...) : (t,)
+
+"""
+  Like `value isa declared_type`, but additionally matches a `Vector{ET}`
+  union member element-wise: `value` is accepted if it's an `AbstractVector`
+  and every element `isa ET`. This covers cases Julia's own `isa` cannot,
+  because `Vector` is invariant in its element type (e.g. `Vector{Symbol}`
+  and `Vector{Any}` are not subtypes of `Vector{Union{Symbol,String}}` even
+  when every element individually satisfies `Union{Symbol,String}`).
+"""
+function typeMatches(declared_type::Type, value)::Bool
+    value isa declared_type && return true
+    for member in unionMembers(declared_type)
+        if member isa Type && member <: AbstractVector && value isa AbstractVector
+            elem_type = eltype(member)
+            all(el -> el isa elem_type, value) && return true
+        end
+    end
+    return false
+end
+
+"""
   Constructs an ASTRule that assumes that the expression is automatically valid if matched.
   Thus no validation is done.
 """

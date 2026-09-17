@@ -107,6 +107,32 @@ function popQuoteBlocks(expr::Expr)::Expr
 end
 
 """
+  `MacroTools.prettify` (used by `treeRun` to clean up the generated suite) unwraps any
+  block that reduces to a single statement via its `flatten` pass. That's unsafe for a
+  `do`-block (or any bare `->` lambda) body: if the body collapses to a single non-`:block`
+  statement (e.g. a tuple literal `(A, B)`), `flatten` strips the wrapping `:block`, leaving
+  that statement sitting bare where a block is expected. Julia's own `Base.show` for `:do`
+  expressions doesn't guard against this (unlike its `:for`/`:while`/`:function`/`:if`/`:let`
+  siblings, which do re-wrap non-block bodies before printing) and prints the bare
+  expression's `.args` one per line, silently dropping the tuple's parens/comma and turning
+  "return one value" into "several statements, keep only the last".
+
+  This walks `expr` and re-wraps any `:do`-block lambda body that isn't already `Expr(:block,
+  ...)` back into one, undoing that corruption before the expression is written out.
+"""
+function rewrapDoBlockBodies(expr::Expr)::Expr
+    return MacroTools.postwalk(expr) do x
+        if x isa Expr && x.head === :do && length(x.args) == 2 &&
+           x.args[2] isa Expr && x.args[2].head === :-> && length(x.args[2].args) == 2 &&
+           !(x.args[2].args[2] isa Expr && x.args[2].args[2].head === :block)
+            lam = x.args[2]
+            return Expr(:do, x.args[1], Expr(:->, lam.args[1], Expr(:block, lam.args[2])))
+        end
+        return x
+    end
+end
+
+"""
 This method interpolates the `inside_expr` into `outside_expr` anywhere it finds the token `substitution_token`, which is a symbol. The `outside_expr` has to be a block or a quote block. It has the particularity that it will remove block heads from the `inside_expr` and add the nested elements onto the location where the token it.
 
 # Example:

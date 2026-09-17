@@ -44,6 +44,7 @@ function transformTestset(input_expr::Expr, context::Context)
     outerset = length(context._local.depth_record) <= 1
 
     if has_for_loop
+        addLog("hierarchy", "[TESTSET]: $([i.set_name for i in context._local.depth_record]) has a for loop in $b")
         result = quote
             $(outerset ? :(:__PERFTEST_FW__) : begin end)
 
@@ -86,6 +87,16 @@ function transformPerftest(input_expr::Expr, context::Context)
     # Create a unique name for this test
     num = (context._local.depth_record[end].test_count += 1)
     name = "Test $num"
+
+    # Build the regression-lookup key path for the enclosing testset hierarchy. Levels that
+    # are for-loop testsets can't use their static `set_name` alone (identical across every
+    # iteration) -- they need a key expression evaluated at suite run time against the loop
+    # variable that's in scope there, mirroring how `extractTestResults` keys saved results
+    # (`description * "_" * string(iterator)`), so a lookup can find the matching iteration.
+    regression_key_elems = Any[
+        entry.for_loop === nothing ? entry.set_name : :(string($(entry.set_name), "_", $(entry.for_loop.first)))
+        for entry in context._local.depth_record
+    ]
 
     # Isolate setup property
     setup_expr = quote end
@@ -163,7 +174,7 @@ function transformPerftest(input_expr::Expr, context::Context)
 
         ts.test_results[$name] = test_res
         # Regression logic
-        keys = $([i.set_name for i in context._local.depth_record])
+        keys = $(Expr(:vect, regression_key_elems...))
         append!(keys, [$name])
         old_test_res = _PRFT_GLOBALS.old
         for key in keys
