@@ -410,9 +410,11 @@ function PerfTest.newMetricResult(::Type{PerfTest.MPIMode};
     auxiliary=false,
     magnitude_prefix="",
     magnitude_mult=1,
-    reduct="Sum")
+    reduct="Sum",
+    showvar=true)
     mpi_info = PerfTest.MPI_MetricInfo(MPI.Comm_size(MPI.COMM_WORLD), reduct)
-    return PerfTest.Metric_Result(name, units, value, auxiliary, magnitude_prefix, magnitude_mult, mpi_info)
+    val, sem, n = PerfTest._unwrapSampledValue(value)
+    return PerfTest.Metric_Result(name, units, val, auxiliary, magnitude_prefix, magnitude_mult, mpi_info, PerfTest._gatedVariance(sem, n, showvar), n)
 end
 
 # Build primitive metrics with MPI reduction

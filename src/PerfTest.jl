@@ -52,6 +52,7 @@ include("transform/suffix.jl")
 
 # EXECUTION PART
 
+include("execution/variance.jl")
 include("execution/structs.jl")
 include("execution/testset.jl")
 

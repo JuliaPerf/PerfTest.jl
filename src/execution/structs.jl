@@ -31,11 +31,29 @@ struct Metric_Result{N}
     magnitude_mult::Number
     # Additional data for MPI
     mpi :: Union{Nothing, MPI_MetricInfo}
+    # Standard error of the mean, in the same (unscaled) units as `value`; `nothing` when not
+    # available or not requested via showvar. See SampledValue (execution/variance.jl).
+    variance :: Union{Nothing, N}
+    # Raw sample count backing `variance`; typemax(Int) sentinel when not applicable.
+    n :: Int
 end
 
-function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 1, reduct="")
+# Single choke point: every newMetricResult method routes a possibly-SampledValue `value`
+# through here, so the showvar/n>=MIN_VARIANCE_SAMPLES gate lives in exactly one place.
+_unwrapSampledValue(value) = value isa SampledValue ? (value.value, value.sem, value.n) : (value, nothing, typemax(Int))
+_gatedVariance(sem, n, showvar::Bool) = (sem === nothing || !showvar || n < MIN_VARIANCE_SAMPLES || !isfinite(sem)) ? nothing : sem
 
-    return Metric_Result(name,units,value,auxiliary, magnitude_prefix, magnitude_mult, nothing)
+"""
+Reconstructs a SampledValue from a Metric_Result that carries a non-nothing `variance`,
+so arithmetic on an already-built Metric_Result (e.g. inside a formula referencing a custom
+metric) keeps propagating variance. Returns the plain `value` when no variance is attached.
+"""
+metricSampledValue(m::Metric_Result) = m.variance === nothing ? m.value : SampledValue(m.value, m.variance, m.n)
+
+function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 1, reduct="", showvar = true)
+
+    val, sem, n = _unwrapSampledValue(value)
+    return Metric_Result(name,units,val,auxiliary, magnitude_prefix, magnitude_mult, nothing, _gatedVariance(sem, n, showvar), n)
 end
 
 """
@@ -50,6 +68,8 @@ This struct is used in the test suite to save a metric test result and its assoc
     # Additional metric X methodology data
     custom_plotting::Vector{Symbol}
     full_print::Bool
+    # Whether printMetric should append the metric's variance interval, if it has one.
+    showvar::Bool = false
 end
 
 
