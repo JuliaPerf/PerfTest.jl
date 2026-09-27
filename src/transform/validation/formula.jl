@@ -27,16 +27,19 @@ newSymbols(x::Val) = error("Unrecognized $x.")
 
 function SBMID(metric :: metricID())
     sym = metricID(metric)
+    # Reads go through PerfTest.metricSampledValue (not the bare .value field) so a metric
+    # that carries a variance (see execution/variance.jl) keeps propagating it through
+    # whatever arithmetic the surrounding formula performs.
     return quote (haskey(_PRFT_GLOBALS.custom_benchmarks,$(QuoteNode(sym))) ?
-        _PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(sym))].value :
+        PerfTest.metricSampledValue(_PRFT_GLOBALS.custom_benchmarks[$(QuoteNode(sym))]) :
         haskey(_PRFT_GLOBALS.builtins, $(QuoteNode(sym))) ?
         _PRFT_GLOBALS.builtins[$(QuoteNode(sym))] :
-        haskey(test_res.metrics,$(QuoteNode(sym))) ? 
-        test_res.metrics[$(QuoteNode(sym))].value : 
+        haskey(test_res.metrics,$(QuoteNode(sym))) ?
+        PerfTest.metricSampledValue(test_res.metrics[$(QuoteNode(sym))]) :
         haskey(test_res.auxiliar,$(QuoteNode(sym))) ?
-        test_res.auxiliar[$(QuoteNode(sym))].value :
+        PerfTest.metricSampledValue(test_res.auxiliar[$(QuoteNode(sym))]) :
         $(newSymbols(Val(sym))(Symbol[])))
-    end 
+    end
 end
 
 # WARNING, WIP missing error prints for some cases

@@ -411,7 +411,7 @@ function PerfTest.newMetricResult(::Type{PerfTest.MPIMode};
     magnitude_prefix="",
     magnitude_mult=1,
     reduct="Sum",
-    showvar=true)
+    showvar=false)
     mpi_info = PerfTest.MPI_MetricInfo(MPI.Comm_size(MPI.COMM_WORLD), reduct)
     val, sem, n = PerfTest._unwrapSampledValue(value)
     return PerfTest.Metric_Result(name, units, val, auxiliary, magnitude_prefix, magnitude_mult, mpi_info, PerfTest._gatedVariance(sem, n, showvar), n)

@@ -54,8 +54,12 @@ end
 
 # EXCEPTIONAL FUNCTION SHALL BE MOVED TO EXECUTION SOONER OR LATER - NOTE
 function buildPrimitiveMetrics!(::Type{NormalMode}, _PRFT_LOCAL::Dict, _PRFT_GLOBAL::Dict{Symbol,Any})
-    _PRFT_LOCAL[:primitives][:median_time] = median(_PRFT_LOCAL[:suite]).time / 1e9
-    _PRFT_LOCAL[:primitives][:min_time] = minimum(_PRFT_LOCAL[:suite]).time / 1e9
+    _times_s = _PRFT_LOCAL[:suite].times ./ 1e9
+    _n = length(_times_s)
+    _med = _sample_median(_times_s)
+    _PRFT_LOCAL[:primitives][:median_time] = _n >= MIN_VARIANCE_SAMPLES ?
+        SampledValue(_med, std(_times_s)/sqrt(_n), _n) : _med
+    _PRFT_LOCAL[:primitives][:min_time] = minimum(_times_s)
     _PRFT_LOCAL[:primitives][:autoflop] = _PRFT_LOCAL[:additional][:autoflop]
     _PRFT_LOCAL[:primitives][:ret_value] = _PRFT_LOCAL[:additional][:ret_value]
     _PRFT_LOCAL[:primitives][:printed_output] = _PRFT_LOCAL[:additional][:printed_output]

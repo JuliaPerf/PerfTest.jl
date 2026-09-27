@@ -205,7 +205,7 @@ function transformPerftest(input_expr::Expr, context::Context)
 
         # Calculate metric snapshot
         buildPrimitiveMetrics!($mode, ts, test_res)
-        $(buildCustomMetrics(context._local.custom_metrics))
+        $(buildCustomMetrics(context._local.custom_metrics, context))
 
         # Compute performance test based on enabled methodologies
         if main_rank($mode)

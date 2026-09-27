@@ -265,8 +265,18 @@ end
 
 function buildPrimitiveMetrics!(::Type{NormalMode}, ts::PerfTestSet, test_result::Test_Result)
     # Get testset
-    test_result.primitives[:median_time] = median(ts.benchmarks[test_result.name]).time / 1e9
-    test_result.primitives[:min_time] = minimum(ts.benchmarks[test_result.name]).time / 1e9
+    trial = ts.benchmarks[test_result.name]
+    times_s = trial.times ./ 1e9
+    n = length(times_s)
+    med = _sample_median(times_s)
+    # median_time is an accumulation of BenchmarkTools' raw per-trial samples; retain a
+    # companion standard-error-of-the-mean via SampledValue whenever there are enough of them
+    # (see MIN_VARIANCE_SAMPLES / execution/variance.jl). min_time deliberately stays a plain
+    # scalar: std/sqrt(n) is the SEM of a mean/median, not a statistically meaningful spread for
+    # a minimum.
+    test_result.primitives[:median_time] = n >= MIN_VARIANCE_SAMPLES ?
+        SampledValue(med, std(times_s)/sqrt(n), n) : med
+    test_result.primitives[:min_time] = minimum(times_s)
     test_result.primitives[:iterator] = ts.iterator
 end
 

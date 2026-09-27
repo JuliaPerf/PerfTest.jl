@@ -58,6 +58,20 @@ end
     @test occursin("LOW_IS_BAD: Bool[0, 0, 1]", log)
 end
 
+@testset "System Tests - @perftest_config with string interpolation" begin
+
+    PerfTest.transform(prefix * "ex14-perftest-config-interpolation.jl")
+    log = PerfTest.dumpLogsString()
+
+    @test PerfTest.num_errors() == 0
+    @test !occursin("[PARSING ERROR]", log)
+
+    # Non-interpolated sibling keys must still take effect during this
+    # transform pass, exactly as they do without interpolation.
+    @test PerfTest.Configuration.CONFIG["general"]["verbose"] == 3
+    @test PerfTest.Configuration.CONFIG["regression"]["enabled"] == true
+end
+
 @testset "rewrapDoBlockBodies - repairs prettify's single-statement do-block flattening" begin
 
     # Reproduces, in isolation, the exact corruption `MacroTools.prettify` used to
@@ -84,6 +98,20 @@ end
     source = string(expr.args[1])
 
     @test occursin("(Vector{Float64}(undef, n), Vector{Float64}(undef, n))", source)
+end
+
+@testset "System Tests - @regression/@perfcompare showvar parameter" begin
+
+    expr = PerfTest.transform(prefix * "ex13-regression-showvar.jl")
+    source = string(expr)
+    log = PerfTest.dumpLogsString()
+
+    @test PerfTest.num_errors() == 0
+    @test !occursin("[PARSING ERROR]", log)
+
+    # Both macros accept showvar=... and it survives into the generated suite's Metric_Test
+    # construction (spliced as a literal Bool at parse time, see regression()/buildPerfcmp).
+    @test occursin("showvar = true", source)
 end
 
 @testset "System Tests - regression baseline keys are loop-aware inside @testset for" begin

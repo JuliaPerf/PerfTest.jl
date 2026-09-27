@@ -15,6 +15,10 @@ define_regression_validation = defineMacroParams([
         always_true,
         [:median_time], #default
         false),
+    MacroParameter(:showvar,
+        Bool,
+        false, #default
+        false),
 ])
 """
 This macro is used to define regression tests with a customized configuration. Redefining the macro in the same testset will overwrite the previous configuration.
@@ -23,6 +27,7 @@ This macro is used to define regression tests with a customized configuration. R
  - low_is_bad: whether a lower value of the metric is considered a failure (e.g. for time measurements) or a success (e.g. for throughput measurements). It can be a single boolean that applies to all metrics or a vector of booleans that applies to each metric separately.
  - threshold : the minimum ratio over that is allowed to pass the test (e.g 0.9 means that the test is a success if the new metric is at least 90% of the old). It can be a single float that applies to all metrics or a vector of floats that applies to each metric separately.
  - metrics: track regression in the metrics whose names are passed as argument, it accepts a single string or a vector of strings. Non-existent metrics are ignored.
+ - showvar: when true, print a "(± X)" standard-error-of-the-mean interval alongside the ratio metric and any auxiliary metrics in scope. Ignored (no interval shown) whenever the underlying sample count is below 30.
 # Examples:
 
 ```julia

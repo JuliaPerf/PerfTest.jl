@@ -301,10 +301,16 @@ using TOML
 
 function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
 
-    # Parse, and merge
-    string = info[Symbol("")]
+    raw = info[Symbol("")]
+    interpolated = raw isa Expr && raw.head === :string
 
-    parsed = TOML.parse(string)
+    # For an interpolated string, substitute each non-literal (interpolated)
+    # fragment with "" so keys that don't depend on interpolation are still
+    # resolvable now, and can affect the rest of this transform pass exactly
+    # as they do today (e.g. regression.enabled gates code generation).
+    preview = interpolated ? join(a isa AbstractString ? a : "" for a in raw.args) : raw
+
+    parsed = TOML.parse(preview)
 
     old = Configuration.CONFIG
 
@@ -312,6 +318,17 @@ function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Exp
 
     if Configuration.CONFIG["general"]["verbose"] != old["general"]["verbose"]
         addLog("general", "Verbosity level changed from $(old["general"]["verbose"]) to $(Configuration.CONFIG["general"]["verbose"])")
+    end
+
+    if interpolated
+        # The real value (e.g. $(gethostname())) is only known once the
+        # generated suite executes; splice the original expression so
+        # PerfTest._perftest_config re-parses/merges it for real at that point.
+        return quote
+            begin
+                PerfTest._perftest_config($(raw))
+            end
+        end
     end
 
     io = IOBuffer()

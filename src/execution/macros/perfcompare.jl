@@ -4,7 +4,11 @@ define_perfcmp_validation = defineMacroParams([
     MacroParameter(
         Symbol(""),
         Union{ExtendedExpr}
-    )
+    ),
+    MacroParameter(:showvar,
+        Bool,
+        false, #default
+        false),
 ])
 """
 This macro is used to manually declare performance test conditions.
@@ -20,6 +24,9 @@ This macro is used to manually declare performance test conditions.
  - `:printed_output` : will be substituted by the standard output stream of the target.
  - `:iterator` : will be substituted by the current iterator value in a loop test set.
  -  Any symbol representing a custom metric or benchmark (e.g metric with name="example" -> :example)
+
+# Keyword arguments
+ - showvar: when true, print a "(± X)" standard-error-of-the-mean interval alongside any auxiliary metrics in scope. Does not affect the printed TRUE/FALSE assertion result itself. Ignored (no interval shown) whenever the underlying sample count is below 30.
 
 # Example:
 

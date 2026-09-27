@@ -70,7 +70,11 @@ function validateMacro(macro_param :: Dict{Symbol, MacroParameter})
 	          ($a = $b) => (throwParseError!("Last parameter cannot be a keyword ($a) parameter on macro $m",context); return nothing)
             $_ => nothing
         end
-        if typeof(param) <: param_info.type
+        # An interpolated string ("...$(x)...") parses as Expr(:string, ...)
+        # rather than String; accept it wherever a String is declared, since
+        # it will evaluate to a String once the interpolation is resolved.
+        interpolated_string = param isa Expr && param.head === :string
+        if typeof(param) <: param_info.type || (param_info.type >: String && interpolated_string)
             if param_info.param_validation_function(param)
                 parsed_params[Symbol("")] = param
                 push!(checklist, Symbol(""))

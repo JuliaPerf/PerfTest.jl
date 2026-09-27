@@ -20,8 +20,10 @@ using Libdl
 function PerfTest.is_loaded(::Val{:AMDGPU}) return true end
 
 struct AMDGPUExtensionData <: PerfTest.ExtensionData
-    energy :: Vector{Float64}
-    power :: Vector{Float64}
+    # Value type is loose (not a concrete SampledValue{Float64}) because whether a device's
+    # entry is a SampledValue depends on nsamples >= MIN_VARIANCE_SAMPLES at measurement time.
+    energy :: Vector{Any}
+    power :: Vector{Any}
 end
 
 PerfTest.AMDGPUExtensionData(energy, power) = AMDGPUExtensionData(energy, power)
@@ -76,7 +78,14 @@ function PerfTest.gpuPowerMeasureAMD(e :: Expr, name)
                 end
                 push!(energy_samples, Float64.(post .- pre))
             end
-            energy = [PerfTest._sample_median([energy_samples[s][d] for s in 1:nsamples]) for d in eachindex(devs)]
+            energy = [
+                let dev_samples = Float64[energy_samples[s][d] for s in 1:nsamples]
+                    nsamples >= PerfTest.MIN_VARIANCE_SAMPLES ?
+                        PerfTest.SampledValue(dev_samples, PerfTest._sample_median(dev_samples)) :
+                        PerfTest._sample_median(dev_samples)
+                end
+                for d in eachindex(devs)
+            ]
             power = energy
             @info energy, power
             energy, power

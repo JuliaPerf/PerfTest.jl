@@ -132,7 +132,7 @@ function updateTestTreeSideways!(context::Context, name::String)
                                 d = by_index(_PRFT_GLOBAL[:new], _PRFT_LOCAL[:depth][1:(end-1)])
                                 d[_PRFT_LOCAL[:depth][end].name] = Test_Result()
                                 savePrimitives(_PRFT_LOCAL,_PRFT_GLOBAL)
-                                $(buildCustomMetrics(context._local.custom_metrics))
+                                $(buildCustomMetrics(context._local.custom_metrics, context))
                                 # Methodology evaluation
                                 $(buildMemTRPTMethodology(context))
                                 $(buildRoofline(context))

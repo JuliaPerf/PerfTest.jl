@@ -26,7 +26,10 @@ PerfTest.LIKWIDExtensionData(metrics, events) = LIKWIDExtensionData(OrderedDict(
 function _merge_likwid_samples(samples::Vector)
     first_sample = first(samples)
     if first_sample isa AbstractDict
-        result = empty(first_sample)
+        # NOTE: intentionally not `empty(first_sample)` — that preserves the source dict's
+        # concrete value type (e.g. Dict{String,Float64}), which would reject a SampledValue
+        # leaf once merging starts returning those instead of plain Float64s.
+        result = Dict{keytype(first_sample), Any}()
         for k in keys(first_sample)
             result[k] = _merge_likwid_samples([s[k] for s in samples])
         end
@@ -34,7 +37,10 @@ function _merge_likwid_samples(samples::Vector)
     elseif first_sample isa AbstractVector
         return [_merge_likwid_samples([s[i] for s in samples]) for i in eachindex(first_sample)]
     else
-        return PerfTest._sample_median(Float64.(samples))
+        leaf = Float64.(samples)
+        n = length(leaf)
+        med = PerfTest._sample_median(leaf)
+        return n >= PerfTest.MIN_VARIANCE_SAMPLES ? PerfTest.SampledValue(leaf, med) : med
     end
 end
 
@@ -197,10 +203,25 @@ function PerfTest.formulaGetFlop(properties)
 
     push!(PerfTest.ctx._local.enabled_likwid_groups, group)
 
-    if fvec === nothing || fvec === :vector
-        # All widths (or all vector widths). Filter scalar out for :vector.
-        chosen = fvec === :vector ?
-                 filter(e -> e[3] !== :scalar, events) : events
+    if fvec === nothing
+        # Aggregate (no breakdown requested): derive the count from LIKWID's own
+        # portable rate metric -- the same one :flops/:flop_s already use --
+        # instead of summing raw, Intel-only per-width events. Some
+        # architectures (e.g. AMD Zen3, whose FLOPS_DP group exposes a single
+        # RETIRED_SSE_AVX_FLOPS_ALL event under a completely different name)
+        # don't expose those events at all, and the raw-event sum would
+        # otherwise silently resolve to 0 with `required=false` swallowing
+        # every missing lookup.
+        _, metric = _flop_metric_by_type[ftype]
+        return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
+            $(QuoteNode(group)), $metric)) * 1e6 *
+            test_res.primitives[:median_time])
+    elseif fvec === :vector
+        # Sum of vector widths only (scalar excluded): still a per-width
+        # breakdown, same as an explicit :vector_128/:vector_256/:vector_512
+        # request below -- inherently not portable to architectures without
+        # per-width FLOP events, so this stays on the raw-event path.
+        chosen = filter(e -> e[3] !== :scalar, events)
         return _flop_event_expr(chosen, group)
     else
         chosen = filter(e -> e[3] === fvec, events)

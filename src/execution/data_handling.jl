@@ -2,6 +2,44 @@
 using JLD2: StringDatatype
 using JLD2
 
+# --- Backward compatibility: reading .perftests/*.JLD2 files saved before `variance`/`n`
+# (Metric_Result) and `showvar` (Metric_Test) existed ---
+#
+# JLD2 reconstructs an on-disk struct whose field set doesn't match the current in-memory
+# struct as a JLD2.AbstractReconstructedType (ReconstructedMutable/ReconstructedStatic) rather
+# than a real Metric_Result/Metric_Test, then calls `JLD2.rconvert(TargetType, reconstructed)`
+# to finish the conversion. Without an explicit override here, that falls through to the
+# generic `rconvert(T, x) = convert(T, x)`, which has no applicable method for these structs
+# and throws — meaning any datafile saved by a PerfTest.jl version before this feature (e.g.
+# the baseline @regression compares new runs against) would fail to load at all. All fields
+# accessed directly below (everything except `variance`/`n`/`showvar`) have existed since the
+# very first version of these structs, so they're always present on a reconstructed value;
+# only the fields this feature actually added need a propertynames check + fallback.
+function JLD2.rconvert(::Type{Metric_Result}, x::JLD2.AbstractReconstructedType)
+    return Metric_Result(
+        x.name, x.units, x.value, x.auxiliary, x.magnitude_prefix, x.magnitude_mult, x.mpi,
+        :variance in propertynames(x) ? x.variance : nothing,
+        :n in propertynames(x) ? x.n : typemax(Int),
+    )
+end
+# Covers the parametric form too (e.g. if a field is ever declared Dict{Symbol,Metric_Result{Float64}}
+# rather than the unparameterized Metric_Result the rest of the codebase currently uses).
+JLD2.rconvert(::Type{Metric_Result{N}}, x::JLD2.AbstractReconstructedType) where N = JLD2.rconvert(Metric_Result, x)
+
+function JLD2.rconvert(::Type{Metric_Test}, x::JLD2.AbstractReconstructedType)
+    return Metric_Test(
+        reference = x.reference,
+        threshold_min_percent = x.threshold_min_percent,
+        threshold_max_percent = x.threshold_max_percent,
+        low_is_bad = x.low_is_bad,
+        succeeded = x.succeeded,
+        custom_plotting = x.custom_plotting,
+        full_print = x.full_print,
+        showvar = :showvar in propertynames(x) ? x.showvar : false,
+    )
+end
+JLD2.rconvert(::Type{Metric_Test{N}}, x::JLD2.AbstractReconstructedType) where N = JLD2.rconvert(Metric_Test, x)
+
 """
 This method is used to get historical data of a performance test suite from a save file located in `path`.
 """

@@ -21,6 +21,10 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
     else
         info[:low_is_bad] = false
     end
+    if haskey(info, :showvar)
+    else
+        info[:showvar] = false
+    end
     # vvvv Verify that parameters make sense among each other vvvv
     if info[:metrics] isa metricID()
         info[:metrics] = [metricID(info[:metrics])]
@@ -56,6 +60,8 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
     else
         # Extend in place: a second entry in the same scope would lose to the first under captureMethodologyInfo's first-key-wins merge.
         existing_params = ctx._local.enabled_methodologies[end][existing_idx].params
+        # showvar is a scalar (not per-metric), so a redeclaration simply overwrites it.
+        existing_params[:showvar] = info[:showvar]
         for (metric, threshold, low_is_bad) in zip(info[:metrics], info[:threshold], info[:low_is_bad])
             metric_idx = findfirst(==(metric), existing_params[:metrics])
             if metric_idx === nothing
@@ -77,19 +83,21 @@ end
 """
  Executes regression for one single metric
 """
-function regression(metric :: Symbol, threshold::Float64, low_is_bad::Bool)
+function regression(metric :: Symbol, threshold::Float64, low_is_bad::Bool, showvar::Bool)
     metric = QuoteNode(metric)
 
     success_expr = :($(low_is_bad ? :(>) : :(<))(ratio ,$(threshold)))
     return quote
         if haskey(test_res.metrics, $metric) && !(old_test_res isa Nothing) && haskey(old_test_res.metrics, $metric)
-            ratio = test_res.metrics[$metric].value / old_test_res.metrics[$metric].value
+            ratio_sv = metricSampledValue(test_res.metrics[$metric]) / metricSampledValue(old_test_res.metrics[$metric])
+            ratio = ratio_sv isa SampledValue ? ratio_sv.value : ratio_sv
             success = $success_expr
 
             result = newMetricResult($mode,
                                     name=$("$metric Difference"),
                                     units="%",
-                                    value=ratio * 100
+                                    value=ratio_sv * 100,
+                                    showvar=$(showvar)
             )
             test = Metric_Test(
                 reference=100.0,
@@ -98,28 +106,32 @@ function regression(metric :: Symbol, threshold::Float64, low_is_bad::Bool)
                 low_is_bad=$(low_is_bad),
                 succeeded=success,
                 custom_plotting=Symbol[],
-                full_print=true
+                full_print=true,
+                showvar=$(showvar)
             )
 
             push!(methodology_res.metrics, (result => test))
-            
+
             # Register tracked metric in auxiliar group for later usage in Bencher
             methodology_res.custom_elements[$metric] =  (newMetricResult(
                 $mode,
                 name=test_res.metrics[$metric].name,
                 units=test_res.metrics[$metric].units,
-                value=test_res.metrics[$metric].value) => test
+                value=metricSampledValue(test_res.metrics[$metric]),
+                showvar=$(showvar)) => test
             )
 
             all_succeeded &= success
         elseif !(old_test_res isa Nothing) && !haskey(test_res.metrics, $metric) && haskey(test_res.primitives, $metric) && haskey(old_test_res.primitives, $metric)
-            ratio = test_res.primitives[$metric] / old_test_res.primitives[$metric]
+            ratio_sv = test_res.primitives[$metric] / old_test_res.primitives[$metric]
+            ratio = ratio_sv isa SampledValue ? ratio_sv.value : ratio_sv
             success = $success_expr
 
             result = newMetricResult($mode,
                                     name=$("$metric Difference"),
                                     units="%",
-                                    value=ratio * 100
+                                    value=ratio_sv * 100,
+                                    showvar=$(showvar)
             )
             test = Metric_Test(
                 reference=100.0,
@@ -128,7 +140,8 @@ function regression(metric :: Symbol, threshold::Float64, low_is_bad::Bool)
                 low_is_bad=$(low_is_bad),
                 succeeded=success,
                 custom_plotting=Symbol[],
-                full_print=true
+                full_print=true,
+                showvar=$(showvar)
             )
 
             push!(methodology_res.metrics, (result => test))
@@ -138,7 +151,8 @@ function regression(metric :: Symbol, threshold::Float64, low_is_bad::Bool)
                 $mode,
                 name=$("$metric"),
                 units="s",
-                value=test_res.primitives[$metric]) => test
+                value=test_res.primitives[$metric],
+                showvar=$(showvar)) => test
             )
 
             all_succeeded &= success
@@ -148,14 +162,16 @@ function regression(metric :: Symbol, threshold::Float64, low_is_bad::Bool)
                 $mode,
                 name=$("$metric Reference value"),
                 units=haskey(old_test_res.metrics, $metric) ? old_test_res.metrics[$metric].units : "s",
-                value=haskey(old_test_res.metrics, $metric) ? old_test_res.metrics[$metric].value : (haskey(old_test_res.primitives, $metric) ? old_test_res.primitives[$metric] : NaN)
+                value=haskey(old_test_res.metrics, $metric) ? metricSampledValue(old_test_res.metrics[$metric]) : (haskey(old_test_res.primitives, $metric) ? old_test_res.primitives[$metric] : NaN),
+                showvar=$(showvar)
             )
         end
         methodology_res.custom_elements[$metric] = (newMetricResult(
             $mode,
             name=$("$metric"),
             units=haskey(test_res.metrics, $metric) ? test_res.metrics[$metric].units : "s",
-            value=haskey(test_res.metrics, $metric) ? test_res.metrics[$metric].value : (haskey(test_res.primitives, $metric) ? test_res.primitives[$metric] : NaN)
+            value=haskey(test_res.metrics, $metric) ? metricSampledValue(test_res.metrics[$metric]) : (haskey(test_res.primitives, $metric) ? test_res.primitives[$metric] : NaN),
+            showvar=$(showvar)
         ))
     end
 end
@@ -180,13 +196,13 @@ function buildRegression(context::Context)::Expr
                 all_succeeded = true
                 $(
                 if info[:metrics] isa Symbol
-                    regression(info[:metrics], info[:threshold], info[:low_is_bad])
+                    regression(info[:metrics], info[:threshold], info[:low_is_bad], info[:showvar])
                 else
                     q = quote end;
                     for (i, metric) in enumerate(info[:metrics])
                         q = quote
                             $q;
-                            $(regression(metric, info[:threshold][i], info[:low_is_bad][i]))
+                            $(regression(metric, info[:threshold][i], info[:low_is_bad][i], info[:showvar]))
                         end
                     end;
                     q

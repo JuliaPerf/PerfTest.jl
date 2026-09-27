@@ -8,6 +8,7 @@ function onPerfcmpDefinition(expr :: ExtendedExpr, ctx :: Context, info)
 
     params = Dict{Symbol, Any}(
         gensym("expr") => info[Symbol("")],
+        :showvar => get(info, :showvar, false),
     )
     push!(ctx._local.enabled_methodologies[end], MethodologyParameters(
         id = :perfcmp,
@@ -29,8 +30,14 @@ function buildPerfcmp(context :: Context) :: Expr
         buffer = quote
             all_succeeded = true
         end
-        # Get all metrics in the info
-        for (_,expr) in info.params
+        showvar = get(info.params, :showvar, false)
+        # Get all metrics in the info. `:showvar` is a fixed, non-expression key stored
+        # alongside the gensym'd per-assertion keys (see onPerfcmpDefinition) — skip it here,
+        # every other entry is a formula expression to compile.
+        for (k,expr) in info.params
+            if k === :showvar
+                continue
+            end
             buffer = quote
                 $buffer
                 metric = newMetricResult(
@@ -50,7 +57,8 @@ function buildPerfcmp(context :: Context) :: Expr
                     low_is_bad=true,
                     succeeded=success,
                     custom_plotting=Symbol[],
-                    full_print=false
+                    full_print=false,
+                    showvar=$(showvar)
                 )
 
                 push!(methodology_res.metrics, (metric => test))

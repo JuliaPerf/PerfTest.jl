@@ -50,7 +50,7 @@ metric) keeps propagating variance. Returns the plain `value` when no variance i
 """
 metricSampledValue(m::Metric_Result) = m.variance === nothing ? m.value : SampledValue(m.value, m.variance, m.n)
 
-function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 1, reduct="", showvar = true)
+function newMetricResult(::Type{<:NormalMode};name, units, value, auxiliary = false, magnitude_prefix = "", magnitude_mult = 1, reduct="", showvar = false)
 
     val, sem, n = _unwrapSampledValue(value)
     return Metric_Result(name,units,val,auxiliary, magnitude_prefix, magnitude_mult, nothing, _gatedVariance(sem, n, showvar), n)

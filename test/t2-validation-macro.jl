@@ -137,3 +137,41 @@ end
     @test !haskey(parsed, :metrics)
 
 end
+
+@testset "Macro validation - interpolated String last parameter" begin
+
+    ctx = PerfTest.Context(PerfTest.GlobalContext("path", PerfTest.VecErrorCollection(), PerfTest.formula_symbols))
+
+    params = Dict{Symbol,PerfTest.MacroParameter}(
+        Symbol("") => PerfTest.MacroParameter(Symbol(""), String, true)
+    )
+
+    f = PerfTest.validateMacro(params)
+
+    # VALID: plain string literal, unchanged behavior
+    expr = quote
+        @macro "plain string"
+    end
+    parsed = f(expr, ctx)
+    @test PerfTest.num_errors(ctx) == 0
+    @test parsed[Symbol("")] == "plain string"
+
+    # VALID: interpolated string must be accepted, and kept as a raw Expr
+    # (not evaluated during validation)
+    expr = quote
+        @macro "prefix_$(1 + 1)_suffix"
+    end
+    parsed = f(expr, ctx)
+    @test PerfTest.num_errors(ctx) == 0
+    @test parsed[Symbol("")] isa Expr
+    @test parsed[Symbol("")].head == :string
+
+    # INVALID: wrong type entirely should still be rejected
+    expr = quote
+        @macro 4 + 5
+    end
+    parsed = f(expr, ctx)
+    @test PerfTest.num_errors(ctx) == 1
+    @test !haskey(parsed, Symbol(""))
+
+end

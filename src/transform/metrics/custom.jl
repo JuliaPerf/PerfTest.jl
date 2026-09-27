@@ -18,7 +18,19 @@ function defineCustomMetric(type :: Symbol, ctx :: Context, info)
 end
 
 
-function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}})::Expr
+function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}}, ctx::Context)::Expr
+
+    # Auxiliary/custom metrics have no Metric_Test companion to consult a showvar flag from at
+    # print time, so the decision is made here at construction time: show variance for this
+    # scope's metrics iff some enclosing @regression/@perfcompare in the scope chain asked for
+    # it. captureMethodologyInfo already implements the innermost-first inherit/override walk,
+    # so this correctly inherits across nested testsets for free.
+    scope_has_showvar = let
+        reg = captureMethodologyInfo(:regression, ctx._local.enabled_methodologies)
+        cmp = captureMethodologyInfo(:perfcmp, ctx._local.enabled_methodologies)
+        (reg !== nothing && get(reg.params, :showvar, false) === true) ||
+        (cmp !== nothing && get(cmp.params, :showvar, false) === true)
+    end
 
     buffer = :(begin end)
     built_set = Set{Symbol}()
@@ -42,7 +54,8 @@ function buildCustomMetrics(custom_metrics :: Vector{Vector{CustomMetric}})::Exp
                 name=$(metric_def.name),
                 units=$(metric_def.units),
                 value=$(metric_def.formula),
-                auxiliary=$(metric_def.auxiliary)
+                auxiliary=$(metric_def.auxiliary),
+                showvar=$scope_has_showvar
             )
                 $(if metric_def.auxiliary
                     :(test_res.auxiliar[$(QuoteNode(symbol))] = m)

@@ -157,6 +157,9 @@ function printMetric(metric :: Metric_Result, test:: Metric_Test, tab::Int)
         else
             p_yellow(@sprintf("%.3f", metric.value))
         end
+        if test.showvar && metric.variance !== nothing
+            print(@sprintf(" (± %.3f)", metric.variance))
+        end
 
         println(" [" * metric.units * "]" * " "^20)
     end
@@ -172,7 +175,11 @@ This function is used to dump metric information regading auxiliar metrics, whic
 """
 function auxiliarMetricPrint(metric :: Metric_Result, tab::Int)
     println(" "^tab * "Metric: " * metric.name * " [" * metric.magnitude_prefix * metric.units * "]")
-    println(" " ^ tab * "  = ", metric.value)
+    if metric.variance !== nothing
+        println(" " ^ tab * "  = ", metric.value, @sprintf(" (± %.3f)", metric.variance))
+    else
+        println(" " ^ tab * "  = ", metric.value)
+    end
     println("")
 end
 
