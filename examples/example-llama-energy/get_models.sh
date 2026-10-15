@@ -16,21 +16,65 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODEL_BASE="${LLAMA_MODEL_BASE:-Qwen2.5-7B-Instruct}"
+MODEL_BASE="${LLAMA_MODEL_BASE:-Qwen3.8-27B}"
+# Repo derived from MODEL_BASE by default (bartowski's "<base>-GGUF" naming
+# convention); override independently if the next model's repo doesn't follow
+# that pattern, or belongs to a different quantizer, without editing this file.
+MODEL_REPO="${LLAMA_MODEL_REPO:-unsloth/${MODEL_BASE}-GGUF}"
 mkdir -p "${MODEL_DIR}"
 
 # ---- Option A: download prebuilt quants (edit URLs to your model) -----------
 # Example uses the bartowski GGUF repos. Uncomment the quants you want.
-download_prebuilt() {
-    local repo="bartowski/Qwen2.5-7B-Instruct-GGUF"
+#
+# Some quants of larger models (e.g. f16/Q8_0/Q6_K/Q5_K_M of a 70B model) are
+# published as multiple split part files rather than one .gguf, since HF
+# discourages single files much above ~50GB. fetch_quant tries the direct
+# single-file download first, and falls back to discovering + downloading the
+# split parts and merging them with llama-gguf-split.
+GGUF_SPLIT_BIN="${GGUF_SPLIT_BIN:-${LLAMACPP_HOME}/bin/llama-gguf-split}"
+
+fetch_quant() {
+    local repo="$1" q="$2" out="$3"
     local base_url="https://huggingface.co/${repo}/resolve/main"
-    for q in f16 Q8_0 Q6_K Q5_K_M Q4_K_M Q3_K_M Q2_K; do
+    echo "downloading ${q} : ${base_url}/${MODEL_BASE}-${q}.gguf ..."
+    if curl -L --fail -o "${out}" "${base_url}/${MODEL_BASE}-${q}.gguf" 2>/dev/null; then
+        return
+    fi
+    echo "  single-file download failed, checking for split parts ..."
+    local listing rfilenames parts part local_parts=() local_name
+    listing="$(curl -s "https://huggingface.co/api/models/${repo}")"
+    # rfilename entries for split quants are nested under a quant-named
+    # subdirectory (e.g. "Llama-3.3-70B-Instruct-Q8_0/Llama-3.3-70B-Instruct-
+    # Q8_0-00001-of-00002.gguf"), so match the whole quoted path rather than
+    # assuming the filename sits right after the opening quote.
+    rfilenames="$(grep -o '"[^"]*\.gguf"' <<<"${listing}" | tr -d '"')"
+    parts=($(grep -E "(^|/)${MODEL_BASE}-${q}-[0-9]{5}-of-[0-9]{5}\.gguf\$" <<<"${rfilenames}" | sort -u))
+    if [[ ${#parts[@]} -eq 0 ]]; then
+        echo "  no split parts found for ${q} either; giving up on this quant." >&2
+        rm -f "${out}"
+        return 1
+    fi
+    echo "  found ${#parts[@]} split part(s) for ${q}, downloading ..."
+    for part in "${parts[@]}"; do
+        # ${part} may include the subdirectory for the URL path, but is
+        # stored flat locally (llama-gguf-split just needs the parts
+        # together in one directory, named by their -NNNNN-of-NNNNN suffix).
+        local_name="${MODEL_DIR}/$(basename "${part}")"
+        curl -L --fail -o "${local_name}" "${base_url}/${part}"
+        local_parts+=("${local_name}")
+    done
+    echo "  merging split parts -> ${out}"
+    "${GGUF_SPLIT_BIN}" --merge "${local_parts[0]}" "${out}"
+    rm -f "${local_parts[@]}"
+}
+
+download_prebuilt() {
+    local repo="${MODEL_REPO}"
+    for q in Q8_0 UD-Q6_K UD-Q5_K_M UD-Q4_K_M UD-Q3_K_XL UD-Q2_K_XL; do
         local out="${MODEL_DIR}/${MODEL_BASE}-${q}.gguf"
         [[ -f "${out}" ]] && { echo "have ${out}"; continue; }
-        echo "downloading ${q} ..."
-        curl -L --fail -o "${out}" "${base_url}/${MODEL_BASE}-${q}.gguf"
+        fetch_quant "${repo}" "${q}" "${out}"
     done
-    echo "NOTE: obtain the F16 baseline separately (often split or not published)."
 }
 
 # ---- Option B: quantize from a single F16 base (recommended) ----------------

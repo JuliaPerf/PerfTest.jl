@@ -89,6 +89,9 @@ const bw_metrics_kind = Set([
     :read,
     :write,
     :read_write,
+    :read_volume,
+    :write_volume,
+    :read_write_volume,
 ])
 
 const energy_metrics_part = Set([
@@ -280,16 +283,28 @@ const _bw_metric = Dict(
     (:mem, :read_write) => "Memory bandwidth [MBytes/s]",
     (:mem, :read) => "Memory read bandwidth [MBytes/s]",
     (:mem, :write) => "Memory write bandwidth [MBytes/s]",
+    # Data volume: total GBytes transferred over the whole measurement window
+    # (not a rate) -- LIKWID's sibling metric in the same group.
+    (:l2, :read_write_volume) => "L2 data volume [GBytes]",
+    (:l2, :read_volume) => "L2D load data volume [GBytes]",
+    (:l2, :write_volume) => "L2D evict data volume [GBytes]",
+    (:l3, :read_write_volume) => "L3 data volume [GBytes]",
+    (:l3, :read_volume) => "L3 load data volume [GBytes]",
+    (:l3, :write_volume) => "L3 evict data volume [GBytes]",
+    (:mem, :read_write_volume) => "Memory data volume [GBytes]",
+    (:mem, :read_volume) => "Memory read data volume [GBytes]",
+    (:mem, :write_volume) => "Memory write data volume [GBytes]",
 )
 
 """
     formulaGetBandwidth(test_res, properties)
 
-Memory/cache bandwidth in MBytes/s.
+Memory/cache bandwidth in MBytes/s, or total data volume in GBytes.
 
 Specifiers:
   * level: :l1 | :l2 | :l3 | :mem  (default :mem)
-  * kind:  :read | :write | :read_write  (default :read_write)
+  * kind:  :read | :write | :read_write |
+           :read_volume | :write_volume | :read_write_volume  (default :read_write)
 """
 function PerfTest.formulaGetBandwidth(properties)
     spec = classify(properties,

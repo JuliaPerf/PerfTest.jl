@@ -59,6 +59,14 @@ the F16 baseline (y), one point per quantization level
 - A fixed text corpus for the quality axis (e.g. a WikiText-2 slice) — see
   "Quality axis" for how to fetch one.
 - A checkout of PerfTest.jl with the CUDA extension enabled.
+- **Disk/VRAM scale.** The default model, Qwen3.8-27B, ranges from
+  ~26GB (`Q2_K`) to ~141GB (`f16`) per quant. The larger quants (`f16`/`Q8_0`/
+  `Q6_K`, and possibly `Q5_K_M`) will not fit in a single GPU's VRAM on most
+  datacenter cards at `n_ctx=4096` — that's expected, see "Caveats: OOM
+  behavior" below. `get_models.sh`'s split-file fallback (needed because
+  those larger quants are published as multiple part files, not one) needs
+  only `curl`/`grep` plus the `llama-gguf-split` binary already built
+  alongside `libllama` by `build_llama_cuda.sh`/`build_llama_rocm.sh`.
 
 ## Reproduction
 
@@ -70,7 +78,9 @@ export LLAMA_CPP_LIB=/abs/path/to/llama.cpp/build/bin/libllama.so
 # 2. Get the weights (A = download prebuilt, B = quantize from an F16 base)
 #    and the WikiText-2 corpus used for the quality axis.
 export LLAMA_MODEL_DIR=$PWD/models
-export LLAMA_MODEL_BASE=Qwen2.5-7B-Instruct
+export LLAMA_MODEL_BASE=Qwen3.8-27B
+# LLAMA_MODEL_REPO is also available (defaults to
+# unsloth/${LLAMA_MODEL_BASE}-GGUF) for the next time the model changes.
 ./get_models.sh A
 
 # 3. (Recommended) stabilise the GPU for repeatable energy numbers
@@ -209,8 +219,36 @@ there instead.
    idle GPU, and consider subtracting an idle-power baseline.
 5. **Determinism.** Greedy decoding is used so token counts and work are
    identical across repetitions; keep sampling out of the measured path.
+6. **OOM behavior.** Neither `LlamaFFI.jl` nor PerfTest.jl's testset machinery
+   has any OOM-specific handling, and at 70B some quants (see "Disk/VRAM
+   scale" above) are expected to exceed a single GPU's VRAM. Concretely:
+   - A failed `cudaMalloc`/`hipMalloc` inside llama.cpp's GPU backend either
+     returns an error/null pointer, or calls `GGML_ABORT`/segfaults — which
+     one happens depends on the llama.cpp commit/backend, not on anything in
+     this example. In the first case, `LlamaFFI.jl`'s generic
+     `... == C_NULL && error(...)` checks turn it into a normal Julia
+     exception, which `@testset for` records as an `Error` for that one
+     quant and the sweep continues. In the second case, the crash **cannot
+     be caught by any Julia `try`/`catch`** — the OS kills the whole process
+     mid-`ccall`.
+   - The generated perf-suite always runs as a separate subprocess
+     (`Launch.launchPerfTestSuite`, spawned via `run(...)`), with no
+     surrounding `try`/`catch` in `runperftests`. A hard crash there surfaces
+     as an uncaught `Base.ProcessFailedException` out of `runperftests` —
+     visible, but not gracefully handled (no retry, no partial results).
+   - Results are saved **once**, after the *entire* quant sweep finishes.
+     `QUANTS` sweeps smallest → largest specifically so the quants most
+     likely to fit are *computed* before the large, VRAM-constrained ones —
+     but this is only a partial mitigation: if a large quant crashes hard
+     (rather than just erroring), the process dies before that end-of-run
+     save executes, so the smaller quants' results, though already computed,
+     are still lost along with everything else. Full protection would need
+     incremental per-quant saving, which this recipe does not do.
 
 ## Open questions being finalised
 
-- Model choice (Qwen2.5-7B, Apache-2.0 vs Llama-3.1-8B) and quant set.
+- ~~Model choice (Qwen2.5-7B, Apache-2.0 vs Llama-3.1-8B) and quant set.~~
+  Resolved: **Qwen3.8-27B**, chosen for sharper energy/quality
+  separation across the quant sweep and to realistically exercise the OOM
+  path (see "Caveats: OOM behavior").
 - Whether to also demo **energy-regression testing** in CI.

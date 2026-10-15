@@ -58,12 +58,21 @@ enabled = true
 const MODEL_DIR = get(ENV, "MODEL_DIR", joinpath(@__DIR__, "models"))
 
 # Base model name; the quant tag is appended to form the filename.
-# e.g. "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
-const MODEL_BASE = get(ENV, "MODEL_BASE", "Qwen2.5-7B-Instruct")
+# e.g. "Qwen3.8-27B-UD-Q4_K_M.gguf"
+const MODEL_BASE = get(ENV, "MODEL_BASE", "Qwen3.8-27B")
 
-# Quantization levels to sweep (highest fidelity first). F16 is the quality
+# Quantization levels to sweep, smallest -> largest. F16 is the quality
 # baseline. Edit to match the GGUF files you actually downloaded/produced.
-const QUANTS = ["f16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K"]
+#
+# Smallest-first (rather than the more natural "quality baseline first")
+# is deliberate: at this model's size, the largest quants (f16/Q8_0/UD-Q6_K) may
+# not fit in a single GPU's VRAM and can OOM. Running them last means the
+# smaller, likely-to-fit quants are at least *computed* earlier in the same
+# process before that happens. This is only a partial mitigation, though —
+# see README "Caveats: OOM behavior" — since results are still saved once,
+# after the whole sweep finishes, so a hard crash on a later quant still
+# loses everything computed in that run, regardless of this ordering.
+const QUANTS = ["UD-Q2_K_XL", "UD-Q3_K_XL", "UD-Q4_K_M", "UD-Q5_K_M", "UD-Q6_K", "Q8_0", "f16"]
 
 # Fixed workload. Deterministic (greedy) decoding, fixed token budget so that
 # "energy per token" is comparable across quants.
