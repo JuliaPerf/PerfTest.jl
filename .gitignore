@@ -6,3 +6,10 @@
 .vscode
 .perftest_logs
 .perftests
+
+._*
+.DS_Store
+.ipynb_checkpoints/
+core
+experiments/
+.claude

@@ -1,0 +1,19 @@
+[deps]
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
+LIKWID = "bf22376a-e803-4184-b2ed-56326e3bff83"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PerfTest = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+QDLDL = "bfc457fd-c171-5ab7-bd9e-d5dbfc242d63"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+# Clarabel pinned to 0.11: clarabel_perftest.jl redefines/relies on internals
+# of Clarabel's own QDLDLDirectLDLSolver (not public API) and QDLDL's private
+# `_get_amd_ordering` helper (not public API either) -- re-verify both still
+# match before bumping either pin.
+[compat]
+Clarabel = "0.11"
+QDLDL = "0.4"
+julia = "1, 1.11"

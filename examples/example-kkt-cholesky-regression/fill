@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Check if at least 2 arguments are provided (input and at least one replacement string)
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 <file or string> <string1> <string2> ... <stringn>"
+    exit 1
+fi
+
+# The first argument can be a string or a file
+input="$1"
+
+# Shift the arguments so that "$@" only contains the replacement strings
+shift
+
+# Check if the first input is a file and read from it if it exists
+if [ -f "$input" ]; then
+    cont=$(cat "$input")
+else
+    cont="$input"
+fi
+
+# Replace each occurrence of #$# with the corresponding string argument
+for i in "${!}"; do
+    cont=$(echo $cont | sed "s/\#\$\#/${!i}/g")
+done
+
+# Output the result to stdout
+echo "$cont"
