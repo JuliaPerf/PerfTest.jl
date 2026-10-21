@@ -4,6 +4,7 @@ export launchPerfTestSuite
 
 using ..PerfTest
 using MacroTools
+using TOML
 
 DEFAULT_INTERPRETER_FLAGS = Dict{String,String}(
     "--check-bounds" => "no",
@@ -31,6 +32,32 @@ function partition(s::AbstractString, c::Char)
 end
 
 
+"""
+Thread setting (general.numas, general.threads_per_numa) of a generated suite, `nothing` for a key no configuration call sets.
+A suite has a single thread setting regardless of recursivity: each key takes its value from the last configuration call
+of the suite that sets it, even when that call comes from an included recipe. The first call of the suite holds the whole
+configuration it was generated with. An interpolated value is only known once the suite executes, it is not considered.
+"""
+function retrieveConfigThreadSpecs(suite::Expr)
+    specs = Dict{String,Any}("numas" => nothing, "threads_per_numa" => nothing)
+    MacroTools.prewalk(suite) do x
+        if @capture(x, PerfTest._perftest_config(serializedconfig_))
+            try
+                general = get(TOML.parse(PerfTest.interpolationPreview(serializedconfig)), "general", Dict())
+                for key in keys(specs)
+                    if haskey(general, key) && !PerfTest.isInterpolated(general[key])
+                        specs[key] = general[key]
+                    end
+                end
+            catch e
+                @error("Generated suite configuration is malformed TOML error: $e")
+            end
+        end
+        return x
+    end
+    return specs["numas"], specs["threads_per_numa"]
+end
+
 function retrieveThreadConfig(path::AbstractString)
     suite = PerfTest.loadFileAsExpr(path)
 
@@ -44,20 +71,9 @@ function retrieveThreadConfig(path::AbstractString)
 
     thr_config = (1, 1)
     if specs isa Nothing
-        # Extract the configuration string
-        config_string = ""
-        MacroTools.prewalk((x -> @capture(x, PerfTest._perftest_config(serializedconfig_)) ? (config_string = serializedconfig; nothing) : x), suite)
-
-        # Parse configuration TOML
-        config_dict = nothing
-        try
-            config_dict = TOML.parse(config_string)
-
-            # Access thread spec fields
-            specs = [config_dict["general"]["numas"], config_dict["general"]["threads_per_numa"]]
-        catch e
-            @error("Generated suite configuration is malformed TOML error: $e")
-        end
+        # One thread setting per suite, see retrieveConfigThreadSpecs
+        # TODO: apply it, the values of these keys still need a conversion to an arrangement (e.g. their default "single")
+        specs = retrieveConfigThreadSpecs(suite)
     else
         thr_config = eval(specs)
     end

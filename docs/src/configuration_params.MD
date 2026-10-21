@@ -4,6 +4,10 @@ This document describes all configuration parameters available. Parameters are o
 
 Every transformation starts from the default values below, overridden by the `perftest_config.toml` file in the working directory. If the file does not exist it is created with the default values. The file does not need to define every parameter: missing sections or parameters keep their default value, and a parameter with an incorrect type is reported as an error and keeps its default value as well. A file that cannot be parsed is reported as an error and left untouched, and the default configuration is used instead.
 
+The configuration is used when a recipe is transformed, and the generated suite keeps the configuration it was generated with: when it executes, wherever and however that happens, it uses those same values. The only exception is the `[bencher]` section, see below. Values that depend on the machine are fixed at generation as well, but the ones that describe it relatively (e.g. a thread arrangement like `:numa`, or a buffer size of `0`) are resolved on the machine that executes the suite. A `@perftest_config` macro applies from its place in the recipe onwards. In an included recipe (see `recursive`) it applies only to the part of the suite generated from that recipe, the including recipe gets its own configuration back after it.
+
+The `@perftest_config` string may interpolate values inside TOML strings, e.g. `dedicated_reference_file = 'ref_$(gethostname()).JLD2'`. Those keys take their value when the generated suite executes, during the transform they keep their previous value while the rest of the keys are applied as usual. Interpolation anywhere else (as a whole value, in a key or in a table name) is reported as a parse error, as is invalid TOML.
+
 ---
 
 ## `[general]`
@@ -13,11 +17,11 @@ General settings that control the overall behavior of the package.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `autoflops` | `Bool` | `true` | Whether the autoflop counter is enabled and accessible during testing. |
-| `numas` | `String \| Integer \| Float64` | `"single"` | Amount of NUMAS to use when pinning threads. |
-| `threads_per_numa` | `String \| Integer \| Float64` | `"single"` | Amount of threads to pin per NUMA. |
+| `numas` | `String \| Integer \| Float64` | `"single"` | Amount of NUMAS to use when pinning threads. A suite has a single thread setting: the last `@perftest_config` that sets this key applies to the whole suite, even when it is in an included recipe. |
+| `threads_per_numa` | `String \| Integer \| Float64` | `"single"` | Amount of threads to pin per NUMA. A suite has a single thread setting, see `numas`. |
 | `save_results` | `Bool` | `true` | Whether to record the results of executing the performance suite. |
 | `logs_enabled` | `Bool` | `true` | Enable or disable the log subsystem. If false, this will prevent PerfTest from creating a log folder and log files.|
-| `save_folder` | `String` | `".perftests"` | Folder where performance suite results shall be stored. |
+| `save_folder` | `String` | `".perftests"` | Folder where performance suite results shall be stored, the suite creates it when it saves its results. |
 | `max_saved_results` | `Int` | `20` | Maximum amount of performance test suite execution results to be saved in the result file for each suite. |
 | `plotting` | `Bool` | `true` | Whether to have plots in the test output of methodologies that support it. |
 | `verbose` | `Int` | `0` | Whether to output the collected logs in the standard output. |
@@ -78,7 +82,7 @@ Settings for benchmarking the underlying machine.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `memory_bandwidth_test_buffer_size` | `Int` | `0` | If 0 a buffer size for bandwith benchmarks is used so its at least 4 times bigger than the biggest cache level of the machine. If non-zero this value is used to set the buffer size instead. |
+| `memory_bandwidth_test_buffer_size` | `Int` | `0` | If 0 a buffer size for bandwith benchmarks is used so its at least 4 times bigger than the biggest cache level of the machine that executes the suite. If non-zero this value is used to set the buffer size instead. |
 
 ---
 
@@ -96,6 +100,8 @@ Settings for MPI-based execution.
 ## `[bencher]`
 
 Settings for [Bencher](https://bencher.dev) integration. This feature is experimental, and likely prone to bugs.
+
+Unlike the rest of the configuration, this section is read when the suite executes, from the `perftest_config.toml` file of the working directory (the default values are used if there is none), so the credentials are never written into a generated suite. A `@perftest_config` in the recipe that sets these keys takes priority over the file, but its values are written into the suite: interpolate secrets to keep them out of it, e.g. `api_key = '$(ENV["BENCHER_API_KEY"])'`.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|

@@ -228,6 +228,14 @@ function treeRun(path::AbstractString; config=nothing)
         global mode = NormalMode
     end
 
+    # The generated suite starts from this configuration, never from the one of the process that executes it. Except for
+    # the [bencher] section, which the suite reads when it executes so the credentials are never written into it.
+    # TODO: the display keys (general.verbose, general.plotting) are fixed at generation as well, a later update shall
+    # let them be set when an already generated suite is executed
+    initial_config = deepcopy(Configuration.CONFIG)
+    delete!(initial_config, "bencher")
+    initial_config = sprint(TOML.print, initial_config)
+
     # Load original
     input_expr = loadFileAsExpr(path)
 
@@ -244,7 +252,8 @@ function treeRun(path::AbstractString; config=nothing)
     # Mount inside a module environment
     module_full = Expr(:toplevel,
         Expr(:module, true, :__PERFTEST__,
-            Expr(:block, full.args...)))
+            Expr(:block, :(import PerfTest), :(PerfTest._perftest_config($initial_config)),
+                :(PerfTest.Configuration.load_bencher_config()), full.args...)))
 
     if num_errors(ctx) > 0
         printErrors(ctx)
@@ -324,7 +333,8 @@ function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, 
     if clean
         rm(name)
         rm("./perftest_config.toml")
-        rm("./$(Configuration.CONFIG["general"]["save_folder"])", recursive=true)
+        # Only created if the suite saved its results
+        rm("./$(Configuration.CONFIG["general"]["save_folder"])", recursive=true, force=true)
         if ispath("./.perftest_logs")
             rm("./perftest_logs", recursive=true)
         end

@@ -185,6 +185,42 @@ function load_dummy_config()::Dict
     return load_config(PRECOMPILATION_CONFIG)
 end
 
+"""
+Save a copy of the current configuration, so it can be changed (e.g. by an included recipe) and later restored by `pop_config`.
+"""
+function push_config()
+    push!(PARENT_CONFIGS, deepcopy(CONFIG))
+    return nothing
+end
+
+"""
+Restore the configuration saved by the last `push_config`.
+"""
+function pop_config()
+    global CONFIG = pop!(PARENT_CONFIGS)
+    return nothing
+end
+
+"""
+Set the [bencher] section of the current configuration from the configuration file, used by the generated suites when
+they start executing so the Bencher credentials (e.g. api_key) are never written into them. Unlike `load_config`,
+a missing file is not created, the default values are used instead.
+"""
+function load_bencher_config(filepath::AbstractString = CONFIG_FILE)
+    file = Dict()
+    if isfile(filepath)
+        try
+            file = TOML.parsefile(filepath)
+        catch e
+            @error "Configuration file $filepath could not be parsed, the default [bencher] configuration will be used" exception = e
+        end
+    end
+
+    section = Dict("bencher" => CONFIG_SHAPE["bencher"])
+    CONFIG["bencher"] = fill_config(Dict("bencher" => get(file, "bencher", Dict())), DEFAULT, section)["bencher"]
+    return nothing
+end
+
 CONFIG_FILE = "perftest_config.toml"
 
 
@@ -339,18 +375,61 @@ end # module
 
 using TOML
 
+# Stands for the interpolated fragments of a @perftest_config string during the transform. It is a valid TOML bare key,
+# so interpolation in a key or a table name is reported as such instead of as invalid TOML
+INTERPOLATION_MARKER = "__PERFTEST_INTERPOLATION__"
+
+isInterpolated(value) = value isa AbstractString ? occursin(INTERPOLATION_MARKER, value) :
+                        value isa AbstractVector ? any(isInterpolated, value) :
+                        value isa AbstractDict ? any(isInterpolated, keys(value)) || any(isInterpolated, values(value)) :
+                        false
+
+# TOML of a @perftest_config string before the suite executes, its interpolated fragments are replaced by the marker
+interpolationPreview(raw) = raw isa Expr && raw.head === :string ?
+                            join(a isa AbstractString ? a : INTERPOLATION_MARKER for a in raw.args) : raw
+
+"""
+Remove from `config`, parsed from an interpolated @perftest_config string, the keys whose value is interpolated.
+Interpolation in a key or a table name is reported as a parse error, in which case it returns false.
+"""
+function removeInterpolatedKeys!(config::Dict, ctx::Context, prefix::String = "")::Bool
+    for key in collect(keys(config))
+        name = prefix * key
+        if occursin(INTERPOLATION_MARKER, key)
+            throwParseError!("Interpolation in @perftest_config is only supported inside string values, found in the key or table name $(replace(name, INTERPOLATION_MARKER => "\$(...)"))", ctx)
+            return false
+        elseif config[key] isa Dict
+            removeInterpolatedKeys!(config[key], ctx, name * ".") || return false
+        elseif isInterpolated(config[key])
+            delete!(config, key)
+            addLog("general", "Configuration key $name is interpolated, it will take its value when the suite is executed")
+        end
+    end
+    return true
+end
+
 function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
 
     raw = info[Symbol("")]
     interpolated = raw isa Expr && raw.head === :string
 
-    # For an interpolated string, substitute each non-literal (interpolated)
-    # fragment with "" so keys that don't depend on interpolation are still
-    # resolvable now, and can affect the rest of this transform pass exactly
-    # as they do today (e.g. regression.enabled gates code generation).
-    preview = interpolated ? join(a isa AbstractString ? a : "" for a in raw.args) : raw
+    # The interpolated fragments (e.g. $(gethostname())) are only known once the generated suite executes, the keys
+    # that depend on them are left out of this transform pass. The other keys affect it as without interpolation
+    # (e.g. regression.enabled gates code generation).
+    preview = interpolationPreview(raw)
 
-    parsed = TOML.parse(preview)
+    parsed = try
+        TOML.parse(preview)
+    catch e
+        e isa TOML.ParserError || rethrow()
+        message = replace(sprint(showerror, e), INTERPOLATION_MARKER => "\$(...)")
+        throwParseError!("Invalid TOML in @perftest_config$(interpolated ? " (interpolation is only supported inside string values)" : ""): $message", ctx)
+        return quote end
+    end
+
+    if interpolated && !removeInterpolatedKeys!(parsed, ctx)
+        return quote end
+    end
 
     old = Configuration.CONFIG
 
@@ -360,24 +439,11 @@ function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Exp
         addLog("general", "Verbosity level changed from $(old["general"]["verbose"]) to $(Configuration.CONFIG["general"]["verbose"])")
     end
 
-    if interpolated
-        # The real value (e.g. $(gethostname())) is only known once the
-        # generated suite executes; splice the original expression so
-        # PerfTest._perftest_config re-parses/merges it for real at that point.
-        return quote
-            begin
-                PerfTest._perftest_config($(raw))
-            end
-        end
-    end
-
-    io = IOBuffer()
-    TOML.print(nothing, io, Configuration.CONFIG)
-    serialized_config = String(take!(io))
-
+    # The generated suite makes the same change at this same point, over the configuration it was generated with
+    # (see treeRun), the interpolated keys take their real value there
     return quote
         begin
-            PerfTest._perftest_config($(serialized_config))
+            PerfTest._perftest_config($(raw))
         end
     end
 end
@@ -416,7 +482,8 @@ end
 
 
 """
-  Used on a generated test suite to import the configuration set during generation
+  Used on a generated test suite to make, while it executes, the configuration changes made during its generation:
+  the whole configuration it was generated with at its beginning, then each `@perftest_config` where it appears
 """
 function _perftest_config(config_string::String)
     # Parse, and merge

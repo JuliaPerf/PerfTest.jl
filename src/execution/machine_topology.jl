@@ -2,8 +2,10 @@ module Topology
 
 using Hwloc
 using ThreadPinningCore
+import ..PerfTest
 
-defaultAddLog(x) = @info "[$(string(x))]"
+# Used when no transform has installed its callbacks, e.g. while a generated suite executes
+defaultAddLog(channel, message) = PerfTest.addLog(channel, message)
 defaultThrowParseError!(x) = @error "Invalid thread arrangement: $x"
 addLog = defaultAddLog
 throwParseError! = defaultThrowParseError!

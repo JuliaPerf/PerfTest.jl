@@ -227,21 +227,29 @@ function treeRunRecursive!(path::AbstractString, parent_context::Context)::Exten
 
     input_expr = loadFileAsExpr(path)
 
-    # A new context is made for the included file, the configuration is cloned so it can be altered by the included file without affecting the parent file
-    push!(Configuration.PARENT_CONFIGS, deepcopy(Configuration.CONFIG))
+    # A new context is made for the included file
     ctx = Context(GlobalContext(path, VecErrorCollection(), formula_symbols, :RECURSIVE))
     ctx._local = parent_context._local
 
-    # Run through AST and build new expressions
-    middle = _treeRun(input_expr, ctx)
+    # Run through AST and build new expressions, the configuration is cloned so it can be altered by the included file
+    # without affecting the parent file, which gets it back even if this throws
+    Configuration.push_config()
+    middle = try
+        _treeRun(input_expr, ctx)
+    finally
+        Configuration.pop_config()
+    end
 
     importErrors!(parent_context._global.errors, ctx._global.errors, path)
 
-
-    Configuration.CONFIG = pop!(Configuration.PARENT_CONFIGS)
     addLog("hierarchy", "[RECURSIVE] \"$path\" has been processed, $(num_errors(ctx)) errors found")
 
-    return middle
+    # The generated suite does the same around the part of the included file
+    return quote
+        PerfTest.Configuration.push_config()
+        $middle
+        PerfTest.Configuration.pop_config()
+    end
 end
 
 # RECURSIVE

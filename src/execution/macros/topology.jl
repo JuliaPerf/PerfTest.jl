@@ -22,6 +22,8 @@ threads_validation = defineMacroParams([
 
         Alternatively a list of integers can be passed which will be interpreted as a manual pinning.
 
+        The arrangement is resolved on the machine that executes the suite, e.g. :numa takes the size of a NUMA domain of that machine.
+
         [!] As of now, the pinning is not MPI aware, (this will come in PerfTest v1.2.4) in MPI cases use the manual pinning, with the list of integers.
         [!] This is a feature in development, more comprehensive features will be built over this later on (1.2.4).
 """

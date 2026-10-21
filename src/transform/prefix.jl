@@ -3,11 +3,6 @@
 function perftestprefix(ctx::Context)::Expr
     suite_name = "$(basename(ctx._global.original_file_path))_PERFORMANCE"
 
-    if isdir("./$(Configuration.CONFIG["general"]["save_folder"])")
-    else
-        mkdir("./$(Configuration.CONFIG["general"]["save_folder"])")
-    end
-
     return quote
         using Test, Dates
         $(mode == MPIMode ? :(using MPI; PerfTest.MPISetup(PerfTest.MPIMode)) : :(nothing))
@@ -18,8 +13,9 @@ function perftestprefix(ctx::Context)::Expr
         _GLOBAL_MODE = $mode
 
         if main_rank($mode)
-            # Used to save data about this test suite if needed
-            path = $("./$(Configuration.CONFIG["general"]["save_folder"])/$(suite_name).JLD2")
+            # Used to save data about this test suite if needed, its folder is created when the results are saved.
+            # Read on execution, so an interpolated save_folder takes its value
+            path = "./" * Configuration.CONFIG["general"]["save_folder"] * $("/$(suite_name).JLD2")
 
             nofile = true
             if isfile(path)

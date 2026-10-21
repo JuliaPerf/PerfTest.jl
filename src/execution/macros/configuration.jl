@@ -12,6 +12,9 @@ Captures a set of configuration parameters that will override the default config
 # Recursive transformation:
 This macro will set the new configuration keys for the current file and any other included files. If the included files have the macro as well, those macros will override the configuration locally for each file.
 
+# Interpolation:
+Values can be interpolated inside TOML strings, e.g. `dedicated_reference_file = 'ref_\$(gethostname()).JLD2'`. Those keys take their value when the generated suite is executed.
+
 # Arguments
  - A String, with the TOML declaration of configuration keys
 
