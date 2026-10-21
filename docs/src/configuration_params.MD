@@ -2,6 +2,8 @@
 
 This document describes all configuration parameters available. Parameters are organized by section, they are specified in TOML format.
 
+Every transformation starts from the default values below, overridden by the `perftest_config.toml` file in the working directory. If the file does not exist it is created with the default values. The file does not need to define every parameter: missing sections or parameters keep their default value, and a parameter with an incorrect type is reported as an error and keeps its default value as well. A file that cannot be parsed is reported as an error and left untouched, and the default configuration is used instead.
+
 ---
 
 ## `[general]`

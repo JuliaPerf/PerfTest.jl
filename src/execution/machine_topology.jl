@@ -3,8 +3,10 @@ module Topology
 using Hwloc
 using ThreadPinningCore
 
-addLog = x -> @info "[$(string(x))]"
-throwParseError! = x -> @error "Invalid thread arrangement: $x"
+defaultAddLog(x) = @info "[$(string(x))]"
+defaultThrowParseError!(x) = @error "Invalid thread arrangement: $x"
+addLog = defaultAddLog
+throwParseError! = defaultThrowParseError!
 struct Index
     indexing::Vector{Integer}
     symbols::Vector{Symbol}

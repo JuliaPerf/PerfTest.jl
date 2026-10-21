@@ -199,7 +199,8 @@ function treeRun(path::AbstractString; config=nothing)
     setLogFolder()
     # Clear logs
     #clearLogs()
-    # Load configuration
+    # Load configuration, a top level transform never inherits the configuration of a previous one
+    empty!(Configuration.PARENT_CONFIGS)
     if init_dummy_flag
         config = Configuration.load_dummy_config()
     else
@@ -360,6 +361,12 @@ PrecompileTools.@compile_workload begin
             rm("./$(Configuration.PRECOMPILATION_CONFIG["general"]["save_folder"])", recursive=true)
         end
         global init_dummy_flag = false
+        # Leave no state of the dummy transform in the package image
+        Configuration.load_config(Configuration.DEFAULT)
+        empty!(Configuration.PARENT_CONFIGS)
+        global ctx = nothing
+        global LOG_FOLDER = ""
+        Topology.setupLog(Topology.defaultAddLog, Topology.defaultThrowParseError!)
     end
 end
 

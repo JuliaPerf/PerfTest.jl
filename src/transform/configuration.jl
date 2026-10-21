@@ -43,6 +43,47 @@ end
 
 
 """
+Complete a possibly partial configuration following a schema.
+
+Args:
+- config: Dictionary to complete, e.g. the contents of a configuration file
+- base: Configuration that provides the missing entries
+- schema: Dictionary defining expected structure and types
+
+Returns:
+- A new configuration dictionary that shares no data with `config` or `base`. Entries missing from `config`
+  or with an incorrect type (reported as an error) take their value from `base`, entries outside the schema are kept.
+"""
+function fill_config(config::Dict, base::Dict = DEFAULT, schema::Dict = CONFIG_SHAPE)
+    function fill_recursive(cfg, bc, sch, prefix)
+        filled = Dict{String,Any}(key => deepcopy(value) for (key, value) in cfg if !haskey(sch, key))
+
+        for (key, expected_type) in sch
+            name = prefix * key
+            if expected_type isa Dict
+                section = get(cfg, key, Dict())
+                if !isa(section, Dict)
+                    @error "Expected a table for configuration section $name, got $(typeof(section)), using its default values"
+                    section = Dict()
+                end
+                filled[key] = fill_recursive(section, bc[key], expected_type, name * ".")
+            elseif !haskey(cfg, key)
+                filled[key] = deepcopy(bc[key])
+            elseif isa(cfg[key], expected_type)
+                filled[key] = deepcopy(cfg[key])
+            else
+                @error "Incorrect type for configuration key $name. Expected $(expected_type), got $(typeof(cfg[key])), using the default value $(repr(bc[key]))"
+                filled[key] = deepcopy(bc[key])
+            end
+        end
+        return filled
+    end
+
+    return fill_recursive(config, base, schema, "")
+end
+
+
+"""
 Recursively merge two configs, with values from override_config taking precedence.
 """
 function merge_configs(base_config::Dict, override_config::Dict)
@@ -55,7 +96,7 @@ function merge_configs(base_config::Dict, override_config::Dict)
                 a = _mc(merged[key], value)
                 merged[key] = a
             else
-                merged[key] = value
+                merged[key] = deepcopy(value)
             end
         end
 
@@ -68,7 +109,7 @@ function merge_configs(base_config::Dict, override_config::Dict)
         return merged
     else
         @info "Malformed configuration added, ignoring"
-        return base_config
+        return deepcopy(base_config)
     end
 end
 
@@ -84,14 +125,14 @@ Args:
 Returns:
 - Boolean indicating successful save
 """
-function save_config(config::Dict)
+function save_config(config::Dict, filepath::AbstractString = CONFIG_FILE)
     if !validate_config(config, CONFIG_SHAPE)
         @error "Configuration validation failed"
         return false
     end
 
     try
-        open(CONFIG_FILE, "w") do io
+        open(filepath, "w") do io
             TOML.print(io, config)
         end
         return true
@@ -102,47 +143,46 @@ function save_config(config::Dict)
 end
 
 """
-Load configuration from a TOML file.
+Load configuration from a TOML file over the default configuration, and make it the current one.
 
 Args:
-- filepath: Path to the TOML file
+- filepath: Path to the TOML file, CONFIG_FILE in the working directory if empty
 
 Returns:
-- Loaded configuration dictionary or nothing
+- Loaded configuration dictionary. If the file does not exist it is created with the default configuration,
+  if it cannot be parsed it is left untouched and the default configuration is used.
 """
-function load_config(filepath::AbstractString = "")::Union{Dict,Nothing}
-    try
-        config = TOML.parsefile(filepath == "" ? CONFIG_FILE : filepath)
+function load_config(filepath::AbstractString = "")::Dict
+    path = filepath == "" ? CONFIG_FILE : filepath
 
-        if !validate_config(config, CONFIG_SHAPE)
-            @error "Configuration validation failed"
-            return nothing
-        end
-
-        global CONFIG = config
-
-        return CONFIG
-    catch e
-        @info "Configuration not found or invalid, loading default configuration"
-        save_config(DEFAULT)
-        return DEFAULT
+    if !ispath(path)
+        @info "Configuration not found, saving the default configuration in $path"
+        save_config(DEFAULT, path)
+        return load_config(DEFAULT)
     end
+
+    config = try
+        TOML.parsefile(path)
+    catch e
+        # Never overwrite a file written by the user, even a broken one
+        @error "Configuration file $path could not be parsed, it has been left untouched and the default configuration will be used" exception = e
+        DEFAULT
+    end
+
+    return load_config(config)
 end
 
-function load_config(config :: Dict)::Union{Dict,Nothing}
-    if !validate_config(config, CONFIG_SHAPE)
-        @error "Configuration validation failed"
-        return nothing
-    end
-
-    global CONFIG = config
+"""
+Make a copy of `config` the current configuration, missing or malformed entries take their default value.
+"""
+function load_config(config :: Dict)::Dict
+    global CONFIG = fill_config(config)
 
     return CONFIG
 end
 
-function load_dummy_config()::Union{Dict,Nothing}
-    global CONFIG = PRECOMPILATION_CONFIG
-    return PRECOMPILATION_CONFIG
+function load_dummy_config()::Dict
+    return load_config(PRECOMPILATION_CONFIG)
 end
 
 CONFIG_FILE = "perftest_config.toml"
@@ -253,7 +293,7 @@ PRECOMPILATION_CONFIG = Dict(
         "save_folder" => ".thisshouldnotexist",
         "max_saved_results" => 0,
         "plotting" => true,
-        "verbose" => false,
+        "verbose" => 0,
         "recursive" => false,
         "suppress_output" => true,
         "safe_formulas" => false,
@@ -292,7 +332,7 @@ PRECOMPILATION_CONFIG = Dict(
 )
 
 PARENT_CONFIGS = Dict[]
-CONFIG = DEFAULT
+CONFIG = deepcopy(DEFAULT)
 
 end # module
 
