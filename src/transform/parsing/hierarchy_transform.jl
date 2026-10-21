@@ -76,6 +76,16 @@ function transformTestset(input_expr::Expr, context::Context)
     return result
 end
 
+function backTokenToContextUpdate!(input_expr::QuoteNode, context::Context)
+    # Update context: delete depth level
+    pop!(context._local.depth_record)
+    pop!(context._local.custom_metrics)
+    pop!(context._local.enabled_methodologies)
+
+    addLog("hierarchy", "[TESTSET] Exiting group")
+    return nothing;
+end
+
 
 function transformPerftest(input_expr::Expr, context::Context)
     # Get the elements of interest from the macrocall
@@ -185,17 +195,11 @@ function transformPerftest(input_expr::Expr, context::Context)
                 break
             end
         end
-        # Store additional data
+        # LEGACY DEPRECATION
         test_res.primitives[:autoflop] = $(
-            if Configuration.CONFIG["general"]["autoflops"]
-                quote
-                    PRFTflop(@PRFTCount_ops ($parsed_target))
-                end
-            else
                 quote
                     0
                 end
-            end
         )
 
         # Capture output and return value
@@ -217,3 +221,11 @@ function transformPerftest(input_expr::Expr, context::Context)
 
     end
 end
+
+# TODO
+var"@PRFTBenchmark" = BenchmarkTools.var"@benchmark"
+PRFTBenchmarkGroup = BenchmarkTools.BenchmarkGroup
+using Suppressor
+var"@PRFTSuppress" = Suppressor.var"@suppress"
+var"@PRFTCapture_out" = Suppressor.var"@capture_out"
+var"@_prftest" = Test.var"@test"

@@ -71,8 +71,6 @@ include("execution/macros/configuration.jl")
 include("execution/macros/topology.jl")
 
 # Rules of the ruleset
-include("transform/parsing/hierarchy_transform_test_region.jl")
-include("transform/parsing/hierarchy_transform_benchmark_region.jl")
 include("transform/parsing/hierarchy_transform.jl")
 include("transform/parsing/target_transform.jl")
 include("transform/parsing/formula_transform.jl")

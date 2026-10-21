@@ -50,18 +50,18 @@ using PerfTest
     r = PerfTest.transformFormula(form, ctx)
     @test r == MacroTools.prettify(quote
             if haskey(_PRFT_GLOBALS.custom_benchmarks, :penguin)
-            (_PRFT_GLOBALS.custom_benchmarks[:penguin]).value
+            PerfTest.metricSampledValue(_PRFT_GLOBALS.custom_benchmarks[:penguin])
         else
             if haskey(_PRFT_GLOBALS.builtins, :penguin)
                 _PRFT_GLOBALS.builtins[:penguin]
             else
                 if haskey(test_res.metrics, :penguin)
-                    (test_res.metrics[:penguin]).value
+                    PerfTest.metricSampledValue(test_res.metrics[:penguin])
                 else
                     if haskey(test_res.auxiliar, :penguin)
-                        (test_res.auxiliar[:penguin]).value
+                        PerfTest.metricSampledValue(test_res.auxiliar[:penguin])
                     else
-                        error("Undefined $(:penguin), wrong spelling or not defined in the current context?")
+                        newSymbols(Val(:penguin))(Symbol[])
                     end
                 end
             end

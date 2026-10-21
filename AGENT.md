@@ -41,8 +41,7 @@ src/transform/             ── PARSE TIME ──
                               one file per assertion "methodology" (@perfcompare/@regression/@roofline/@def_eff_mem)
   validation/{errors,formula,macro,export_vars}.jl
                               generic macro-arg validator, error collection, formula symbol table
-  parsing/{rules,hierarchy_transform,hierarchy_transform_test_region,
-            hierarchy_transform_benchmark_region,target_transform,formula_transform}.jl
+  parsing/{rules,hierarchy_transform,target_transform,formula_transform}.jl
                               the actual ASTRule instances + testset/target/formula AST rewriters
 
 src/execution/             ── RUN TIME ──
@@ -93,8 +92,8 @@ Parse-time state, not thread-safe by design (one `PerfTest.ctx` module-global pe
 - `GlobalContext` — whole-file: original path, error collection, valid formula symbols, `in_recursion`.
 - `LocalContext` — scope-local: `depth_record` (testset-nesting stack), `custom_metrics` and
   `enabled_methodologies` (one inner vector per nesting level — pushed/popped as testsets open/close).
-- `Context` wraps both plus `test_tree_expr_builder` (used by the hierarchy-tree builder, see
-  "Known rough edges" regarding `hierarchy_transform_test_region.jl`).
+- `Context` wraps both plus `test_tree_expr_builder` (unused leftover from a removed tree-builder
+  implementation — see "Known rough edges").
 
 ### Generic macro-argument validation (`src/transform/validation/macro.jl`)
 Nearly every DSL macro (`@regression`, `@define_metric`, `@roofline`, `@perftest_config`, ...) is
@@ -186,12 +185,13 @@ reference: `docs/src/configuration_params.MD`.
   (`LocalContext.depth_record::Vector{DepthEntry}` is the real field). These two functions appear
   to be orphaned from a prior refactor — the actual test-naming logic lives inline in
   `transformPerftest` (`parsing/hierarchy_transform.jl`). Verify call sites before relying on them.
-- `src/transform/parsing/hierarchy_transform_test_region.jl` (`updateTestTreeUpwards!` &c.) is an
-  older explicit-stack tree-builder that looks partially superseded by the more direct nested-
-  `@testset` emission in `hierarchy_transform.jl`, but `Context.test_tree_expr_builder` is still a
-  live field — check actual call sites before assuming either path is dead.
-- `src/transform/parsing/hierarchy_transform_benchmark_region.jl`'s `perftestToBenchmark!` and
-  `src/transform/suffix.jl`'s `oldperftestsuffix` are explicitly marked "DEPRECATED: PENDING REMOVAL".
+- The older explicit-stack tree-builder (`hierarchy_transform_test_region.jl` /
+  `hierarchy_transform_benchmark_region.jl`, plus `suffix.jl`'s `oldperftestsuffix`) that predated the
+  "hierarchy fusion" refactor (`f935fc7`) has been removed — `transformTestset`/`transformPerftest`/
+  `backTokenToContextUpdate!` in `hierarchy_transform.jl` are the live implementation.
+  `Context.test_tree_expr_builder` (`datastruct.jl`) is dead state left over from that removal (no
+  remaining writer populates it meaningfully) — a candidate for a future follow-up cleanup, not yet
+  removed.
   `@export_vars` (`validation/export_vars.jl`) is marked `# DEPRECATED` at its rule-definition site.
 - `treeRun`'s final line, `rewrapDoBlockBodies(MacroTools.prettify(module_full))`
   (`src/PerfTest.jl`): `MacroTools.prettify`'s `flatten` pass strips a `:block` wrapper around a

@@ -55,7 +55,7 @@ end
     @test PerfTest.num_errors() == 0
     @test !occursin("[PARSING ERROR]", log)
     @test occursin("METRICS: [:median_time, :custom_metric1, :custom_metric2]", log)
-    @test occursin("LOW_IS_BAD: Bool[0, 0, 1]", log)
+    @test occursin("LOW_IS_BAD: Any[false, false, true]", log)
 end
 
 @testset "System Tests - @perftest_config with string interpolation" begin

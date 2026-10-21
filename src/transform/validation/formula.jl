@@ -38,7 +38,7 @@ function SBMID(metric :: metricID())
         PerfTest.metricSampledValue(test_res.metrics[$(QuoteNode(sym))]) :
         haskey(test_res.auxiliar,$(QuoteNode(sym))) ?
         PerfTest.metricSampledValue(test_res.auxiliar[$(QuoteNode(sym))]) :
-        $(newSymbols(Val(sym))(Symbol[])))
+        newSymbols(Val($(QuoteNode(sym))))(Symbol[]))
     end
 end
 

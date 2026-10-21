@@ -12,7 +12,7 @@ function perftestprefix(ctx::Context)::Expr
         using Test, Dates
         $(mode == MPIMode ? :(using MPI; PerfTest.MPISetup(PerfTest.MPIMode)) : :(nothing))
         $(PerfTest.is_loaded(:Perftest_LIKWIDExt) ? quote using LIKWID end : quote end)
-        using PerfTest: DepthRecord, Metric_Test, Methodology_Result, StrOrSym, Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!, measureMemBandwidth!, addLog, @PRFTBenchmark, PRFTBenchmarkGroup, @PRFTCapture_out, @PRFTCount_ops, PRFTflop, @PRFTSuppress, Test_Result, by_index, regression, Suite_Execution_Result, savePrimitives, main_rank, GlobalSuiteData, @perftestset, PerfTestSet, extractTestResults, saveMethodologyData, Configuration, metricSampledValue, SampledValue
+        using PerfTest: DepthRecord, Metric_Test, Methodology_Result, StrOrSym, Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!, measureMemBandwidth!, addLog, @PRFTBenchmark, PRFTBenchmarkGroup, @PRFTCapture_out, @PRFTSuppress, Test_Result, by_index, regression, Suite_Execution_Result, savePrimitives, main_rank, GlobalSuiteData, @perftestset, PerfTestSet, extractTestResults, saveMethodologyData, Configuration, metricSampledValue, SampledValue
 
         _t_begin = time()
         _GLOBAL_MODE = $mode
@@ -62,10 +62,6 @@ function perftestprefix(ctx::Context)::Expr
 
         # Do machine probe
         $(machineBenchmarks(mode, ctx))
-
-        # Methodology prefixes
-        #$(regressionPrefix(ctx))
-        #$(effMemThroughputPrefix(ctx))
 
     end
 end
