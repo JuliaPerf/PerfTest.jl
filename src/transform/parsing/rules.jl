@@ -96,6 +96,12 @@ perftest_scope_vecf_arg_macro_rule = ASTRule(
     (x, ctx, info) -> scopeVecFArg(x, ctx)
 )
 
+perftest_scope_ref_rule = ASTRule(
+    x -> @capture(x, _[__]),
+    no_validation,
+    (x, ctx, info) -> scopeRef(x, ctx)
+)
+
 perftest_dot_interpolation_rule = ASTRule(
     x -> @capture(x, _._),
     no_validation,

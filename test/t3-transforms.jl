@@ -127,4 +127,8 @@ end
     @test PerfTest.num_errors() == 0
     @test occursin("string(\"Sleep by size\", \"_\", n)", source)
     @test !occursin("[\"Wrapper\", \"Sleep by size\"]", source)
+
+    # The loop variable used as an index in the target must be interpolated, otherwise the
+    # benchmark (evaluated at module scope) cannot see it
+    @test occursin("(\$sleep)((\$durations)[\$n])", string(expr.args[1]))
 end

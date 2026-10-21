@@ -50,6 +50,16 @@ function scopeVecFArg(input_expr::Expr, context::Context)::Expr
         return Expr(:., f, Expr(:tuple, processed_args...))
 end
 
+function scopeRef(input_expr::Expr, context::Context)::Expr
+    # Indexing inside a benchmark target, the collection and the index symbols are interpolated to reach values stored in local scopes (e.g. loop variables)
+
+        @capture(input_expr, a_[idx__])
+
+        interp(s) = isa(s, Symbol) && s ∉ (:end, :begin) ? Expr(:$, s) : s
+
+        return Expr(:ref, interp(a), map(interp, idx)...)
+end
+
 function scopeDotInterpolation(input_expr::Expr, context::Context)::Expr
     # If inside a benchmark target, the left side of the dot is interpolated to prevent failure reaching values stored in local scopes
 

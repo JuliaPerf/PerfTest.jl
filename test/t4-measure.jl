@@ -31,24 +31,28 @@ view = true
 
         @test all([occursin("pass", t) for t in passed])
         @test all([occursin("fail", t) for t in failed])
-        @test length(passed) == 5
-        @test length(failed) == 5
+        # "Perfcompare" is a `@testset ... for duration in [0.1, 0.5]`, saved once per iteration
+        @test length(passed) == 6
+        @test length(failed) == 6
 
+        # Retrieval order within a testset level follows Dict order, not declaration order,
+        # so methodologies are located by content rather than by index
         methodologies = PerfTest.retrievePerfTests(".perftests/ex7-measure-tests.jl_PERFORMANCE.JLD2", get=:methodologies)
-        @test length(methodologies) == 10
-        @test methodologies[1].name == "Effective Memory Throughput"
-        @test 1.95 <= methodologies[1].custom_elements[:abs].value <= 2.0
-        @test methodologies[1].custom_elements[:abs_ref].value == 2.0
+        @test length(methodologies) == 12
 
-        @test methodologies[2].name == "Performance Assertion"
-        @test methodologies[2].metrics[1][1].value == true
-        @test methodologies[2].metrics[1][2].succeeded == true
-        @test methodologies[2].metrics[1][1].name == ":(duration * 0.9 < :median_time < duration * 1.1)"
+        effmem = methodologies[findfirst(m -> m.name == "Effective Memory Throughput", methodologies)]
+        @test 1.95 <= effmem.custom_elements[:abs].value <= 2.0
+        @test effmem.custom_elements[:abs_ref].value == 2.0
+
+        perfcmp_expr = ":(duration * 0.9 < :median_time < duration * 1.1)"
+        perfcmp = filter(m -> m.name == "Performance Assertion" && m.metrics[1][1].name == perfcmp_expr, methodologies)
+        @test length(perfcmp) == 2
+        @test all(m -> m.metrics[1][1].value == true, perfcmp)
+        @test all(m -> m.metrics[1][2].succeeded == true, perfcmp)
     end
 
     # Cleanup
     try
-        error("a")
         rm(".perftests/ex7-measure-tests.jl_PERFORMANCE.JLD2")
         rm(".perftests", recursive=true)
         rm("_t4_tmp_t4_tmp.jl")

@@ -25,7 +25,7 @@ if !(PerfTest.Configuration.load_config() isa Nothing)
         try
             run(`$exename -O3 --startup-file=no $(joinpath(testdir, f))`)
         catch ex
-            nfail += 1
+            global nfail += 1
         end
     end
 
@@ -35,5 +35,6 @@ if !(PerfTest.Configuration.load_config() isa Nothing)
     if nfail == 0
     else
         printstyled("\n$nfail test(s) failed.\n"; bold=true, color=:red)
+        error("$nfail test file(s) failed.")
     end
 end

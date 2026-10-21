@@ -130,6 +130,7 @@ perftest_expression_ruleset = [
     perftest_scope_assignment_macro_rule,
     perftest_scope_arg_macro_rule,
     perftest_scope_vecf_arg_macro_rule,
+    perftest_scope_ref_rule,
     perftest_dot_interpolation_rule,
 ]
 
