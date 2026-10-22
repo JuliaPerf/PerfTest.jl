@@ -172,17 +172,20 @@ end
         d["general"]["verbose"] = 3
         @test C.CONFIG["general"]["verbose"] == 0
 
-        # merge_configs shares nothing with its arguments, even when it rejects the override
+        # merge_configs shares nothing with its arguments, even when it ignores part of the override
         section = Dict("x" => 1)
         merged = C.merge_configs(C.DEFAULT, Dict("newsec" => section))
         @test merged["newsec"] == section
         @test merged["newsec"] !== section
-        rejected = @test_logs (:warn, r"verbose") (:info, r"Malformed") C.merge_configs(C.DEFAULT, Dict("general" => Dict("verbose" => "bad")))
-        @test rejected == C.DEFAULT
-        @test rejected !== C.DEFAULT
+        # A wrongly typed key is ignored on its own, its siblings apply
+        partial = @test_logs (:error, r"general\.verbose") C.merge_configs(C.DEFAULT, Dict("general" => Dict("verbose" => "bad", "max_saved_results" => 2)))
+        @test partial["general"]["verbose"] == C.DEFAULT["general"]["verbose"]
+        @test partial["general"]["max_saved_results"] == 2
+        @test partial !== C.DEFAULT
+        @test partial["general"] !== C.DEFAULT["general"]
 
         # Mutate everything that was handed out, then keep loading and transforming
-        for cfg in (C.load_config(), C.load_dummy_config(), merged, rejected)
+        for cfg in (C.load_config(), C.load_dummy_config(), merged, partial)
             cfg["general"]["verbose"] = 3
             cfg["regression"]["enabled"] = false
         end

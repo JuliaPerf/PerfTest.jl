@@ -42,6 +42,9 @@ function validate_config(config::Dict, schema::Dict)
 end
 
 
+# Names where an entry comes from in the reported errors, e.g. " in the configuration file perftest_config.toml"
+in_source(source::AbstractString) = isempty(source) ? "" : " in $source"
+
 """
 Complete a possibly partial configuration following a schema.
 
@@ -49,12 +52,15 @@ Args:
 - config: Dictionary to complete, e.g. the contents of a configuration file
 - base: Configuration that provides the missing entries
 - schema: Dictionary defining expected structure and types
+- source: Where `config` comes from (e.g. "the configuration file perftest_config.toml"), named in the reported errors
 
 Returns:
 - A new configuration dictionary that shares no data with `config` or `base`. Entries missing from `config`
   or with an incorrect type (reported as an error) take their value from `base`, entries outside the schema are kept.
 """
-function fill_config(config::Dict, base::Dict = DEFAULT, schema::Dict = CONFIG_SHAPE)
+function fill_config(config::Dict, base::Dict = DEFAULT, schema::Dict = CONFIG_SHAPE; source::AbstractString = "")
+    at = in_source(source)
+
     function fill_recursive(cfg, bc, sch, prefix)
         filled = Dict{String,Any}(key => deepcopy(value) for (key, value) in cfg if !haskey(sch, key))
 
@@ -63,7 +69,7 @@ function fill_config(config::Dict, base::Dict = DEFAULT, schema::Dict = CONFIG_S
             if expected_type isa Dict
                 section = get(cfg, key, Dict())
                 if !isa(section, Dict)
-                    @error "Expected a table for configuration section $name, got $(typeof(section)), using its default values"
+                    @error "Expected a table for configuration section $name$at, got $(typeof(section)), using its default values"
                     section = Dict()
                 end
                 filled[key] = fill_recursive(section, bc[key], expected_type, name * ".")
@@ -72,7 +78,7 @@ function fill_config(config::Dict, base::Dict = DEFAULT, schema::Dict = CONFIG_S
             elseif isa(cfg[key], expected_type)
                 filled[key] = deepcopy(cfg[key])
             else
-                @error "Incorrect type for configuration key $name. Expected $(expected_type), got $(typeof(cfg[key])), using the default value $(repr(bc[key]))"
+                @error "Incorrect type for configuration key $name$at. Expected $(expected_type), got $(typeof(cfg[key])), using the default value $(repr(bc[key]))"
                 filled[key] = deepcopy(bc[key])
             end
         end
@@ -84,33 +90,104 @@ end
 
 
 """
-Recursively merge two configs, with values from override_config taking precedence.
-"""
-function merge_configs(base_config::Dict, override_config::Dict)
+Describe an entry of a configuration that is not in the schema, e.g. a misspelled key.
 
-    function _mc(bc::Dict, oc::Dict)::Dict
+Args:
+- key: Name of the entry in its table
+- value: Value of the entry
+- prefix: Full name of its table followed by a dot, empty at the top level
+- schema: Schema of its table
+
+Returns:
+- Its kind and full name, e.g. "key general.verbse" or "section genral", and the entries its table can have,
+  e.g. "The keys of section general are: autoflops, ..."
+"""
+function describe_unknown(key, value, prefix::AbstractString, schema::Dict)::Tuple{String,String}
+    name = prefix * string(key)
+    valid = join(sort!(string.(collect(keys(schema)))), ", ")
+
+    if prefix != ""
+        return "key $name", "The keys of section $(chop(prefix)) are: $valid"
+    elseif value isa Dict
+        return "section $name", "The sections are: $valid"
+    else
+        # Every key belongs to a section, e.g. general.verbose
+        return "key $name outside of any section", "The sections are: $valid"
+    end
+end
+
+"""
+Find the entries of a possibly partial configuration that are not in a schema, described as in `describe_unknown`.
+The contents of an unknown section are not looked into.
+"""
+function unknown_entries(config::Dict, schema::Dict = CONFIG_SHAPE, prefix::String = "")::Vector{Tuple{String,String}}
+    found = Tuple{String,String}[]
+    for key in sort!(collect(keys(config)); by=string)
+        if !haskey(schema, key)
+            push!(found, describe_unknown(key, config[key], prefix, schema))
+        elseif schema[key] isa Dict && config[key] isa Dict
+            append!(found, unknown_entries(config[key], schema[key], prefix * string(key) * "."))
+        end
+    end
+    return found
+end
+
+"""
+Report as errors the entries of a configuration read from `source` (e.g. "the configuration file perftest_config.toml")
+that are not in the schema. They are ignored, the rest of the configuration still applies.
+"""
+function report_unknown_entries(config::Dict, source::AbstractString, schema::Dict = CONFIG_SHAPE)
+    for (entry, valid) in unknown_entries(config, schema)
+        @error "Unknown configuration $entry in $source, ignoring it. $valid"
+    end
+end
+
+
+"""
+Recursively merge two configs, with values from override_config taking precedence.
+
+Each entry of override_config is checked against the schema on its own: one with an incorrect type is reported as an
+error, naming `source` (where override_config comes from) if given, and ignored, the rest still apply. Entries outside
+the schema are kept as they are.
+
+Returns:
+- A new configuration dictionary that shares no data with `base_config` or `override_config`
+"""
+function merge_configs(base_config::Dict, override_config::Dict, schema::Dict = CONFIG_SHAPE; source::AbstractString = "")
+    at = in_source(source)
+
+    function _mc(bc::Dict, oc::Dict, sch, prefix)::Dict
         local merged = deepcopy(bc)
 
         for (key, value) in oc
-            if value isa Dict && haskey(merged, key) && merged[key] isa Dict
-                a = _mc(merged[key], value)
-                merged[key] = a
-            else
+            name = prefix * string(key)
+            # nothing for an entry outside the schema
+            expected = sch isa Dict ? get(sch, key, nothing) : nothing
+
+            if expected === nothing
+                if value isa Dict && haskey(merged, key) && merged[key] isa Dict
+                    merged[key] = _mc(merged[key], value, nothing, name * ".")
+                else
+                    merged[key] = deepcopy(value)
+                end
+            elseif expected isa Dict
+                if value isa Dict
+                    section = get(merged, key, nothing)
+                    merged[key] = _mc(section isa Dict ? section : Dict{String,Any}(), value, expected, name * ".")
+                else
+                    @error "Expected a table for configuration section $name$at, got $(typeof(value)), ignoring it"
+                end
+            elseif value isa expected
                 merged[key] = deepcopy(value)
+            else
+                @error "Incorrect type for configuration key $name$at. Expected $(expected), got $(typeof(value)), ignoring it"
             end
         end
 
         return merged
     end
 
-    merged = _mc(base_config, override_config)
-
-    if validate_config(merged, CONFIG_SHAPE)
-        return merged
-    else
-        @info "Malformed configuration added, ignoring"
-        return deepcopy(base_config)
-    end
+    return _mc(base_config, override_config, schema, "")
 end
 
 
@@ -150,7 +227,8 @@ Args:
 
 Returns:
 - Loaded configuration dictionary. If the file does not exist it is created with the default configuration,
-  if it cannot be parsed it is left untouched and the default configuration is used.
+  if it cannot be parsed it is left untouched and the default configuration is used. Its entries that are not in the
+  schema are reported as errors and ignored, the rest of the file still applies.
 """
 function load_config(filepath::AbstractString = "")::Dict
     path = filepath == "" ? CONFIG_FILE : filepath
@@ -169,14 +247,18 @@ function load_config(filepath::AbstractString = "")::Dict
         DEFAULT
     end
 
-    return load_config(config)
+    source = "the configuration file $path"
+    report_unknown_entries(config, source)
+
+    return load_config(config; source = source)
 end
 
 """
-Make a copy of `config` the current configuration, missing or malformed entries take their default value.
+Make a copy of `config` the current configuration, missing or malformed entries take their default value. `source` is
+where `config` comes from, named in the reported errors.
 """
-function load_config(config :: Dict)::Dict
-    global CONFIG = fill_config(config)
+function load_config(config :: Dict; source::AbstractString = "")::Dict
+    global CONFIG = fill_config(config; source = source)
 
     return CONFIG
 end
@@ -216,8 +298,11 @@ function load_bencher_config(filepath::AbstractString = CONFIG_FILE)
         end
     end
 
+    source = "the configuration file $filepath"
     section = Dict("bencher" => CONFIG_SHAPE["bencher"])
-    CONFIG["bencher"] = fill_config(Dict("bencher" => get(file, "bencher", Dict())), DEFAULT, section)["bencher"]
+    bencher = Dict("bencher" => get(file, "bencher", Dict()))
+    report_unknown_entries(bencher, source, section)
+    CONFIG["bencher"] = fill_config(bencher, DEFAULT, section; source = source)["bencher"]
     return nothing
 end
 
@@ -388,19 +473,43 @@ isInterpolated(value) = value isa AbstractString ? occursin(INTERPOLATION_MARKER
 interpolationPreview(raw) = raw isa Expr && raw.head === :string ?
                             join(a isa AbstractString ? a : INTERPOLATION_MARKER for a in raw.args) : raw
 
+# Names the @perftest_config being transformed in its parse errors
+configurationMacroSource(ctx::Context) = "the @perftest_config of recipe $(ctx._global.original_file_path)"
+
 """
-Remove from `config`, parsed from an interpolated @perftest_config string, the keys whose value is interpolated.
-Interpolation in a key or a table name is reported as a parse error, in which case it returns false.
+Check `config`, parsed from a @perftest_config string, against the configuration schema. Each entry that is not in it
+(along with the entries its table can have) or that has an incorrect type is reported as a parse error and removed, so
+the rest still applies to the transform. The keys whose value is interpolated are removed as well, they take their value
+when the suite is executed. Interpolation in a key or a table name is reported as a parse error, in which case it
+returns false.
 """
-function removeInterpolatedKeys!(config::Dict, ctx::Context, prefix::String = "")::Bool
-    for key in collect(keys(config))
+function validateConfigurationMacro!(config::Dict, ctx::Context, schema::Dict = Configuration.CONFIG_SHAPE, prefix::String = "")::Bool
+    source = configurationMacroSource(ctx)
+    # Sorted so the errors are reported in a stable order
+    for key in sort!(collect(keys(config)))
         name = prefix * key
+        value = config[key]
         if occursin(INTERPOLATION_MARKER, key)
-            throwParseError!("Interpolation in @perftest_config is only supported inside string values, found in the key or table name $(replace(name, INTERPOLATION_MARKER => "\$(...)"))", ctx)
+            throwParseError!("Interpolation in $source is only supported inside string values, found in the key or table name $(replace(name, INTERPOLATION_MARKER => "\$(...)"))", ctx)
             return false
-        elseif config[key] isa Dict
-            removeInterpolatedKeys!(config[key], ctx, name * ".") || return false
-        elseif isInterpolated(config[key])
+        elseif !haskey(schema, key)
+            entry, valid = Configuration.describe_unknown(key, value, prefix, schema)
+            throwParseError!("Unknown configuration $entry in $source. $valid", ctx)
+            delete!(config, key)
+        elseif schema[key] isa Dict
+            if value isa Dict
+                validateConfigurationMacro!(value, ctx, schema[key], name * ".") || return false
+            else
+                throwParseError!("Expected a table for configuration section $name in $source, got $(typeof(value))", ctx)
+                delete!(config, key)
+            end
+        elseif !isa(value, schema[key])
+            # Interpolation is only supported inside string values, so an interpolated value is always a string, known
+            # to have the wrong type here already
+            given = isInterpolated(value) ? "an interpolated $(typeof(value)) (interpolation is only supported inside string values)" : typeof(value)
+            throwParseError!("Incorrect type for configuration key $name in $source. Expected $(schema[key]), got $given", ctx)
+            delete!(config, key)
+        elseif isInterpolated(value)
             delete!(config, key)
             addLog("general", "Configuration key $name is interpolated, it will take its value when the suite is executed")
         end
@@ -408,7 +517,13 @@ function removeInterpolatedKeys!(config::Dict, ctx::Context, prefix::String = ""
     return true
 end
 
-function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
+function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Union{Dict,Nothing})::Expr
+
+    # Its validation already reported a missing argument or one that is not a string literal, e.g. a variable, whose
+    # value is unknown during the transform
+    if info === nothing || !haskey(info, Symbol(""))
+        return quote end
+    end
 
     raw = info[Symbol("")]
     interpolated = raw isa Expr && raw.head === :string
@@ -423,11 +538,11 @@ function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Exp
     catch e
         e isa TOML.ParserError || rethrow()
         message = replace(sprint(showerror, e), INTERPOLATION_MARKER => "\$(...)")
-        throwParseError!("Invalid TOML in @perftest_config$(interpolated ? " (interpolation is only supported inside string values)" : ""): $message", ctx)
+        throwParseError!("Invalid TOML in $(configurationMacroSource(ctx))$(interpolated ? " (interpolation is only supported inside string values)" : ""): $message", ctx)
         return quote end
     end
 
-    if interpolated && !removeInterpolatedKeys!(parsed, ctx)
+    if !validateConfigurationMacro!(parsed, ctx)
         return quote end
     end
 
@@ -483,12 +598,14 @@ end
 
 """
   Used on a generated test suite to make, while it executes, the configuration changes made during its generation:
-  the whole configuration it was generated with at its beginning, then each `@perftest_config` where it appears
+  the whole configuration it was generated with at its beginning, then each `@perftest_config` where it appears.
+  An entry with an incorrect type, which the transform reports as a parse error so only a suite generated by a different
+  version of the package can have, is reported as an error and ignored, the rest still apply (see merge_configs)
 """
 function _perftest_config(config_string::String)
     # Parse, and merge
     parsed = TOML.parse(config_string)
 
-    Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
+    Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed; source = "a configuration call of the executing suite")
 end
 

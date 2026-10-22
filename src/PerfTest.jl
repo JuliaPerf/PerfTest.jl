@@ -208,7 +208,7 @@ function treeRun(path::AbstractString; config=nothing)
             config = Configuration.load_config()
         else
             _config = Configuration.load_config()
-            config = Configuration.merge_configs(_config, config)
+            config = Configuration.merge_configs(_config, config; source = "the config argument of PerfTest.transform")
             Configuration.load_config(config)
         end
     end
@@ -305,7 +305,7 @@ function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, 
     Configuration.load_config()
     # Override with config argument
     if config isa Dict
-        config = Configuration.merge_configs(Configuration.CONFIG, config)
+        config = Configuration.merge_configs(Configuration.CONFIG, config; source = "the config argument of runperftests")
     else
         config = Configuration.CONFIG
     end
