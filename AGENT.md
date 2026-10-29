@@ -36,7 +36,7 @@ src/transform/             ── PARSE TIME ──
   prefix.jl / suffix.jl      boilerplate injected at top/bottom of the generated suite module
   auxiliar.jl                AST utility grab-bag (see below) — included LAST, used throughout
   dummy.jl                   trivial fixture recipe, used only by @compile_workload
-  metrics/{primitives,custom}.jl        built-in metrics (median_time, autoflop, ...) + @define_metric machinery
+  metrics/{primitives,custom}.jl        built-in metrics (median_time, min_time, ...) + @define_metric machinery
   methodologies/{common,manual,regression,roofline,mem_bandwidth}.jl
                               one file per assertion "methodology" (@perfcompare/@regression/@roofline/@def_eff_mem)
   validation/{errors,formula,macro,export_vars}.jl
@@ -111,12 +111,17 @@ working around Julia's invariant generic typing. **Validation runs against the r
 when the fallback path is used, not the raw AST — keep this in mind when adding new parameter types.
 
 ### Formula mini-language (`src/transform/validation/formula.jl`, `parsing/formula_transform.jl`)
-`@define_metric`/`@roofline`/etc. bodies accept quoted-symbol "formulas" (e.g. `:autoflop`,
-`:median_time`, dotted chains like `:flop.double.vector_512` for LIKWID counters). `formula_symbols`
+`@define_metric`/`@roofline`/etc. bodies accept quoted-symbol "formulas" (e.g. `:min_time`,
+`:median_time`, dotted chains like `:flop.double.vector_512` for LIKWID counters). `:autoflop` is still in the
+whitelist but is legacy: the primitive is hard-wired to 0 (`transformPerftest`), so every use of it (in a formula, as a
+`@regression` metric, or `general.autoflops = true` for a `@roofline` without `actual_flops`) is reported as a parse
+error by `reportAutoflopUse!` (`validation/formula.jl`); the key alone is not. `formula_symbols`
 is the built-in whitelist; `transformFormula`/`SBMID` resolve a symbol at runtime by checking, in
 order: `_PRFT_GLOBALS.custom_benchmarks` → builtins → `test_res.metrics` → `test_res.auxiliar` →
 (if LIKWID loaded) hardware counters. Dotted chains are collapsed by `collectSymbolChain` before
-substitution so genuine field access isn't misparsed as a metric reference.
+substitution so genuine field access isn't misparsed as a metric reference. A custom metric or benchmark
+(`@define_metric`/`@auxiliary_metric`/`@define_benchmark`) is referred to by its optional `symbol = :s` parameter, or
+`Symbol(name)` when it is absent (`metricSymbol` in `metrics/custom.jl`).
 
 ### Methodologies and scope inheritance (`src/transform/methodologies/`)
 Each methodology (regression/roofline/perfcompare/mem-bandwidth) stores a `MethodologyParameters`
@@ -201,6 +206,31 @@ reference: `docs/src/configuration_params.MD`.
   instead of one tuple once written to the generated suite file. `rewrapDoBlockBodies`
   (`src/transform/auxiliar.jl`) walks the post-`prettify` tree and restores the block. Any future
   change to how the generated suite is prettified/serialized must preserve this fix.
+- Thread lists in `@perftest_threads` (`execution/machine_topology.jl` `Topology`, `execution/launch_suite.jl`
+  `Launch`) are not fully supported, though the transform accepts them:
+  - A mixed list such as `[(1,1), :numa]` passes `validateArrangement` (each element is valid), but there is no
+    `literallizeArrangement(::Vector{Any})`: the generated suite throws a `MethodError` (its `literallizeArrangement`
+    call, see `parseThreadsMacro`, is outside the `try`), and so do `Launch.retrieveThreadConfig` and `suiteCommand`,
+    so `runperftests` cannot launch it.
+  - A list of tuples such as `[(1,1),(1,1//2)]` is literalized element-wise into a `Vector` of tuples, which
+    `suiteCommand` then multiplies (`configurations[1] * configurations[2]`, a `MethodError` for two tuples).
+  - A manual pinning list rejects CPU id 0 at transform (`validateArrangement(::Vector{<:Integer})`, "must be
+    positive integers"), although hwloc's OS indices start at 0, so CPU 0 can never be pinned. An id the machine
+    does not have throws `MethodError: min(::Flatten)` at execution (`literallizeArrangement(::Vector{<:Integer})`)
+    instead of its intended message.
+  - A manual pinning list `[1, 2, 3]` is launched with `--threads=2`, the product of its first two ids (the same
+    `configurations[1] * configurations[2]`), instead of its length, and `[1]` throws a `BoundsError`.
+  - `Launch.suiteArrangementOrigin` (behind `suiteArrangement`/`retrieveThreadConfig`/`suiteCommand`) takes the first
+    `specs = …` assignment a prewalk of the whole suite finds as the `@perftest_threads` (whose expansion assigns
+    `specs = <arg>` in a `let`) and `eval`s it in `Launch`. A user assignment `specs = (2, 2)` anywhere in the recipe
+    before the `@perftest_threads`, or in a recipe without one, therefore sets the arrangement the suite is launched with.
+- MPI mode left from a previous transform: in `transformWith` (`src/PerfTest.jl`, the MPI decision), when `MPI.enabled`
+  is true but `Main.MPI` is not defined, it warns "defaulting to non-MPI mode" but does not reset the global `mode`,
+  which keeps its previous value. That is `NormalMode` unless something left `MPIMode`: the deprecated `toggleMPI()`, or
+  `MPItransform`, which toggles back after the transform and so leaves `MPIMode` when the transform set `NormalMode`.
+  The transform then generates MPI code despite the warning and, without the MPI extension loaded, throws
+  `MethodError: machineBenchmarks(::Type{MPIMode}, ::Context)` from the prefix. The MPI test of `t14-decisions.jl`
+  asserts `NormalMode` only because the previous mode was `NormalMode`.
 - `MacroParameter` (`datastruct.jl`) has a long stack of positional-argument constructors kept
   purely for backward compatibility with existing macro-parameter definitions under
   `src/execution/macros/` — prefer the keyword constructor for new code, don't remove the old ones

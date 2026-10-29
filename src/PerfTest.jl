@@ -187,31 +187,64 @@ function setupContext(path::AbstractString)
 end
 
 """
+Load the configuration a top level transform starts from, and make it the current one: the configuration file,
+overridden by `config` (e.g. the config argument of runperftests, `source` names it in the reported errors), overridden
+by `overrides` (`overrides_source` names them). The configuration file is loaded, and its errors reported, once. A top
+level transform never inherits the configuration of a previous one. Where each value comes from is recorded in
+Configuration.SOURCES.
+"""
+function loadTransformConfig(config::Union{Dict,Nothing}, source::AbstractString, overrides::Dict = Dict{String,Any}(),
+                             overrides_source::AbstractString = "the keyword arguments of runperftests")::Dict
+    empty!(Configuration.PARENT_CONFIGS)
+    empty!(Configuration.PARENT_SOURCES)
+    if init_dummy_flag
+        return Configuration.load_dummy_config()
+    end
+
+    loaded = Configuration.load_config()
+    sources = copy(Configuration.SOURCES)
+    if config !== nothing
+        Configuration.report_unknown_entries(config, source)
+        loaded = Configuration.merge_configs(loaded, config; source = source)
+        Configuration.record_sources!(sources, config, source)
+    end
+    if !isempty(overrides)
+        loaded = Configuration.merge_configs(loaded, overrides)
+        Configuration.record_sources!(sources, overrides, overrides_source)
+    end
+    loaded = Configuration.load_config(loaded)
+    merge!(Configuration.SOURCES, sources)
+    return loaded
+end
+
+"""
 This method implements the transformation that converts a recipe script into a fully-fledged testing suite.
 The function will return a Julia expression with the resulting performance testing suite. This can be then executed or saved in a file for later usage.
 # Arguments
  - `path` the path of the script to be transformed.
 
+# Keyword arguments
+ - `config` configuration parameters that override the configuration file, see runperftests.
+
 """
-function treeRun(path::AbstractString; config=nothing)
+function treeRun(path::AbstractString; config::Union{Dict,Nothing}=nothing)
+    return transformWith(path, config, "the config argument of PerfTest.transform")
+end
+
+"""
+Transform the recipe at `path`, see `treeRun`. `source` names where `config` comes from in the reported errors,
+`overrides` take priority over it (e.g. the verbose argument of runperftests, `overrides_source` names them).
+"""
+function transformWith(path::AbstractString, config::Union{Dict,Nothing}, source::AbstractString, overrides::Dict = Dict{String,Any}(),
+                       overrides_source::AbstractString = "the keyword arguments of runperftests")
 
     # Set log directory
     setLogFolder()
     # Clear logs
     #clearLogs()
-    # Load configuration, a top level transform never inherits the configuration of a previous one
-    empty!(Configuration.PARENT_CONFIGS)
-    if init_dummy_flag
-        config = Configuration.load_dummy_config()
-    else
-        if config === nothing
-            config = Configuration.load_config()
-        else
-            _config = Configuration.load_config()
-            config = Configuration.merge_configs(_config, config; source = "the config argument of PerfTest.transform")
-            Configuration.load_config(config)
-        end
-    end
+    # The configuration the transform starts from, a @perftest_config changes it from its place in the recipe onwards
+    config = loadTransformConfig(config, source, overrides, overrides_source)
+    initThreadSetting!()
 
     if config["general"]["verbose"] >= 1
         verboseOutput()
@@ -241,10 +274,13 @@ function treeRun(path::AbstractString; config=nothing)
 
     setupContext(path)
 
-    Topology.setupLog(addLog, x -> throwParseError!(x, ctx))
+    Topology.setupLog(addLog, x -> throwParseError!("Invalid thread arrangement: $x", ctx))
 
     # Run through AST and build new expressions
     full = _treeRun(input_expr, ctx)
+
+    # The thread setting the launcher will use, once every configuration call is known
+    validateThreadSetting!(ctx)
 
     # Insert suffix
     #full = MacroTools.postwalk(ruleSet(ctx, [suffix_macro_rule]), full)
@@ -263,8 +299,10 @@ function treeRun(path::AbstractString; config=nothing)
     end
 
 
-    if config["general"]["verbose"] >= 2
-        saveLogFolder()
+    # The configuration in force at the end of the recipe, the included recipes give theirs back after them. Nothing is
+    # saved if general.logs_enabled is false there
+    if Configuration.CONFIG["general"]["verbose"] >= 2
+        saveLogFolder(Configuration.CONFIG)
     end
 
     return rewrapDoBlockBodies(MacroTools.prettify(module_full))
@@ -283,14 +321,16 @@ end
 
     # Keyword arguments
         `execute::Bool = true`             : whether the resulting suite should be executed right after generation, by default true. If false, the resulting suite will only be saved in a file with the name of the input with and added "_perfsuite.jl" suffix.
-        `verbose::Int  = 0`                : level of verbosity, from 0 to 3 higher is more verbose
+        `verbose::Union{Int,Nothing} = nothing` : level of verbosity, from 0 to 3 higher is more verbose. When given it overrides general.verbose of the config argument and of the configuration file, otherwise their value is used.
             0 : minimal output, only warnings and errors
             1 : general information about the transformation and execution process
             2 : detailed information about the transformation and execution process, logs are saved in a folder
             3 : debug level, very detailed information about the transformation and execution process
         `clean  ::Bool = false`            : whether to leave the config file, the output test suite and the test results or delete everything after the suite has been executed, !!! including previously done results and logs CAREFUL !!!.
-        `config  ::Dict{String,Any} = {}`   : other configuration parameters to override the configuration file. Configuration priority: config macro > this argument > configuration file. See configuration for more info.
-    
+        `config  ::Union{Dict{String,Any},Nothing} = nothing` : other configuration parameters to override the configuration file. Configuration priority: config macro > verbose argument > this argument > configuration file. See configuration for more info.
+        `interpreter_flags::AbstractString = ""` : flags of the julia process that executes the suite, split at whitespace and passed in order (e.g. "-O3 -L setup.jl"), --check-bounds=no and --project=. unless they set them. They cannot set the number of threads (-t, --threads), which comes from the thread setting of the suite (general.numas and general.threads_per_numa, or a @perftest_threads), it is an error.
+        `suite_flags::AbstractString = ""` : passed to the suite as a single argument, nothing if empty.
+
 
     # (!) Do not mistake this method for the perftest macro, which is used to set test targets inside the recipe script.
 
@@ -300,24 +340,11 @@ end
 
     See the macro reference for more details about the recipe script format and the possible configurations.
 """
-function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, clean::Bool=false, config::Union{Dict,Nothing}=nothing, interpreter_flags::AbstractString="", suite_flags::AbstractString="")
-    # Load config file
-    Configuration.load_config()
-    # Override with config argument
-    if config isa Dict
-        config = Configuration.merge_configs(Configuration.CONFIG, config; source = "the config argument of runperftests")
-    else
-        config = Configuration.CONFIG
-    end
-    # Override with parameters
-    configp = Dict{String,Any}()
-    configp["general"] = Dict{String,Any}()
-    if config["general"]["verbose"] != verbose
-        configp["general"]["verbose"] = verbose
-    end
-    config = Configuration.merge_configs(config, configp)
+function runperftests(file::AbstractString; execute::Bool=true, verbose::Union{Int,Nothing}=nothing, clean::Bool=false, config::Union{Dict,Nothing}=nothing, interpreter_flags::AbstractString="", suite_flags::AbstractString="")
+    # Only a verbose argument that is given overrides the configuration
+    overrides = verbose === nothing ? Dict{String,Any}() : Dict{String,Any}("general" => Dict{String,Any}("verbose" => verbose))
 
-    expr = treeRun(file, config=config)
+    expr = transformWith(file, config, "the config argument of runperftests", overrides, "the verbose argument of runperftests")
     name = replace(file, r"\.jl$" => "_perfsuite.jl")
     saveExprAsFile(expr, name)
     if num_errors(ctx) == 0
@@ -336,7 +363,7 @@ function runperftests(file::AbstractString; execute::Bool=true, verbose::Int=0, 
         # Only created if the suite saved its results
         rm("./$(Configuration.CONFIG["general"]["save_folder"])", recursive=true, force=true)
         if ispath("./.perftest_logs")
-            rm("./perftest_logs", recursive=true)
+            rm("./.perftest_logs", recursive=true)
         end
     end
 end
@@ -374,6 +401,8 @@ PrecompileTools.@compile_workload begin
         # Leave no state of the dummy transform in the package image
         Configuration.load_config(Configuration.DEFAULT)
         empty!(Configuration.PARENT_CONFIGS)
+        empty!(Configuration.PARENT_SOURCES)
+        empty!(THREAD_SETTING)
         global ctx = nothing
         global LOG_FOLDER = ""
         Topology.setupLog(Topology.defaultAddLog, Topology.defaultThrowParseError!)

@@ -13,7 +13,7 @@ Captures a set of configuration parameters that will override the default config
 This macro will set the new configuration keys for the current file and any other included files. If the included files have the macro as well, those macros will override the configuration locally for each file.
 
 # Validation:
-The keys are checked when the recipe is transformed. A section or key that does not exist (the error lists the existing ones), a key with an incorrect type and invalid TOML are reported as parse errors, so no suite is generated. The valid keys of the macro still apply to the rest of the transform, so its other errors are reported as well.
+The keys are checked when the recipe is transformed. A section or key that does not exist (the error lists the existing ones), a key with an incorrect type, a key that is used before the recipe is read (`MPI.enabled`, set it in the configuration file or with the config argument of runperftests or PerfTest.transform instead) and invalid TOML are reported as parse errors, so no suite is generated. The valid keys of the macro still apply to the rest of the transform, so its other errors are reported as well.
 
 # Interpolation:
 Values can be interpolated inside TOML strings, e.g. `dedicated_reference_file = 'ref_\$(gethostname()).JLD2'`. Those keys take their value when the generated suite is executed. An interpolated value is always a string, so only keys that take a String can be interpolated.

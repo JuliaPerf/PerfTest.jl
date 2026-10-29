@@ -195,7 +195,7 @@ auxiliary_metric_rule = ASTRule(
 
 define_benchmark_rule = ASTRule(
     x -> escCaptureGetblock(x, Symbol("@define_benchmark")) !== nothing,
-    define_metric_validation,
+    define_benchmark_validation,
     (x, ctx, info) -> defineCustomBenchmark(ctx, info)
 )
 

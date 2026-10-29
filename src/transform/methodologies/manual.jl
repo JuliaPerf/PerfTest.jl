@@ -4,6 +4,9 @@ function onPerfcmpDefinition(expr :: ExtendedExpr, ctx :: Context, info)
     if info isa Nothing || !(Configuration.CONFIG["perfcompare"]["enabled"])
         return
     end
+    if usesAutoflop(info[Symbol("")])
+        reportAutoflopUse!("The @perfcompare $(info[Symbol("")])", "uses :autoflop", ctx)
+    end
 
 
     params = Dict{Symbol, Any}(

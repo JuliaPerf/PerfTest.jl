@@ -31,9 +31,14 @@ end
 
 """
   Moves the temporal log directory to the persistent directory where results are saved
-  and dumps all IOStream buffers to their respective log files
+  and dumps all IOStream buffers to their respective log files.
+
+  Nothing is written, neither the folder nor the files, when general.logs_enabled is false in `configuration`.
 """
-function saveLogFolder()
+function saveLogFolder(configuration::Dict = Configuration.CONFIG)
+    if !(configuration["general"]["logs_enabled"])
+        return
+    end
     # Create the directory if it doesn't exist
     if !isdir(LOG_FOLDER)
         mkpath(LOG_FOLDER)
@@ -94,13 +99,13 @@ function dumpLogs(channel::Int=0)
         for ch in LOGS.channels
             println("=== Channel: $ch ===")
             if haskey(LOGS.io_streams, ch)
-                print(String(copy(LOGS.io_streams[ch].data)))
+                print(String(take!(copy(LOGS.io_streams[ch]))))
             end
         end
     elseif 1 <= channel <= length(LOGS.channels)
         ch = LOGS.channels[channel]
         if haskey(LOGS.io_streams, ch)
-            print(String(copy(LOGS.io_streams[ch].data)))
+            print(String(take!(copy(LOGS.io_streams[ch]))))
         end
     end
 end
@@ -115,14 +120,14 @@ function dumpLogsString(channel::Int=0)
         for ch in LOGS.channels
             all *= "=== Channel: $ch ===\n"
             if haskey(LOGS.io_streams, ch)
-                all *= String(copy(LOGS.io_streams[ch].data))
+                all *= String(take!(copy(LOGS.io_streams[ch])))
             end
         end
         return all
     elseif 1 <= channel <= length(LOGS.channels)
         ch = LOGS.channels[channel]
         if haskey(LOGS.io_streams, ch)
-            return String(copy(LOGS.io_streams[ch].data))
+            return String(take!(copy(LOGS.io_streams[ch])))
         end
     end
     return ""

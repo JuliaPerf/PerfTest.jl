@@ -15,8 +15,8 @@ using ExampleModule : innerProduct, Test, PerfTest   # Importing the target and 
 @testset "Roofline Test" begin
     a,b = rand(1e6),rand(1e6)
 
-    @roofline actual_flops=:autoflop target_ratio=0.5
-        :autoflop / (2 * 8 * 1e6)
+    @roofline actual_flops=2e6 target_ratio=0.5 begin
+        2e6 / (2 * 8 * 1e6)
     end
 
     @perftest innerProduct(a, b)
@@ -27,7 +27,7 @@ end
 The following things can be appreciated in this example:
 1. This is a combined functional and performance unit test suite (there is both @test and @perftest present)
 2. The target of the perftest is the innerProduct function
-3. The performance test methodology is a roofline model, the developer expects innerProduct to perform at least at 50% of the maximum flop performance set by the roofline. The operational intensity is defined on the main block of the macro. :autoflop is a symbol that enables the use of an automatic flop count feature.
+3. The performance test methodology is a roofline model, the developer expects innerProduct to perform at least at 50% of the maximum flop performance set by the roofline. The operational intensity is defined on the main block of the macro, and `actual_flops` gives the flop count of the target (2 flops per element of the vectors), from which the attained flops are computed. Automatic flop counting (`:autoflop`) is outdated and not supported, so the flop count is always given explicitly.
 
 ## How to use, a first PerfTest.jl recipe
 

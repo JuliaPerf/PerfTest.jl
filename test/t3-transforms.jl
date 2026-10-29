@@ -40,6 +40,8 @@ checks = [
     for (i, source) in enumerate(sources)
         expr = PerfTest.transform(source)
         log = PerfTest.dumpLogsString()
+        # test/perftest_config.toml sets general.autoflops = true, ex3-roofline.jl gives its flop count
+        @test PerfTest.num_errors() == 0
 
         for check in checks[i]
             @test occursin(check, log)

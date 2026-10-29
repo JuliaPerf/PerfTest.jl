@@ -16,8 +16,9 @@ end
 @testset "FIRST LEVEL" begin
 	  @testset "SECOND LEVEL" begin
 
-        @roofline actual_flops=:autoflop target_ratio=0.5 begin
-	          :autoflop / 4
+        # The flop count is given, automatic flop counting (:autoflop) is not supported
+        @roofline actual_flops=40 target_ratio=0.5 begin
+	          40 / 4
         end
         x = @perftest testfun(10)
 

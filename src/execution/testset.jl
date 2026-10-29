@@ -244,6 +244,9 @@ function testsSucceeded(ts::PerfTestSet)
     return true
 end
 
+# A top level `@testset ... for` gives a vector with the testset of each iteration
+testsSucceeded(tss::AbstractVector) = all(testsSucceeded, tss)
+
 function get_test_errors(ts::PerfTestSet)
     errors = Error[]
     for t in ts.results

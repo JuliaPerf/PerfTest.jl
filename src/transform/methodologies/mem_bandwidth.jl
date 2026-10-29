@@ -11,6 +11,10 @@ function onMemoryThroughputDefinition(formula::ExtendedExpr, ctx::Context, info)
     if !(Configuration.CONFIG["memory_bandwidth"]["enabled"])
         return
     end
+    # Already transformed, :autoflop is still there, as test_res.primitives[:autoflop]
+    if usesAutoflop(formula)
+        reportAutoflopUse!("The @define_eff_memory_throughput", "uses :autoflop in its formula", ctx)
+    end
     if haskey(info, :ratio)
     else
         info[:ratio] = Configuration.CONFIG["memory_bandwidth"]["default_threshold"]

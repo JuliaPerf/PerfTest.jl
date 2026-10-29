@@ -12,10 +12,26 @@ end
 
 Called when a roofline macro is detected, sets up the roofline methodology
 
+Automatic flop counting is not supported (see AUTOFLOP_UNSUPPORTED): :autoflop in its formulas, or no actual_flops while
+general.autoflops is true, is reported as a parse error.
+
 """
 function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
     if !(Configuration.CONFIG["roofline"]["enabled"])
         return
+    end
+
+    autoflop_uses = [what for (what, expr) in (("actual_flops", get(info, :actual_flops, nothing)),
+                                               ("its operational intensity formula", formula)) if usesAutoflop(expr)]
+    if !isempty(autoflop_uses)
+        reportAutoflopUse!("The @roofline", "uses :autoflop in $(join(autoflop_uses, " and in "))", ctx;
+                           instead = "Pass the flop count of the target to @roofline with actual_flops instead (a number, " *
+                                     "or a formula as its operational intensity one), and write it in place of :autoflop in its formulas.")
+    elseif !haskey(info, :actual_flops) && Configuration.CONFIG["general"]["autoflops"]
+        reportAutoflopUse!("The @roofline", "gives no actual_flops, so with general.autoflops = true (from " *
+                           "$(Configuration.source_of("general.autoflops"))) the flops of its target would be counted automatically", ctx;
+                           instead = "Pass the flop count of the target to @roofline with actual_flops instead (a number, " *
+                                     "or a formula as its operational intensity one).")
     end
 
     # Adds to the inner scope the request to build the methodology and its needed metrics
@@ -30,11 +46,7 @@ function onRooflineDefinition(formula :: ExtendedExpr, ctx :: Context, info)
         local form = transformFormula(quote
             $(info[:actual_flops]) / :median_time
         end, ctx)
-        # Can we put the autoflops or shall we construct a partial model?
-    elseif Configuration.CONFIG["autoflops"]
-        local form = transformFormula(quote
-	          :autoflop / :median_time
-        end, ctx)
+        # Without it, general.autoflops = true is reported above, automatic flop counting is not supported
     else
         # Incomplete model
         local form = quote

@@ -8,6 +8,8 @@ function perftestsuffix(context :: Context)
             #@info TS
 
             testresdict = Dict{String,Union{Dict,Test_Result}}()
+            # A top level `@testset ... for` gives the testset of each iteration, each one is saved under its name and
+            # iterator as a nested loop testset is (see extractTestResults), which the regression lookup keys follow
             if TS isa Vector
                 benchmarks = PerfTest.newBenchmarkGroup()
                 for ts in TS
@@ -34,8 +36,12 @@ function perftestsuffix(context :: Context)
                 )
             end
 
+            # Configuration.CONFIG is here the configuration the suite was generated with, as it stands at this point
+            # of the recipe (see treeRun)
+            if !PerfTest.testsSucceeded(TS)
+                println("Some tests failed or errored.")
             # No fails no errors, regression enabled and different regression file path
-            if PerfTest.testsSucceeded(TS) && Configuration.CONFIG["regression"]["enabled"] && regression_path != _PRFT_GLOBALS.datafile_path
+            elseif Configuration.CONFIG["general"]["save_results"] && Configuration.CONFIG["regression"]["enabled"] && regression_path != _PRFT_GLOBALS.datafile_path
                 println("All performance tests have passed. Values will be registered as reference for regression testing.")
                 push!(regression_file.results, newres)
                 # Deal with recorded results
@@ -50,25 +56,28 @@ function perftestsuffix(context :: Context)
                     end
                 end
                 PerfTest.saveDataFile(regression_path, regression_file)
-            else
-                println("Some tests failed or errored.")
-            end 
-            # Deal with recorded results
-            let
-                push!(_PRFT_GLOBALS.datafile.results, newres)
-                res_num = length(_PRFT_GLOBALS.datafile.results)
+            end
+            # Kept in memory even when it is not saved, e.g. for the Bencher export below
+            push!(_PRFT_GLOBALS.datafile.results, newres)
+            if Configuration.CONFIG["general"]["save_results"]
+                # Deal with recorded results
+                let
+                    res_num = length(_PRFT_GLOBALS.datafile.results)
 
-                if (excess = $(Configuration.CONFIG["general"]["max_saved_results"]) - res_num) <= 0
-                    PerfTest.p_yellow("[ℹ]")
-                    println(" Results File: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
-                    for i in 1:(-1*excess+1)
-                        popfirst!(_PRFT_GLOBALS.datafile.results)
+                    if (excess = $(Configuration.CONFIG["general"]["max_saved_results"]) - res_num) <= 0
+                        PerfTest.p_yellow("[ℹ]")
+                        println(" Results File: Exceeded maximum recorded results. The oldest $(-1*excess + 1) result/s will be removed.")
+                        for i in 1:(-1*excess+1)
+                            popfirst!(_PRFT_GLOBALS.datafile.results)
+                        end
                     end
                 end
+                # Export as json
+                #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
+                PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
+            else
+                println("The results of this execution have not been saved (general.save_results is false).")
             end
-            # Export as json
-            #BencherInterface.exportToJSON(_PRFT_GLOBALS.datafile_path * ".json", newres)
-            PerfTest.saveDataFile(_PRFT_GLOBALS.datafile_path, _PRFT_GLOBALS.datafile)
             println("[✓] $path Performance tests have been finished (elapsed $(newres.elapsed) s)")
 
             # Bencher export using the REST API

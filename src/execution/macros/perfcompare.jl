@@ -20,7 +20,7 @@ This macro is used to manually declare performance test conditions.
  - `:median_time` : will be substituted by the median time the target took to execute in the benchmark.
  - `:minimum_time`: will be substituted by the minimum time the target took to execute in the benchmark.
  - `:ret_value` : will be substituted by the return value of the target.
- - `:autoflop`: will be substituted by the FLOP count the target.
+ - `:autoflop`: not supported, automatic flop counting is outdated (it is always 0), a formula that uses it is reported as a parse error. Write the flop count of the target explicitly instead.
  - `:printed_output` : will be substituted by the standard output stream of the target.
  - `:iterator` : will be substituted by the current iterator value in a loop test set.
  -  Any symbol representing a custom metric or benchmark (e.g metric with name="example" -> :example)

@@ -323,22 +323,33 @@ function literallizeArrangement(arrgmt::ArrangementSpec)::Tuple{Integer,Integer}
 end
 
 # Autovectorized
-function validateArrangement(arrgmts::Vector)::Bool
-    return all(validateArrangement.(arrgmts))
+function validateArrangement(arrgmts::Vector, report::Function = throwParseError!)::Bool
+    if isempty(arrgmts)
+        report("an empty list has no arrangement to use.")
+        return false
+    end
+    # Each one is checked, so every invalid one is reported
+    return all([validateArrangement(arrgmt, report) for arrgmt in arrgmts])
 end
 
-function validateArrangement(arrgmts::Vector{N})::Bool where {N<:Integer}
-    return all(0 .< arrgmts)
+function validateArrangement(arrgmts::Vector{N}, report::Function = throwParseError!)::Bool where {N<:Integer}
+    invalid = filter(id -> id <= 0, arrgmts)
+    if !isempty(invalid)
+        report("$arrgmts, the thread ids of a manual pinning must be positive integers, got $(join(invalid, ", ")).")
+        return false
+    end
+    return true
 end
 
 """
-    validateArrangement(arrgmt::ArrangementSpec) -> Bool
+    validateArrangement(arrgmt, report = throwParseError!) -> Bool
 
-Validates the arrangement syntax.
+Validates the arrangement syntax, an arrangement (see ArrangementSpec), a list of them, or a list of thread ids for a
+manual pinning.
 
-Throws an error if the arrangement is badly specified.
+If the arrangement is badly specified the reason is reported with `report` and false is returned.
 """
-function validateArrangement(arrgmt::ArrangementSpec)::Bool
+function validateArrangement(arrgmt::ArrangementSpec, report::Function = throwParseError!)::Bool
     if arrgmt isa Symbol
         return if arrgmt == :single
             true
@@ -347,45 +358,114 @@ function validateArrangement(arrgmt::ArrangementSpec)::Bool
         elseif arrgmt == :all
             true
         else
-            throwParseError!("Invalid thread arrangement: symbol `$arrgmt` is unrecognised. " *
-                             "Must be one of [:single, :numa, :all] or a tuple — see ArrangementSpec docs.")
+            report("symbol $(repr(arrgmt)) is unrecognised, the symbols are :single, :numa and :all.")
             false
         end
     end
     if length(arrgmt) != 2
-        throwParseError!("Invalid thread arrangement: $arrgmt has $(length(arrgmt)) element(s); " *
-                         "expected exactly 2  (#numas, #threads_per_numa).")
+        report("$arrgmt has $(length(arrgmt)) element(s), expected exactly 2 (#numas, #threads_per_numa).")
         return false
     end
 
     numa_spec, thread_spec = arrgmt
     if numa_spec isa Rational
         if !(0 < numa_spec <= 1)
-            throwParseError!("Invalid thread arrangement: $arrgmt, NUMA ratio $numa_spec is out of range; " *
-                             "must satisfy 0 < ratio ≤ 1.")
+            report("$arrgmt, NUMA ratio $numa_spec is out of range, it must satisfy 0 < ratio ≤ 1.")
             return false
         end
     else
         if numa_spec <= 0
-            throwParseError!("Invalid thread arrangement: $arrgmt, if #numa is and integer, it shall be positive, got $numa_spec.")
+            report("$arrgmt, #numas must be a positive integer, got $numa_spec.")
             return false
         end
     end
     if thread_spec isa Rational
         if !(0 < thread_spec <= 1)
-            throwParseError!("Invalid thread arrangement: $arrgmt, thread ratio $thread_spec is out of range; " *
-                             "must satisfy 0 < ratio ≤ 1.")
+            report("$arrgmt, thread ratio $thread_spec is out of range, it must satisfy 0 < ratio ≤ 1.")
             return false
         end
     else
         if thread_spec <= 0
-            throwParseError!("Invalid thread arrangement: $arrgmt, #threads_per_numa must be a positive integer, " *
-                             "got $thread_spec.")
+            report("$arrgmt, #threads_per_numa must be a positive integer, got $thread_spec.")
             return false
         end
     end
 
     return true
+end
+
+# Any other value, e.g. a tuple of a different length or with elements of another type
+function validateArrangement(arrgmt, report::Function = throwParseError!)::Bool
+    if arrgmt isa Tuple && length(arrgmt) != 2
+        report("$(repr(arrgmt)) has $(length(arrgmt)) element(s), expected exactly 2 (#numas, #threads_per_numa).")
+    elseif arrgmt isa Tuple
+        invalid = [e for e in arrgmt if !(e isa Union{Integer,Rational{Int64}})]
+        report("$(repr(arrgmt)), the elements of an arrangement must be integers or ratios of integers, got " *
+               join(["$(repr(e)) ($(typeof(e)))" for e in invalid], ", ") * ".")
+    else
+        report("$(repr(arrgmt)) ($(typeof(arrgmt))) is not a thread arrangement.")
+    end
+    return false
+end
+
+# The arrangements a thread setting of the configuration names, see arrangementFromConfig
+CONFIG_ARRANGEMENT_NAMES = Dict{String,ArrangementSpec}("single" => (1, 1), "numa" => (1, 1 // 1), "all" => (1 // 1, 1 // 1))
+
+# How a suite gets its thread setting, and what it can be, named in its errors
+THREAD_SETTING_RULE = "A suite has a single thread setting: each of general.numas and general.threads_per_numa takes its " *
+                      "value from the last configuration call that sets it, even in an included recipe, and a " *
+                      "@perftest_threads in the recipe takes priority over both."
+CONFIG_THREADS_OPTIONS = "general.numas and general.threads_per_numa are either both the same name of an arrangement: " *
+                         "\"single\" (1 thread), \"numa\" (every thread of 1 NUMA domain) or \"all\" (every thread of " *
+                         "every NUMA domain); or both numbers (#numas, #threads_per_numa), each one an integer n ≥ 1 or a " *
+                         "float in (0, 1], the ratio of the available ones (e.g. 0.5 for half of them)."
+
+# Why `value`, of the configuration key general.`key`, cannot be part of a thread setting, nothing if it can
+function configThreadValueProblem(key::AbstractString, value)::Union{String,Nothing}
+    name = "general.$key = $(repr(value))"
+    return if value isa AbstractString
+        haskey(CONFIG_ARRANGEMENT_NAMES, value) ? nothing : "$name is not the name of an arrangement"
+    elseif value isa Bool
+        # A Bool is an Integer in Julia
+        "$name is a Bool, neither a number nor the name of an arrangement"
+    elseif value isa Integer
+        value >= 1 ? nothing : "$name is an integer below 1"
+    elseif value isa Float64
+        0 < value <= 1 ? nothing : "$name is a float outside (0, 1]"
+    else
+        "$name ($(typeof(value))) is neither a number nor the name of an arrangement"
+    end
+end
+
+"""
+    arrangementFromConfig(numas, threads_per_numa) -> Union{ArrangementSpec,Vector{String}}
+
+Arrangement (see ArrangementSpec) given by a thread setting, the values of the configuration keys general.numas and
+general.threads_per_numa. A string names a whole arrangement and is given in both keys: "single" is (1, 1), "numa" is
+(1, 1//1) and "all" is (1//1, 1//1). Otherwise both are numbers, the arrangement (numas, threads_per_numa) where an
+integer n ≥ 1 stays n and a float in (0, 1] is a ratio of what is available (e.g. 0.5 is 1//2, 1.0 is 1//1).
+
+Anything else is not interpreted, the reasons it is invalid are returned instead, see CONFIG_THREADS_OPTIONS.
+"""
+function arrangementFromConfig(numas, threads_per_numa)::Union{ArrangementSpec,Vector{String}}
+    problems = String[]
+    for (key, value) in (("numas", numas), ("threads_per_numa", threads_per_numa))
+        problem = configThreadValueProblem(key, value)
+        problem === nothing || push!(problems, problem)
+    end
+    isempty(problems) || return problems
+
+    named = (numas isa AbstractString, threads_per_numa isa AbstractString)
+    return if all(named)
+        numas == threads_per_numa ? CONFIG_ARRANGEMENT_NAMES[numas] :
+        ["general.numas = $(repr(numas)) and general.threads_per_numa = $(repr(threads_per_numa)) name different arrangements, a name is given in both keys"]
+    elseif any(named)
+        name, number = named[1] ? (("numas", numas), ("threads_per_numa", threads_per_numa)) : (("threads_per_numa", threads_per_numa), ("numas", numas))
+        ["general.$(name[1]) = $(repr(name[2])) names an arrangement but general.$(number[1]) = $(repr(number[2])) is a number, a name is given in both keys"]
+    else
+        # A ratio is a Rational{Int64}, see ArrangementSpec
+        Tuple(value isa Float64 ? rationalize(Int, value) : value for value in (numas, threads_per_numa))
+    end
 end
 
 function isExecutableArrangement(arrgmts::Vector{N}) :: Union{Vector{N}, Nothing} where {N <: Integer}

@@ -1,18 +1,70 @@
 
 """
+Thresholds of a @regression that gives none, one for each of its metrics from regression.default_threshold: the
+threshold itself for a metric where a high value is bad (low_is_bad = false, e.g. a time), and 2 − threshold for one
+where a low value is bad (low_is_bad = true, e.g. a throughput). The default 1.1 thus tolerates a time up to 10% higher,
+and a throughput up to 10% lower (0.9), than the reference. 2 − threshold is computed on the decimal value it is written
+with, so 1.1 gives exactly 0.9.
 
-Called when a regression macro is detected, sets up the regression methodology
-    
+A regression.default_threshold of 2 or more leaves no threshold for a metric where a low value is bad, it is reported as
+a parse error naming where it comes from.
+"""
+function defaultRegressionThresholds(metrics::AbstractVector, low_is_bad, ctx::Context)::Vector{Float64}
+    threshold = Configuration.CONFIG["regression"]["default_threshold"]
+    # An Int as well, the type of the key is Number
+    high_is_bad = Float64(threshold)
+    low_is_bad_th = Float64(2 - parse(BigFloat, string(high_is_bad)))
+
+    # Already reported when it does not match the metrics, see onRegressionDefinition
+    if !(low_is_bad isa AbstractVector && length(low_is_bad) == length(metrics))
+        return fill(high_is_bad, length(metrics))
+    end
+
+    low = [metric for (metric, lib) in zip(metrics, low_is_bad) if lib === true]
+    if !isempty(low) && threshold >= 2
+        throwParseError!("Invalid regression threshold in the @regression of recipe $(ctx._global.original_file_path): it gives " *
+                         "no threshold, so $(join(repr.(low), ", ")), where a low value is bad (low_is_bad = true), would " *
+                         "take 2 − regression.default_threshold, but regression.default_threshold = $(repr(threshold)) (from " *
+                         "$(Configuration.source_of("regression.default_threshold"))) gives 2 − $(repr(threshold)) = " *
+                         "$(repr(low_is_bad_th)), which every ratio new/reference passes. Give that @regression an explicit " *
+                         "threshold (threshold=..., the ratio new/reference a metric with low_is_bad = true must stay above), " *
+                         "or set regression.default_threshold below 2", ctx)
+    end
+    return [lib === true ? low_is_bad_th : high_is_bad for lib in low_is_bad]
+end
+
+plural(n::Integer, word::AbstractString) = "$n $word$(n == 1 ? "" : "s")"
+literalList(values) = "[" * join(repr.(values), ", ") * "]"
+
+"""
+Report as a parse error that `key` (:low_is_bad or :threshold) of a @regression is a vector that does not give one
+value per metric, see onRegressionDefinition.
+"""
+function reportRegressionLengthMismatch(key::Symbol, single::Type, value::AbstractVector, metrics::AbstractVector, ctx::Context)
+    throwParseError!("Invalid $key in the @regression of recipe $(ctx._global.original_file_path): $key = $(literalList(value)) " *
+                     "gives $(plural(length(value), "value")) for $(plural(length(metrics), "metric")) ($(join(repr.(metrics), ", "))). " *
+                     "$key is either a single $single, which applies to every metric, or a vector with one $single per " *
+                     "metric, in the order of metrics", ctx)
+end
+
+"""
+
+Called when a regression macro is detected, sets up the regression methodology. Without a threshold, the thresholds
+come from regression.default_threshold, see defaultRegressionThresholds.
+
+low_is_bad and threshold are each either a single value, which applies to every metric, or a vector with one value per
+metric. A vector of another length is reported as a parse error, as is the metric :autoflop (see AUTOFLOP_UNSUPPORTED),
+and the macro is then ignored so the transform goes on collecting the errors of the recipe.
+
 """
 function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
     if !(Configuration.CONFIG["regression"]["enabled"])
         return
     end
+    # Its validation already reported the arguments it could not read, e.g. too many of them
+    info === nothing && return
 
-    if haskey(info, :threshold)
-    else
-        info[:threshold] = Configuration.CONFIG["regression"]["default_threshold"]
-    end
+    given_threshold = haskey(info, :threshold)
     if haskey(info, :metrics)
     else
         info[:metrics] = :median_time
@@ -26,29 +78,40 @@ function onRegressionDefinition(_::ExtendedExpr, ctx::Context, info)
         info[:showvar] = false
     end
     # vvvv Verify that parameters make sense among each other vvvv
-    if info[:metrics] isa metricID()
-        info[:metrics] = [metricID(info[:metrics])]
-        info[:low_is_bad] = info[:low_is_bad] isa Vector ? throwParseError!("Several low_is_bad values provided for low_is_bad for a single metric", ctx) : [info[:low_is_bad]]
-        info[:threshold] = info[:threshold] isa Vector ? throwParseError!("Several threshold values provided for threshold for a single metric", ctx) : [info[:threshold]]
-    else
-        if info[:low_is_bad] isa Bool
-            info[:low_is_bad] = fill(info[:low_is_bad], length(info[:metrics]))
-        elseif length(info[:low_is_bad]) != length(info[:metrics])
-            throwParseError!("Length of low_is_bad should be either 1 to apply to all, or the same as the length of metrics", ctx)
+    info[:metrics] = info[:metrics] isa metricID() ? [metricID(info[:metrics])] : [metricID(m) for m in info[:metrics]]
+    consistent = true
+    # One value for each metric
+    for (key, single) in ((:low_is_bad, Bool), (:threshold, Float64))
+        if key === :threshold && !given_threshold
+            continue
+        elseif !(info[key] isa AbstractVector)
+            info[key] = fill(info[key], length(info[:metrics]))
+        elseif length(info[key]) != length(info[:metrics])
+            reportRegressionLengthMismatch(key, single, info[key], info[:metrics], ctx)
+            consistent = false
         end
-        if info[:threshold] isa Float64
-            info[:threshold] = fill(info[:threshold], length(info[:metrics]))
-        elseif length(info[:threshold]) != length(info[:metrics])
-            throwParseError!("Length of threshold should be either 1 to apply to all, or the same as the length of metrics", ctx)
-        end
-        info[:metrics] = [metricID(m) for m in info[:metrics]]
+    end
+    if !given_threshold
+        # One for each metric, following its low_is_bad
+        info[:threshold] = defaultRegressionThresholds(info[:metrics], info[:low_is_bad], ctx)
     end
     # ^^^^ Verify that parameters make sense among each other ^^^^
     for metric in info[:metrics]
-        if !(metric in formula_symbols) && !isCustomMetricDefined(ctx, metric)
-            throwParseError!("Metric $metric is not available in the current context.", ctx)
+        if metric === :autoflop
+            reportAutoflopUse!("The @regression", "tracks the metric :autoflop", ctx;
+                               instead = "Track a metric defined with @define_metric from the flop count of the target " *
+                                         "instead, or pass the flop count to @roofline with actual_flops.")
+            consistent = false
+        elseif !(metric in formula_symbols) && !isCustomMetricDefined(ctx, metric)
+            # Referred to by its name, but defined with another symbol
+            named = customMetricByName(ctx, metric)
+            hint = named === nothing ? "" : " The metric named $(repr(named.name)) is referred to by its symbol $(repr(named.symbol))."
+            throwParseError!("Metric $metric is not available in the current context.$hint", ctx)
         end
     end
+    # Already reported, the suite is not generated
+    consistent || return
+
     existing_idx = findfirst(m -> m.id == :regression, ctx._local.enabled_methodologies[end])
     if existing_idx === nothing
         push!(ctx._local.enabled_methodologies[end], MethodologyParameters(

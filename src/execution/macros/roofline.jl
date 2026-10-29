@@ -57,7 +57,7 @@ This macro enables roofline modelling, if put just before a target declaration (
   - `cpu_peak` : a manual input value for the maximum attainable FLOPS, this will override the empirical runtime benchmark
   - `membw_peak` : a manual input value for the maximum memory bandwith, this will override the empirical runtime benchmark
   - `target_opint` : a desired operational intensity for the target, this will turn operational intensity into a test metric
-  - `actual_flops`: another formula that defines the actual performance of the test.
+  - `actual_flops`: the flop count of the target, a number or a formula (as the operational intensity one), e.g. `actual_flops = 2 * N`. The attained flops of the test are `actual_flops / :median_time`. Give it to test the attained flops: automatic flop counting is outdated and not supported, so a `@roofline` without `actual_flops` while the configuration key `general.autoflops` is true is reported as a parse error.
   - `target_ratio` : the acceptable ratio between the actual performance and the projected performance from the roofline, this will turn actual performance into a test metric.
   - `mem_benchmark`: which benchmark to use for the roofline, the default is the Shoenauer DAXPY (:MEM_BENCH_DAXPY), custom benchmarks are supported. Other benchmarks: [:MEM_STREAM_COPY,:MEM_STREAM_ADD, :MEM_BENCH_STRIAD, :MEM_BENCH_SDAXPY]
 
@@ -65,7 +65,7 @@ This macro enables roofline modelling, if put just before a target declaration (
  - `:median_time` : will be substituted by the median time the target took to execute in the benchmark.
  - `:minimum_time`: will be substituted by the minimum time the target took to execute in the benchmark.
  - `:ret_value` : will be substituted by the return value of the target.
- - `:autoflop`: will be substituted by the FLOP count the target.
+ - `:autoflop`: not supported, automatic flop counting is outdated (it is always 0), a formula that uses it, `actual_flops = :autoflop` included, is reported as a parse error. Give the flop count with `actual_flops` instead.
  - `:printed_output` : will be substituted by the standard output stream of the target.
  - `:iterator` : will be substituted by the current iterator value in a loop test set.
 Any formula block specified in this macro supports these symbols.
@@ -73,9 +73,9 @@ Any formula block specified in this macro supports these symbols.
 # Example
 
 ```julia
-    @roofline actual_flops=:autoflop target_ratio=0.05 begin
-        mem = ((:iterator + 1) * :iterator)
-        :autoflop / mem
+    # Inner product of two vectors of N Float64 values: 2N flops over 16N bytes
+    @roofline actual_flops = 2 * N target_ratio = 0.05 begin
+        (2 * N) / (16 * N)
     end
 ```
 

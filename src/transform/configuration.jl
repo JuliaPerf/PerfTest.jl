@@ -244,7 +244,7 @@ function load_config(filepath::AbstractString = "")::Dict
     catch e
         # Never overwrite a file written by the user, even a broken one
         @error "Configuration file $path could not be parsed, it has been left untouched and the default configuration will be used" exception = e
-        DEFAULT
+        return load_config(DEFAULT)
     end
 
     source = "the configuration file $path"
@@ -255,10 +255,12 @@ end
 
 """
 Make a copy of `config` the current configuration, missing or malformed entries take their default value. `source` is
-where `config` comes from, named in the reported errors.
+where `config` comes from, named in the reported errors and recorded in SOURCES for the entries that apply.
 """
 function load_config(config :: Dict; source::AbstractString = "")::Dict
     global CONFIG = fill_config(config; source = source)
+    empty!(SOURCES)
+    isempty(source) || record_sources!(SOURCES, config, source)
 
     return CONFIG
 end
@@ -268,10 +270,34 @@ function load_dummy_config()::Dict
 end
 
 """
+Where the value in force of a configuration key comes from (e.g. "the configuration file perftest_config.toml"), by its
+full name (e.g. "regression.default_threshold"), see SOURCES.
+"""
+source_of(name::AbstractString)::String = get(SOURCES, name, "the default configuration")
+
+"""
+Record `source` in `sources` (see SOURCES) as where the entries of `config` come from, the ones that apply when it is
+loaded or merged: those in the schema with the expected type.
+"""
+function record_sources!(sources::Dict, config::Dict, source::AbstractString, schema::Dict = CONFIG_SHAPE, prefix::String = "")
+    for (key, value) in config
+        name = prefix * string(key)
+        expected = get(schema, key, nothing)
+        if expected isa Dict
+            value isa Dict && record_sources!(sources, value, source, expected, name * ".")
+        elseif expected !== nothing && value isa expected
+            sources[name] = source
+        end
+    end
+    return sources
+end
+
+"""
 Save a copy of the current configuration, so it can be changed (e.g. by an included recipe) and later restored by `pop_config`.
 """
 function push_config()
     push!(PARENT_CONFIGS, deepcopy(CONFIG))
+    push!(PARENT_SOURCES, copy(SOURCES))
     return nothing
 end
 
@@ -280,6 +306,8 @@ Restore the configuration saved by the last `push_config`.
 """
 function pop_config()
     global CONFIG = pop!(PARENT_CONFIGS)
+    # Empty when the stack was filled by other means
+    isempty(PARENT_SOURCES) || (global SOURCES = pop!(PARENT_SOURCES))
     return nothing
 end
 
@@ -455,6 +483,13 @@ PRECOMPILATION_CONFIG = Dict(
 PARENT_CONFIGS = Dict[]
 CONFIG = deepcopy(DEFAULT)
 
+# Where the value of each key of CONFIG comes from, by its full name (e.g. "regression.default_threshold" =>
+# "the configuration file perftest_config.toml"), named in the errors about that value. A key that is not in it has its
+# default value. It follows CONFIG during a transform: `load_config` and the transform set it, `push_config` and
+# `pop_config` save and restore it along with CONFIG.
+SOURCES = Dict{String,String}()
+PARENT_SOURCES = Dict{String,String}[]
+
 end # module
 
 
@@ -476,12 +511,16 @@ interpolationPreview(raw) = raw isa Expr && raw.head === :string ?
 # Names the @perftest_config being transformed in its parse errors
 configurationMacroSource(ctx::Context) = "the @perftest_config of recipe $(ctx._global.original_file_path)"
 
+# Configuration keys whose value is used before the recipe is read, so a @perftest_config cannot set them, by their full
+# name along with what decides with them
+PRE_RECIPE_KEYS = Dict("MPI.enabled" => "the MPI mode")
+
 """
 Check `config`, parsed from a @perftest_config string, against the configuration schema. Each entry that is not in it
-(along with the entries its table can have) or that has an incorrect type is reported as a parse error and removed, so
-the rest still applies to the transform. The keys whose value is interpolated are removed as well, they take their value
-when the suite is executed. Interpolation in a key or a table name is reported as a parse error, in which case it
-returns false.
+(along with the entries its table can have), that has an incorrect type, or that is used before the recipe is read
+(see PRE_RECIPE_KEYS) is reported as a parse error and removed, so the rest still applies to the transform. The keys
+whose value is interpolated are removed as well, they take their value when the suite is executed. Interpolation in a
+key or a table name is reported as a parse error, in which case it returns false.
 """
 function validateConfigurationMacro!(config::Dict, ctx::Context, schema::Dict = Configuration.CONFIG_SHAPE, prefix::String = "")::Bool
     source = configurationMacroSource(ctx)
@@ -503,6 +542,11 @@ function validateConfigurationMacro!(config::Dict, ctx::Context, schema::Dict = 
                 throwParseError!("Expected a table for configuration section $name in $source, got $(typeof(value))", ctx)
                 delete!(config, key)
             end
+        elseif haskey(PRE_RECIPE_KEYS, name)
+            throwParseError!("Configuration key $name cannot be set in $source: $(PRE_RECIPE_KEYS[name]) is decided with it " *
+                             "before the recipe is read, so it would not apply. Set it in the configuration file " *
+                             "$(Configuration.CONFIG_FILE) or with the config argument of runperftests or PerfTest.transform", ctx)
+            delete!(config, key)
         elseif !isa(value, schema[key])
             # Interpolation is only supported inside string values, so an interpolated value is always a string, known
             # to have the wrong type here already
@@ -549,6 +593,8 @@ function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Union{Dict
     old = Configuration.CONFIG
 
     Configuration.CONFIG = Configuration.merge_configs(Configuration.CONFIG, parsed)
+    Configuration.record_sources!(Configuration.SOURCES, parsed, configurationMacroSource(ctx))
+    recordThreadSetting!(parsed, configurationMacroSource(ctx))
 
     if Configuration.CONFIG["general"]["verbose"] != old["general"]["verbose"]
         addLog("general", "Verbosity level changed from $(old["general"]["verbose"]) to $(Configuration.CONFIG["general"]["verbose"])")
@@ -563,34 +609,91 @@ function parseConfigurationMacro(_::ExtendedExpr, ctx::Context, info::Union{Dict
     end
 end
 
-function parseThreadsMacro(_::ExtendedExpr, ctx::Context, info::Dict)::Expr
-    try
-        specs = info[Symbol("")]
+# The configuration keys, of section general, of the thread setting of a suite
+THREAD_KEYS = ("numas", "threads_per_numa")
 
-        return quote
-            let
-                specs = $specs
-                arrgmt_l = PerfTest.Topology.literallizeArrangement($specs)
-                arrgmt_e = PerfTest.Topology.isExecutableArrangement(arrgmt_l)
-                if arrgmt_e === nothing
-                    @warn "Ignoring pinning."
-                else
-                    try
-                        PerfTest.Topology.enforceThreadArrangement(arrgmt_e)
-                    catch e
-                        if Sys.iswindows() || Sys.isapple()
-                            @warn "Thread pinning is not supported on this OS. Ignoring specified arrangement."
-                        else
-                            @warn "Failed to enforce thread pinning: $e, ignoring specified arrangement."
-                        end
+"""
+Thread setting of the suite being generated, the one its launcher uses (see Launch.retrieveConfigThreadSpecs): for each
+of THREAD_KEYS its value, where it comes from, and whether a recipe sets it. A suite has a single thread setting
+regardless of recursivity, each key takes its value from the last configuration call that sets it, even in an included
+recipe. As for the launcher, an interpolated value is not considered, it is only known once the suite executes.
+"""
+THREAD_SETTING = Dict{String,Tuple{Any,String,Bool}}()
+
+# Start the thread setting of a transform from the configuration it starts from
+function initThreadSetting!()
+    empty!(THREAD_SETTING)
+    for key in THREAD_KEYS
+        THREAD_SETTING[key] = (Configuration.CONFIG["general"][key], Configuration.source_of("general.$key"), false)
+    end
+end
+
+# Record the thread keys set by a @perftest_config of a recipe, `parsed` once validated (see validateConfigurationMacro!)
+# so without its interpolated keys
+function recordThreadSetting!(parsed::Dict, source::AbstractString)
+    general = get(parsed, "general", nothing)
+    general isa Dict || return
+    for key in THREAD_KEYS
+        haskey(general, key) && (THREAD_SETTING[key] = (general[key], source, true))
+    end
+end
+
+"""
+Check the thread setting of the suite being generated (see THREAD_SETTING), whether or not a @perftest_threads takes
+priority over it. An invalid one (see Topology.arrangementFromConfig) is reported naming where each key comes from: as a
+parse error when a recipe sets one of them, otherwise, as the other errors of the configuration file and of the config
+argument, as an error that does not stop the transform. The launcher reports it again, as it cannot launch the suite.
+"""
+function validateThreadSetting!(ctx::Context)
+    setting = [(key, THREAD_SETTING[key]...) for key in THREAD_KEYS]
+    problems = Topology.arrangementFromConfig((value for (_, value, _, _) in setting)...)
+    problems isa Vector{String} || return
+
+    values = join(["general.$key = $(repr(value)) (from $source)" for (key, value, source, _) in setting], " and ")
+    message = "Invalid thread setting of the generated suite, $values: $(join(problems, ", ")). " *
+              "$(Topology.THREAD_SETTING_RULE) $(Topology.CONFIG_THREADS_OPTIONS)"
+    if any(from_recipe for (_, _, _, from_recipe) in setting)
+        throwParseError!(message, ctx)
+    else
+        @error message
+    end
+end
+
+# Names the @perftest_threads being transformed in its parse errors
+threadsMacroSource(ctx::Context) = "the @perftest_threads of recipe $(ctx._global.original_file_path)"
+
+function parseThreadsMacro(_::ExtendedExpr, ctx::Context, info::Union{Dict,Nothing})::Expr
+
+    # Its validation already reported a missing argument, more than one, or a keyword one
+    if info === nothing || !haskey(info, Symbol(""))
+        return quote end
+    end
+
+    specs = info[Symbol("")]
+    source = threadsMacroSource(ctx)
+    report(reason) = throwParseError!("Invalid thread arrangement in $source: $reason $THREADS_OPTIONS", ctx)
+    if !validateThreadsArgument(specs, report)
+        return quote end
+    end
+
+    return quote
+        let
+            specs = $specs
+            arrgmt_l = PerfTest.Topology.literallizeArrangement($specs)
+            arrgmt_e = PerfTest.Topology.isExecutableArrangement(arrgmt_l)
+            if arrgmt_e === nothing
+                @warn "Ignoring pinning."
+            else
+                try
+                    PerfTest.Topology.enforceThreadArrangement(arrgmt_e)
+                catch e
+                    if Sys.iswindows() || Sys.isapple()
+                        @warn "Thread pinning is not supported on this OS. Ignoring specified arrangement."
+                    else
+                        @warn "Failed to enforce thread pinning: $e, ignoring specified arrangement."
                     end
                 end
             end
-        end
-
-    catch
-        return quote
-            "INVALID THREAD ARRANGEMENT"
         end
     end
 end
