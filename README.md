@@ -1,6 +1,6 @@
 # PerfTest.jl - A performance unit testing framework
 
-NOTE: For the new performance counter features check out the development versions.
+NOTE: For the new performance counter features check out the development version v0.2.4.
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/dev)
