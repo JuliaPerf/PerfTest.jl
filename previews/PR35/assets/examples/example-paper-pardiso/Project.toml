@@ -1,0 +1,12 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CountFlops = "1db9610d-79e1-487a-8d40-77f3295c7593"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+MKL = "33e6dc65-8f57-5167-99aa-e5a354878fb2"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+MatrixMarket = "4d4711f2-db25-561a-b6b3-d35e7d4047d3"
+Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
+PerfTest = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
+STREAMBenchmark = "05e9033e-e298-417a-adae-495536c11ad4"
+Suppressor = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
