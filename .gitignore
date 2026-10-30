@@ -13,3 +13,6 @@
 core
 experiments/
 .claude
+
+# Environments of the extension tests
+/test/extensions/*/Manifest.toml

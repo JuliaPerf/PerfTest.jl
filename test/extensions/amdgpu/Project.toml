@@ -1,0 +1,8 @@
+[deps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PerfTest = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+PerfTest = {path = "../../.."}

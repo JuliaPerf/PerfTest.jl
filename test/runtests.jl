@@ -9,7 +9,8 @@ if !(PerfTest.Configuration.load_config() isa Nothing)
     @info "This may take a couple of minutes..."
     exename   = joinpath(Sys.BINDIR, Base.julia_exename())
     testdir   = pwd()
-    istest(f) = endswith(f, ".jl") && startswith(basename(f), "t")
+    # The extension tests are an annex outside CI, see extensions/runtests.jl
+    istest(f) = endswith(f, ".jl") && startswith(basename(f), "t") && !startswith(f, joinpath(testdir, "extensions"))
     testfiles = sort(filter(istest, vcat([joinpath.(root, files) for (root, dirs, files) in walkdir(testdir)]...)))
 
     global nfail = 0

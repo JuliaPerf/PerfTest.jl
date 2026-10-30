@@ -1,0 +1,8 @@
+[deps]
+LIKWID = "bf22376a-e803-4184-b2ed-56326e3bff83"
+PerfTest = "1dca261b-fc56-4a8c-a7e2-9798d8a75978"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+ThreadPinningCore = "6f48bc29-05ce-4cc8-baad-4adcba581a18"
+
+[sources]
+PerfTest = {path = "../../.."}
