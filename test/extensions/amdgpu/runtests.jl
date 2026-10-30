@@ -1,5 +1,5 @@
 # Tests of the AMDGPU extension (ext/PerfTest_AMDGPUExt.jl), see ../runtests.jl
-# Needs a functional AMD GPU and ROCm SMI (librocm_smi64) when the extension is precompiled and executed
+# Needs a functional AMD GPU and ROCm SMI (librocm_smi64)
 
 using AMDGPU
 include("../gpu.jl")
@@ -10,8 +10,8 @@ const ext = Base.get_extension(PerfTest, :PerfTest_AMDGPUExt)
     @test ext !== nothing
     @test PerfTest.is_loaded(:AMDGPU)
     @test AMDGPU.functional()
-    # Looked up when the extension is precompiled, empty if ROCm SMI was not found then
-    @test ext.librocm_smi != ""
+    # Opened when the extension is loaded, in the system library paths or the ROCm installation (ROCM_PATH)
+    @test ext.librocm_smi[] != C_NULL
     devices = PerfTest.amdgpu_devices()
     @info "ROCm SMI devices: $devices"
     @test !isempty(devices)

@@ -181,6 +181,41 @@ end
     end
 end
 
+@testset "LIKWID - native names" begin
+    intempdir() do
+        ex = transformed(metric("m", ":LIKWID.METRICS.FLOPS_DP.var\"DP [MFLOP/s]\""),
+                         metric("e", ":LIKWID.EVENTS.MEM.DRAM_READS"))
+        @test PerfTest.num_errors() == 0
+        source = string(ex)
+        @test occursin("sum(PerfTest.likwidMetricsRetrieve(test_res, :FLOPS_DP, \"DP [MFLOP/s]\"))", source)
+        @test occursin("sum(PerfTest.likwidEventsRetrieve(test_res, :MEM, \"DRAM_READS\"))", source)
+        @test perfmonGroups(ex) == [["FLOPS_DP", "MEM"]]
+        @test rejected(metric("m", ":LIKWID.BOGUS.FLOPS_DP.x"))
+        @test rejected(metric("m", ":LIKWID.METRICS.FLOPS_DP"))
+    end
+end
+
+@testset "LIKWID - groups apply to the testset of their formulas" begin
+    intempdir() do
+        write("recipe.jl", """
+            using Test, PerfTest
+            @testset "Outer" begin
+                @testset "Mem" begin
+            $(metric("m", ":bw.mem"))
+                    @perftest samples = 1 sin(1.0)
+                end
+                @testset "Flops" begin
+            $(metric("f", ":flop.double"))
+                    @perftest samples = 1 sin(2.0)
+                end
+            end
+            """)
+        ex = PerfTest.transform("recipe.jl")
+        @test PerfTest.num_errors() == 0
+        @test perfmonGroups(ex) == [["MEM"], ["FLOPS_DP"]]
+    end
+end
+
 # ----------------------------------------------------------------------------------------------------------------------
 # Execution, needs access to the performance counters
 # ----------------------------------------------------------------------------------------------------------------------

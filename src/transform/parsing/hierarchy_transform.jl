@@ -32,6 +32,7 @@ function transformTestset(input_expr::Expr, context::Context)
     push!(context._local.depth_record, DepthEntry(name, has_for_loop ? Pair(a, b) : nothing, 0))
     push!(context._local.custom_metrics, CustomMetric[])
     push!(context._local.enabled_methodologies, MethodologyParameters[])
+    push!(context._local.enabled_likwid_groups, Set{Symbol}())
 
     # LOGINFO
     addLog("hierarchy", "[TESTSET] New Group: $([i.set_name for i in context._local.depth_record])")
@@ -81,6 +82,7 @@ function backTokenToContextUpdate!(input_expr::QuoteNode, context::Context)
     pop!(context._local.depth_record)
     pop!(context._local.custom_metrics)
     pop!(context._local.enabled_methodologies)
+    pop!(context._local.enabled_likwid_groups)
 
     addLog("hierarchy", "[TESTSET] Exiting group")
     return nothing;
@@ -141,9 +143,10 @@ function transformPerftest(input_expr::Expr, context::Context)
         extensions = PerfTest.ExtensionData[]
         $setup_expr
         $(if PerfTest.is_loaded(:LIKWID)
-            addLog("general", "[LIKWID] Measuring target \"$(expr)\" with groups: $([g for g in context._local.enabled_likwid_groups])")
+            likwid_groups = enabledLikwidGroups(context)
+            addLog("general", "[LIKWID] Measuring target \"$(expr)\" with groups: $likwid_groups")
             quote
-                metrics, events = PerfTest.perfmon(() -> $expr, $([String(i) for i in context._local.enabled_likwid_groups]); autopin=false, print=false, nsamples=length(ts.benchmarks[$name]))
+                metrics, events = PerfTest.perfmon(() -> $expr, $likwid_groups; autopin=false, print=false, nsamples=length(ts.benchmarks[$name]))
                 push!(extensions, PerfTest.LIKWIDExtensionData(metrics, events))
             end
         else

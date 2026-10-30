@@ -61,7 +61,7 @@ using PerfTest
                     if haskey(test_res.auxiliar, :penguin)
                         PerfTest.metricSampledValue(test_res.auxiliar[:penguin])
                     else
-                        newSymbols(Val(:penguin))(Symbol[])
+                        error("Unrecognized metric :penguin, it is not a custom metric, a benchmark or an alias of a loaded extension.")
                     end
                 end
             end

@@ -6,7 +6,11 @@ function perftestprefix(ctx::Context)::Expr
     return quote
         using Test, Dates
         $(mode == MPIMode ? :(using MPI; PerfTest.MPISetup(PerfTest.MPIMode)) : :(nothing))
-        $(PerfTest.is_loaded(:Perftest_LIKWIDExt) ? quote using LIKWID end : quote end)
+        # The suite calls the extensions loaded during the transform (e.g. PerfTest.perfmon, CUDA.synchronize), the
+        # process that executes it loads them as well, whether the recipe imports their packages or not
+        $(PerfTest.is_loaded(:LIKWID) ? quote using LIKWID end : quote end)
+        $(PerfTest.is_loaded(:CUDA) ? quote using CUDA end : quote end)
+        $(PerfTest.is_loaded(:AMDGPU) ? quote using AMDGPU end : quote end)
         using PerfTest: DepthRecord, Metric_Test, Methodology_Result, StrOrSym, Metric_Result, magnitudeAdjust, MPISetup, newMetricResult, buildPrimitiveMetrics!, measureCPUPeakFlops!, measureMemBandwidth!, addLog, @PRFTBenchmark, PRFTBenchmarkGroup, @PRFTCapture_out, @PRFTSuppress, Test_Result, by_index, regression, Suite_Execution_Result, savePrimitives, main_rank, GlobalSuiteData, @perftestset, PerfTestSet, extractTestResults, saveMethodologyData, Configuration, metricSampledValue, SampledValue
 
         _t_begin = time()

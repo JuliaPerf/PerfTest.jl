@@ -85,3 +85,20 @@ function Base.:/(a::SampledValue, b::SampledValue)
     r = _relquad(a, b)
     SampledValue(v, isnan(r) ? oftype(float(v), NaN) : r * abs(v), min(a.n, b.n))
 end
+
+"""
+One value per device from `samples`, which holds the value of every device for each sample: the median of the samples
+of each device, a SampledValue when there are enough of them for its variance. Used by the GPU extensions.
+"""
+function deviceMedians(samples::AbstractVector{<:AbstractVector{<:Real}})
+    n = length(samples)
+    return Any[let s = Float64[samples[i][d] for i in 1:n]
+                   n >= MIN_VARIANCE_SAMPLES ? SampledValue(s, _sample_median(s)) : _sample_median(s)
+               end for d in eachindex(first(samples))]
+end
+
+"""
+The energy counters of `devices` in J, read one after the other with `read_joule`. Used by the GPU extensions around
+each execution, through a single compiled function so the reads of a sample are close together.
+"""
+readEnergies(devices) = Float64[read_joule(d) for d in devices]

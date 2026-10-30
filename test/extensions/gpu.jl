@@ -64,15 +64,18 @@ function gpuTransformTests(; pkg, energy, power, slot, data)
 
     @testset "$pkg - formulas read the energy and power of the test result" begin
         intempdir() do
-            for (formula, field) in [":$energy" => "energy", ":$power" => "power",
-                                     ":$energy.dev0" => "energy", ":$power.dev1" => "power"]
+            # The sum over the devices, or the one of device N (numbered from 0)
+            for (formula, read) in [":$energy" => "sum((test_res.extensions[$slot]).energy)",
+                                    ":$power" => "sum((test_res.extensions[$slot]).power)",
+                                    ":$energy.dev0" => "(test_res.extensions[$slot]).energy[1]",
+                                    ":$power.dev1" => "(test_res.extensions[$slot]).power[2]"]
                 @testset "$formula" begin
                     source = string(transformed(metric("m", formula)))
                     @test PerfTest.num_errors() == 0
-                    @test occursin("test_res.extensions[$slot].$field", source)
+                    @test occursin(read, source)
                 end
             end
-            for formula in [":$energy.bogus", ":$energy.dev", ":$power.device0"]
+            for formula in [":$energy.bogus", ":$energy.dev", ":$power.device0", ":$energy.dev0.dev1"]
                 @testset "$formula is rejected" begin
                     @test rejected(metric("m", formula))
                 end
@@ -106,6 +109,16 @@ function gpuExecutionTests(; pkg, array, energy, power, slot, data, devices)
                 # Plausible for a GPU (e.g. not mJ taken as J)
                 @test 5 < maximum(e) / test.primitives[:median_time] < 1500
             end
+        end
+    end
+
+    @testset "$pkg - a recipe that does not import $pkg executes" begin
+        intempdir() do
+            # The suite measures the energy around a CPU target as well, with the package it imports itself
+            write("noimport.jl", inTestset())
+            ok, _ = runRecipe("noimport.jl")
+            @test ok
+            ok && gpuTest("noimport.jl")
         end
     end
 

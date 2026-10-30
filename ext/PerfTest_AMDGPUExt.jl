@@ -28,32 +28,54 @@ end
 
 PerfTest.AMDGPUExtensionData(energy, power) = AMDGPUExtensionData(energy, power)
 
-const librocm_smi = Libdl.find_library(["librocm_smi64"])
+# ROCm SMI, opened when the extension is loaded, not when it is precompiled (which may happen on another machine)
+const librocm_smi = Ref{Ptr{Cvoid}}(C_NULL)
+
+# The function `name` of ROCm SMI
+function rsmi(name::Symbol)
+    librocm_smi[] == C_NULL && error("librocm_smi64 not found; AMDGPU energy/power measurements are not available.")
+    return Libdl.dlsym(librocm_smi[], name)
+end
+
+# Throws if the ROCm SMI call `name` did not succeed, which returned `status` (RSMI_STATUS_SUCCESS is 0)
+function checkRsmi(status::Integer, name::Symbol)
+    status == 0 || error("ROCm SMI call $name failed with status $status.")
+    return nothing
+end
 
 function __init__()
-    if librocm_smi == ""
+    # Searched in the system library paths, then in the ROCm installation
+    lib = Libdl.find_library(["librocm_smi64"], [joinpath(get(ENV, "ROCM_PATH", "/opt/rocm"), "lib")])
+    if lib == ""
         @warn "librocm_smi64 not found; AMDGPU energy/power measurements will error if used."
         return
     end
-    ccall((:rsmi_init, librocm_smi), Cint, (UInt64,), 0)
-    atexit(() -> ccall((:rsmi_shut_down, librocm_smi), Cint, ()))
+    handle = Libdl.dlopen(lib)
+    status = ccall(Libdl.dlsym(handle, :rsmi_init), Cint, (UInt64,), 0)
+    if status != 0
+        @warn "ROCm SMI failed to initialize (status $status); AMDGPU energy/power measurements will error if used."
+        return
+    end
+    librocm_smi[] = handle
+    atexit(() -> ccall(rsmi(:rsmi_shut_down), Cint, ()))
 end
 
 amdgpu_devices = []
 
-PerfTest.amdgpu_devices() = begin
+function PerfTest.amdgpu_devices()
     n = Ref{UInt32}(0)
-    ccall((:rsmi_num_monitor_devices, librocm_smi), Cint, (Ref{UInt32},), n)
-    [i for i in UInt32(0):UInt32(n[] - 1)]
+    checkRsmi(ccall(rsmi(:rsmi_num_monitor_devices), Cint, (Ref{UInt32},), n), :rsmi_num_monitor_devices)
+    # Device indices from 0, none when there are no devices
+    return UInt32.(0:Int(n[])-1)
 end
 
 function PerfTest.read_joule(d::UInt32)
     energy = Ref{UInt64}(0)
     counter_resolution = Ref{Cfloat}(0)
     timestamp = Ref{UInt64}(0)
-    ccall((:rsmi_dev_energy_count_get, librocm_smi), Cint,
-          (UInt32, Ref{UInt64}, Ref{Cfloat}, Ref{UInt64}),
-          d, energy, counter_resolution, timestamp)
+    checkRsmi(ccall(rsmi(:rsmi_dev_energy_count_get), Cint,
+                    (UInt32, Ref{UInt64}, Ref{Cfloat}, Ref{UInt64}),
+                    d, energy, counter_resolution, timestamp), :rsmi_dev_energy_count_get)
     energy[] * counter_resolution[] / 1e6 # microjoules -> joules
 end
 
@@ -62,31 +84,25 @@ function PerfTest.gpuPowerMeasureAMD(e :: Expr, name)
         begin
             devs = PerfTest.amdgpu_devices()
             nsamples = max(1, length(ts.benchmarks[$name]))
+            # Compiles the reading of the counters before the samples, so it does not lengthen the window of the first one
+            PerfTest.readEnergies(devs)
             energy_samples = Vector{Vector{Float64}}()
+            power_samples = Vector{Vector{Float64}}()
             for _s in 1:nsamples
                 AMDGPU.synchronize()
-                pre = []
-                for d in devs
-                    push!(pre, PerfTest.read_joule(d))
-                end
+                pre = PerfTest.readEnergies(devs)
+                _t0 = time_ns()
                 # Execute
                 $(e)
                 AMDGPU.synchronize()
-                post = []
-                for d in devs
-                    push!(post, PerfTest.read_joule(d))
-                end
-                push!(energy_samples, Float64.(post .- pre))
+                _elapsed = (time_ns() - _t0) / 1e9
+                post = PerfTest.readEnergies(devs)
+                push!(energy_samples, post .- pre)
+                # The average power of the execution, its energy over the time it took
+                push!(power_samples, (post .- pre) ./ _elapsed)
             end
-            energy = [
-                let dev_samples = Float64[energy_samples[s][d] for s in 1:nsamples]
-                    nsamples >= PerfTest.MIN_VARIANCE_SAMPLES ?
-                        PerfTest.SampledValue(dev_samples, PerfTest._sample_median(dev_samples)) :
-                        PerfTest._sample_median(dev_samples)
-                end
-                for d in eachindex(devs)
-            ]
-            power = energy
+            energy = PerfTest.deviceMedians(energy_samples)
+            power = PerfTest.deviceMedians(power_samples)
             @info energy, power
             energy, power
         end
@@ -96,28 +112,18 @@ end
 PerfTest.newSymbols(::Val{:amde})  = PerfTest.formulaGetAMDGPUEnergy
 PerfTest.newSymbols(::Val{:amdp})  = PerfTest.formulaGetAMDGPUPower
 
-function PerfTest.formulaGetAMDGPUEnergy(properties)
-    if length(properties) == 0
-        return quote sum(test_res.extensions[3].energy) end
-    end
-    s = String(properties[1])
-    if match(r"^dev[0-9]+$", s) !== nothing
-        return quote test_res.extensions[3].energy end
-    else
-        throw(ArgumentError("Unknown specifier: $s"))
-    end
-end
+PerfTest.formulaGetAMDGPUEnergy(properties) = deviceFormula(:energy, properties)
+PerfTest.formulaGetAMDGPUPower(properties) = deviceFormula(:power, properties)
 
-function PerfTest.formulaGetAMDGPUPower(properties)
-    if length(properties) == 0
-        return quote sum(test_res.extensions[3].power) end
-    end
+# The `field` (energy or power) of the AMDGPU data of a test result (its third extension), the sum over the devices, or
+# the one of device N with the specifier devN (numbered from 0, as ROCm SMI does)
+function deviceFormula(field::Symbol, properties)
+    isempty(properties) && return :(sum(test_res.extensions[3].$field))
+    length(properties) == 1 || throw(ArgumentError("Too many specifiers: $(join(properties, ".")), expected one devN."))
     s = String(properties[1])
-    if match(r"^dev[0-9]+$", s) !== nothing
-        return quote test_res.extensions[3].power end
-    else
-        throw(ArgumentError("Unknown specifier: $s"))
-    end
+    m = match(r"^dev([0-9]+)$", s)
+    m === nothing && throw(ArgumentError("Unknown specifier: $s"))
+    return :(test_res.extensions[3].$field[$(parse(Int, m.captures[1]) + 1)])
 end
 
 end # module

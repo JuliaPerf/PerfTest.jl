@@ -46,8 +46,19 @@ end
 newSymbols(x::Val{:time}) = formulaGetTime
 newSymbols(x::Val) = error("Unrecognized $x.")
 
+"""
+Whether `sym` is an alias with a formula of its own (e.g. :time, or :flop when the LIKWID extension is loaded), and not
+left to the fallback of newSymbols, which reports it as unrecognized
+"""
+isAlias(sym::Symbol) = which(newSymbols, Tuple{Val{sym}}) !== which(newSymbols, Tuple{Val})
+
 function SBMID(metric :: metricID())
     sym = metricID(metric)
+    # An alias is resolved now, when the recipe is transformed, so its formula can do what it needs at this point (e.g.
+    # enable the LIKWID group it reads). Any other symbol must be one of the ones below when the suite executes, e.g. a
+    # custom metric, which also takes priority over an alias of the same name
+    fallback = isAlias(sym) ? newSymbols(Val(sym))(Symbol[]) :
+        :(error($("Unrecognized metric :$sym, it is not a custom metric, a benchmark or an alias of a loaded extension.")))
     # Reads go through PerfTest.metricSampledValue (not the bare .value field) so a metric
     # that carries a variance (see execution/variance.jl) keeps propagating it through
     # whatever arithmetic the surrounding formula performs.
@@ -59,26 +70,27 @@ function SBMID(metric :: metricID())
         PerfTest.metricSampledValue(test_res.metrics[$(QuoteNode(sym))]) :
         haskey(test_res.auxiliar,$(QuoteNode(sym))) ?
         PerfTest.metricSampledValue(test_res.auxiliar[$(QuoteNode(sym))]) :
-        newSymbols(Val($(QuoteNode(sym))))(Symbol[]))
+        $fallback)
     end
 end
 
-# WARNING, WIP missing error prints for some cases
+"""
+Native LIKWID names, `:LIKWID.METRICS.<group>.<metric>` or `:LIKWID.EVENTS.<group>.<event>` (e.g.
+`:LIKWID.METRICS.FLOPS_DP.var"DP [MFLOP/s]"`), summed over the threads as the aliases of the LIKWID extension are
+"""
 function SBMID(::Val{:LIKWID}, properties :: Vector{Symbol})
-    if is_loaded(:LIKWID)
-        if properties[1] == :METRICS
-            return quote likwidMetricsRetrieve(test_res, $(properties[2]), $(properties[3])) end
-        elseif properties[1] == :EVENTS
-            return quote likwidEventsRetrieve(test_res, $(properties[2]), $(properties[3])) end
-        else
-            error("Invalid selector: $(properties[1]). Valid options are :METRICS and :EVENTS.")
-        end
-    else
-        error("LIKWID is not loaded. Cannot use LIKWID metrics.")
-    end
+    is_loaded(:LIKWID) || error("LIKWID is not loaded. Cannot use LIKWID metrics.")
+    length(properties) == 3 || error("Invalid LIKWID access :LIKWID.$(join(properties, ".")), expected " *
+                                     ":LIKWID.METRICS.<group>.<metric> or :LIKWID.EVENTS.<group>.<event>.")
+    selector, group, name = properties
+    retrieve = selector == :METRICS ? :(PerfTest.likwidMetricsRetrieve) :
+               selector == :EVENTS ? :(PerfTest.likwidEventsRetrieve) :
+               error("Invalid selector: $selector. Valid options are :METRICS and :EVENTS.")
+    enableLikwidGroup!(group)
+    return :(sum($retrieve(test_res, $(QuoteNode(group)), $(String(name)))))
 end
 
 function SBMID(metric :: Symbol, properties :: Vector{Symbol})
-    expr = newSymbols(Val(metric))(properties)
-    return expr
+    metric === :LIKWID && return SBMID(Val(:LIKWID), properties)
+    return newSymbols(Val(metric))(properties)
 end

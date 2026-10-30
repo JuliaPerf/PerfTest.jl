@@ -35,31 +35,25 @@ function PerfTest.gpuPowerMeasure(e :: Expr, name)
         begin
             devs = PerfTest.cuda_devices()
             nsamples = max(1, length(ts.benchmarks[$name]))
+            # Compiles the reading of the counters before the samples, so it does not lengthen the window of the first one
+            PerfTest.readEnergies(devs)
             energy_samples = Vector{Vector{Float64}}()
+            power_samples = Vector{Vector{Float64}}()
             for _s in 1:nsamples
                 CUDA.synchronize()
-                pre = []
-                for d in devs
-                    push!(pre, PerfTest.read_joule(d))
-                end
+                pre = PerfTest.readEnergies(devs)
+                _t0 = time_ns()
                 # Execute
                 $(e)
                 CUDA.synchronize()
-                post = []
-                for d in devs
-                    push!(post, PerfTest.read_joule(d))
-                end
-                push!(energy_samples, Float64.(post .- pre))
+                _elapsed = (time_ns() - _t0) / 1e9
+                post = PerfTest.readEnergies(devs)
+                push!(energy_samples, post .- pre)
+                # The average power of the execution, its energy over the time it took
+                push!(power_samples, (post .- pre) ./ _elapsed)
             end
-            energy = [
-                let dev_samples = Float64[energy_samples[s][d] for s in 1:nsamples]
-                    nsamples >= PerfTest.MIN_VARIANCE_SAMPLES ?
-                        PerfTest.SampledValue(dev_samples, PerfTest._sample_median(dev_samples)) :
-                        PerfTest._sample_median(dev_samples)
-                end
-                for d in eachindex(devs)
-            ]
-            power = energy
+            energy = PerfTest.deviceMedians(energy_samples)
+            power = PerfTest.deviceMedians(power_samples)
             @info energy, power
             energy, power
         end
@@ -69,28 +63,18 @@ end
 PerfTest.newSymbols(::Val{:gpue})  = PerfTest.formulaGetGPUEnergy
 PerfTest.newSymbols(::Val{:gpup})  = PerfTest.formulaGetGPUPower
 
-function PerfTest.formulaGetGPUEnergy(properties)
-    if length(properties) == 0
-        return quote sum(test_res.extensions[2].energy) end
-    end
-    s = String(properties[1])
-    if match(r"^dev[0-9]+$", s) !== nothing
-        return quote test_res.extensions[2].energy end
-    else
-        throw(ArgumentError("Unknown specifier: $s"))
-    end
-end
+PerfTest.formulaGetGPUEnergy(properties) = deviceFormula(:energy, properties)
+PerfTest.formulaGetGPUPower(properties) = deviceFormula(:power, properties)
 
-function PerfTest.formulaGetGPUPower(properties)
-    if length(properties) == 0
-        return quote sum(test_res.extensions[2].power) end
-    end
+# The `field` (energy or power) of the CUDA data of a test result (its second extension), the sum over the devices, or
+# the one of device N with the specifier devN (numbered from 0, as NVML does)
+function deviceFormula(field::Symbol, properties)
+    isempty(properties) && return :(sum(test_res.extensions[2].$field))
+    length(properties) == 1 || throw(ArgumentError("Too many specifiers: $(join(properties, ".")), expected one devN."))
     s = String(properties[1])
-    if match(r"^dev[0-9]+$", s) !== nothing
-        return quote test_res.extensions[2].power end
-    else
-        throw(ArgumentError("Unknown specifier: $s"))
-    end
+    m = match(r"^dev([0-9]+)$", s)
+    m === nothing && throw(ArgumentError("Unknown specifier: $s"))
+    return :(test_res.extensions[2].$field[$(parse(Int, m.captures[1]) + 1)])
 end
 
 end # module

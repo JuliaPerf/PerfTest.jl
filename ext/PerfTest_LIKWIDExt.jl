@@ -204,7 +204,7 @@ function PerfTest.formulaGetFlop(properties)
     events = ftype === :single ? _flop_events_single : _flop_events_double
     group = ftype === :single ? :FLOPS_SP : :FLOPS_DP
 
-    push!(PerfTest.ctx._local.enabled_likwid_groups, group)
+    PerfTest.enableLikwidGroup!(group)
 
     if fvec === nothing
         # Aggregate (no breakdown requested): derive the count from LIKWID's own
@@ -251,7 +251,7 @@ function PerfTest.formulaGetFlops(properties)
 
     if fvec === nothing && haskey(_flop_metric_by_type, ftype)
         group, metric = _flop_metric_by_type[ftype]
-        push!(PerfTest.ctx._local.enabled_likwid_groups, Symbol(group))
+        PerfTest.enableLikwidGroup!(Symbol(group))
         return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
             $(QuoteNode(Symbol(group))),
             $metric)) * 1e6) # LIKWID reports MFLOP/s
@@ -320,7 +320,7 @@ function PerfTest.formulaGetBandwidth(properties)
 
     group = _bw_group[level]
     metric = _bw_metric[(level, kind)]
-    push!(PerfTest.ctx._local.enabled_likwid_groups, group)
+    PerfTest.enableLikwidGroup!(group)
     return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
         $(QuoteNode(group)), $metric)))
 end
@@ -351,7 +351,7 @@ end
 """
     formulaGetPower(test_res, properties)
 
-Average power draw in Watts. Specifier: :package (default) | :dram | :all.
+Average power draw in Watts. Specifier: :package | :dram | :all (default).
 """
 function PerfTest.formulaGetPower(properties)
     spec = classify(properties, :part => energy_metrics_part)
@@ -360,12 +360,12 @@ function PerfTest.formulaGetPower(properties)
 end
 
 function _energy_or_power(part, table)
+    PerfTest.enableLikwidGroup!(:ENERGY)
     if part === :all
         terms = [:(sum(PerfTest.likwidMetricsRetrieve(test_res, :ENERGY, $m)))
                  for m in values(table)]
         return foldl((a, b) -> :($a + $b), terms)
     end
-    push!(PerfTest.ctx._local.enabled_likwid_groups, :ENERGY)
     haskey(table, part) || error("No energy/power metric for part '$part'.")
     return :(sum(PerfTest.likwidMetricsRetrieve(test_res, :ENERGY,
         $(table[part]))))
@@ -384,25 +384,9 @@ function PerfTest.formulaGetMisses(properties)
     level = something(spec[:level], :l2)
     metric = level === :l3 ? "L3 miss ratio" : "L2 miss ratio"
     group = level === :l3 ? :L3CACHE : :L2CACHE
-    push!(PerfTest.ctx._local.enabled_likwid_groups, level === :l3 ? :L3CACHE : :L2CACHE)
+    PerfTest.enableLikwidGroup!(level === :l3 ? :L3CACHE : :L2CACHE)
     return :(sum(PerfTest.likwidMetricsRetrieve(test_res,
         $(QuoteNode(group)), $metric)))
-end
-
-# ============================================================================
-#  GPU formula (placeholder; depends on NVMON availability)
-# ============================================================================
-"""
-TODO    formulaGetGPU(test_res, properties)
-
-GPU metrics via LIKWID's NVMON backend. Specifier list is forwarded as the
-metric name for now (extend as needed).
-"""
-function PerfTest.formulaGetGPU(properties)
-    isempty(properties) &&
-        error("Specify a GPU metric, e.g. :gpu with a metric specifier.")
-    metric = String(properties[1])
-    return :(sum(PerfTest.likwidMetricsRetrieve(test_res, :GPU, $metric)))
 end
 
 # ============================================================================
@@ -415,19 +399,6 @@ PerfTest.newSymbols(::Val{:bw}) = PerfTest.formulaGetBandwidth
 PerfTest.newSymbols(::Val{:energy}) = PerfTest.formulaGetEnergy
 PerfTest.newSymbols(::Val{:power}) = PerfTest.formulaGetPower
 PerfTest.newSymbols(::Val{:miss}) = PerfTest.formulaGetMisses
-
-"""
-    resolveAlias(alias, test_res, properties) :: Expr
-
-Entry point for the shortcut nomenclature: given a main `alias` and a chain of
-specifier symbols `properties`, dispatch to the right formula function.
-"""
-function PerfTest.resolveAlias(alias::Symbol, properties)
-    haskey(additional_metric_aliases, alias) ||
-        error("Unknown metric alias ':$alias'. Known aliases: " *
-            "$(collect(keys(additional_metric_aliases))).")
-    return additional_metric_aliases[alias](properties)
-end
 
 # ============================================================================
 #  Retrieval primitives (native LIKWID names)

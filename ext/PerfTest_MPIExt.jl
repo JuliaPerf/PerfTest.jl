@@ -12,7 +12,7 @@ using LinearAlgebra
 using BenchmarkTools
 using Base.Threads
 
-PerfTest.is_loaded(:Val{:PerfTest_MPIExt}) = true
+PerfTest.is_loaded(::Val{:MPI}) = true
 
 # Module-level MPI state
 mpi_rank = 0
@@ -380,22 +380,26 @@ function PerfTest.measureMemBandwidth!(::Type{PerfTest.MPIMode}, _PRFT_GLOBALS::
 
         PerfTest.addLog("machine", "[MACHINE/MPI] CPU max attainable bandwidth (sum of $size ranks) = $(_PRFT_GLOBALS.builtins[:MEM_BENCH]) [Byte/s]")
     else
-        # Non-main ranks set the benchmark values to zero to avoid confusion
+        # Non-main ranks set the benchmark values to zero until they receive the ones of the main rank below, of the
+        # same type (Float64), as a broadcast needs
         _PRFT_GLOBALS.builtins[:MEM_BENCH] = zeros(Float64, 7)
-        _PRFT_GLOBALS.builtins[:MEM_BENCH_INIT] = 0
-        _PRFT_GLOBALS.builtins[:MEM_BENCH_COPY] = 0
-        _PRFT_GLOBALS.builtins[:MEM_BENCH_UPDATE] = 0
-        _PRFT_GLOBALS.builtins[:MEM_BENCH_TRIAD] = 0
-        _PRFT_GLOBALS.builtins[:MEM_BENCH_DAXPY] = 0
-        _PRFT_GLOBALS.builtins[:MEM_BENCH_STRIAD] = 0
-        _PRFT_GLOBALS.builtins[:MEM_BENCH_SDAXPY] = 0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_INIT] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_COPY] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_UPDATE] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_TRIAD] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_DAXPY] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_STRIAD] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_BENCH_SDAXPY] = 0.0
 
-        _PRFT_GLOBALS.builtins[:MEM_STREAM_COPY] = 0
-        _PRFT_GLOBALS.builtins[:MEM_STREAM_ADD] = 0
-        _PRFT_GLOBALS.builtins[:MEM_STREAM_STRIAD] = 0
+        _PRFT_GLOBALS.builtins[:MEM_STREAM_COPY] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_STREAM_ADD] = 0.0
+        _PRFT_GLOBALS.builtins[:MEM_STREAM_STRIAD] = 0.0
     end
-    for (k, v) in _PRFT_GLOBALS.builtins
-        if typeof(v) in [Number, Vector{Number}, Char, Bool]
+    # Every rank takes the values of the main rank. Each broadcast is a collective call, so the keys go in the same
+    # order on every rank (the order of a Dict of Symbols can differ between processes)
+    for k in sort!(collect(keys(_PRFT_GLOBALS.builtins)))
+        v = _PRFT_GLOBALS.builtins[k]
+        if v isa Union{Number, Vector{<:Number}}
             _PRFT_GLOBALS.builtins[k] = bcastFromMain(v; comm=MPI.COMM_WORLD)
         end
     end

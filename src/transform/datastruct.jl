@@ -130,9 +130,10 @@ mutable struct LocalContext
 
     custom_metrics::Vector{Vector{CustomMetric}}
     enabled_methodologies::Vector{Vector{MethodologyParameters}}
-    enabled_likwid_groups::Set{Symbol}
+    # The LIKWID groups enabled by the formulas of each testset level, as custom_metrics, see enableLikwidGroup!
+    enabled_likwid_groups::Vector{Set{Symbol}}
 
-    LocalContext() = new([], Set{Symbol}(), Vector{CustomMetric}[], Vector{MethodologyParameters}[], Set{Symbol}())
+    LocalContext() = new([], Set{Symbol}(), Vector{CustomMetric}[], Vector{MethodologyParameters}[], Set{Symbol}[])
 end
 
 mutable struct GlobalContext
@@ -162,6 +163,17 @@ mutable struct Context
 
     Context(_global::GlobalContext) = new(LocalContext(), _global, [])
 end
+
+"""
+Enables the LIKWID group `group` for the tests of the testset being transformed and of its inner testsets, as its
+metrics apply to them. A formula that reads a LIKWID metric or event calls it, so that group is measured.
+"""
+enableLikwidGroup!(group, context = ctx) = push!(context._local.enabled_likwid_groups[end], Symbol(group))
+
+"""
+The LIKWID groups measured for a test, the ones enabled in its testset and in the testsets around it, sorted.
+"""
+enabledLikwidGroups(context) = sort!([String(g) for g in union(Set{Symbol}(), context._local.enabled_likwid_groups...)])
 
 always_true = (x...) -> true
 no_validation = (x...) -> nothing

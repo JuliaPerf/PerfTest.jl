@@ -1,5 +1,4 @@
 
-function resolveAlias end
 function likwidEventsRetrieve end
 function likwidMetricsRetrieve end
 function perfmon end
@@ -12,7 +11,6 @@ function formulaGetFlops end
 function formulaGetBandwidth end
 function formulaGetEnergy end
 function formulaGetPower end
-function formulaGetGPU end
 function formulaGetMisses end
 
 function gpuPowerMeasure end
