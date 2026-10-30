@@ -1,8 +1,6 @@
 # PerfTest.jl - A performance unit testing framework
 
-NOTE: This package is under active development, bugs may lurk around, if a bug is found please raise an issue so it can be adressed. Thanks :)
-
-NOTE 2: I'm working on updating the package for the new Julia 1.12, as of now it might fail on that version
+NOTE: For the new performance counter features check out the development versions.
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaPerf.github.io/PerfTest.jl/dev)
