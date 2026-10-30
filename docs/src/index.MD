@@ -6,7 +6,6 @@ The package `PerfTest` provides the user with a performance regression unit test
   - BenchmarkTools
   - BandwidthBenchmark
   - Configurations
-  - CountFlops
   - Dates
   - Hwloc
   - HTTP

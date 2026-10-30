@@ -71,7 +71,6 @@ PertTest.jl relies on a configuration file written in TOML to refer for settings
 
 ```
 BenchmarkTools
-CountFlops
 CpuId
 JLD2
 JSON
